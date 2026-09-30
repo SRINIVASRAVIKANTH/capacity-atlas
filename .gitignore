@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environment
+.venv/
+
+# Secrets (API keys later)
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Downloaded snapshots (27 MB each). Storage plan comes later; keep them out of Git for now.
+data/

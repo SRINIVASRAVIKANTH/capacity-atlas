@@ -10,6 +10,8 @@ Sources we checked and do NOT collect from (kept here so the decision is documen
 
 from dataclasses import dataclass
 
+from capacity_atlas.schema import ColumnMap
+
 
 @dataclass(frozen=True)
 class Source:
@@ -23,6 +25,7 @@ class Source:
     description: str
     batch_size: int = 500  # features per request; must not exceed the layer's max record count
     pause_seconds: float = 0.5  # polite wait between requests so we never overload a server
+    columns: ColumnMap | None = None  # which of this utility's columns means what
 
 
 SOURCES: dict[str, Source] = {
@@ -37,6 +40,16 @@ SOURCES: dict[str, Source] = {
         ),
         description="Central Hudson Stage 3 PV hosting capacity by line section (MW).",
         batch_size=1000,  # layer allows 2000; 1000 keeps each response a moderate size
+        columns=ColumnMap(
+            record_id="OBJECTID",
+            feeder="Feeder",
+            substation="Substation",
+            phases="Phases",
+            capacity_min_mw="HCMin",
+            capacity_max_mw="HCMax",
+            analysis_date="HCA_REFRESH_DATE",
+            der_added_since_analysis_mw="DG_INST_LASTHCA",
+        ),
     ),
 }
 

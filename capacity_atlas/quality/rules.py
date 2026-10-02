@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 from capacity_atlas.schema import ColumnMap
@@ -202,6 +203,91 @@ class StaleAnalysisRule(QualityRule):
         return old & grew
 
 
+TOLERANCE_MW = 0.005  # published values are rounded to 2 decimals
+
+
+class ColorBandMismatchRule(QualityRule):
+    """The color on the utility's own map does not match the capacity number."""
+
+    rule_id = "map_color_mismatch"
+    title = "Map color does not match the capacity value"
+    severity = ERROR
+    explanation = "People reading the official map would see the wrong capacity band."
+
+    def __init__(self, capacity: str, color: str, bands: tuple[tuple[float, str], ...]):
+        self.capacity = capacity
+        self.color = color
+        self.lowers = np.array([b[0] for b in bands])
+        self.names = np.array([b[1].strip().lower() for b in bands])
+
+    def required_columns(self):
+        return [self.capacity, self.color]
+
+    def expected(self, values: pd.Series) -> pd.Series:
+        valid = values.notna() & (values >= 0)
+        positions = np.searchsorted(self.lowers, values.fillna(-1).to_numpy(), side="right") - 1
+        result = pd.Series(pd.NA, index=values.index, dtype="string")
+        result[valid] = self.names[positions[valid.to_numpy()]]
+        return result
+
+    def check(self, gdf):
+        expected = self.expected(gdf[self.capacity])
+        actual = gdf[self.color].astype("string").str.strip().str.lower()
+        comparable = expected.notna() & actual.notna()
+        return (comparable & (expected != actual)).fillna(False).astype(bool)
+
+
+class _LimitRule(QualityRule):
+    """Shared logic: compare the total with the smallest of the individual limits."""
+
+    def __init__(self, capacity: str, limits: tuple[str, ...]):
+        self.capacity = capacity
+        self.limits = list(limits)
+
+    def required_columns(self):
+        return [self.capacity, *self.limits]
+
+    def difference(self, gdf) -> pd.Series:
+        smallest = gdf[self.limits].min(axis=1, skipna=True)
+        return gdf[self.capacity] - smallest
+
+
+class TotalAboveLimitRule(_LimitRule):
+    rule_id = "capacity_above_limit"
+    title = "Total capacity is above one of its own published limits"
+    severity = ERROR
+    explanation = "The total should never exceed the weakest limit; this overstates capacity."
+
+    def check(self, gdf):
+        return (self.difference(gdf) > TOLERANCE_MW).fillna(False).astype(bool)
+
+
+class TotalBelowLimitsRule(_LimitRule):
+    rule_id = "capacity_below_all_limits"
+    title = "Total capacity is below every published limit"
+    severity = INFO
+    explanation = "An unpublished constraint is reducing the value; users cannot see why."
+
+    def check(self, gdf):
+        return (self.difference(gdf) < -TOLERANCE_MW).fillna(False).astype(bool)
+
+
+class ZeroCapacityRule(QualityRule):
+    rule_id = "capacity_exactly_zero"
+    title = "Published capacity is exactly 0 MW"
+    severity = INFO
+    explanation = "May mean 'no room' or 'not analyzed'; the data does not say which."
+
+    def __init__(self, capacity: str):
+        self.capacity = capacity
+
+    def required_columns(self):
+        return [self.capacity]
+
+    def check(self, gdf):
+        return (gdf[self.capacity] == 0).fillna(False).astype(bool)
+
+
 def default_rules(columns: ColumnMap, reference_date: datetime) -> list[QualityRule]:
     """Build the standard rule set for a source, skipping rules it has no columns for."""
     c = columns
@@ -219,16 +305,23 @@ def default_rules(columns: ColumnMap, reference_date: datetime) -> list[QualityR
         rules.append(MissingWhenPresentRule(
             "feeder_without_phase", "Feeder listed but phase missing", WARNING,
             "Every energized line section has a phase.", present=c.feeder, missing=c.phases))
-    if c.capacity_min_mw:
+    if c.capacity_mw:
         rules.append(MissingWhenPresentRule(
             "feeder_without_capacity", "Feeder listed but capacity value missing", WARNING,
             "An analyzed feeder should have a result.",
-            present=c.feeder, missing=c.capacity_min_mw))
-        rules.append(ConflictingDuplicateRule(c.feeder, c.capacity_min_mw))
-        negative_cols = [x for x in (c.capacity_min_mw, c.capacity_max_mw) if x]
+            present=c.feeder, missing=c.capacity_mw))
+        rules.append(ConflictingDuplicateRule(c.feeder, c.capacity_mw))
+        negative_cols = [x for x in (c.capacity_mw, c.capacity_max_mw) if x]
         rules.append(NegativeCapacityRule(negative_cols))
-    if c.capacity_min_mw and c.capacity_max_mw:
-        rules.append(MinAboveMaxRule(c.capacity_min_mw, c.capacity_max_mw))
+    if c.capacity_mw and c.capacity_max_mw:
+        rules.append(MinAboveMaxRule(c.capacity_mw, c.capacity_max_mw))
+    if c.capacity_mw:
+        rules.append(ZeroCapacityRule(c.capacity_mw))
+    if c.capacity_mw and c.limit_columns:
+        rules.append(TotalAboveLimitRule(c.capacity_mw, c.limit_columns))
+        rules.append(TotalBelowLimitsRule(c.capacity_mw, c.limit_columns))
+    if c.capacity_mw and c.map_color and c.color_bands:
+        rules.append(ColorBandMismatchRule(c.capacity_mw, c.map_color, c.color_bands))
     if c.analysis_date and c.der_added_since_analysis_mw:
         rules.append(StaleAnalysisRule(c.analysis_date, c.der_added_since_analysis_mw, reference_date))
     return rules

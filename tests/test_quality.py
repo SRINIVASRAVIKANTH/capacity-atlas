@@ -13,7 +13,7 @@ from capacity_atlas.sources import SOURCES
 
 COLUMNS = ColumnMap(
     record_id="OBJECTID", feeder="Feeder", substation="Substation", phases="Phases",
-    capacity_min_mw="HCMin", capacity_max_mw="HCMax",
+    capacity_mw="HCMin", capacity_max_mw="HCMax",
     analysis_date="HCA_REFRESH_DATE", der_added_since_analysis_mw="DG_INST_LASTHCA",
 )
 REFERENCE = datetime(2026, 9, 30, tzinfo=timezone.utc)
@@ -116,3 +116,54 @@ def test_every_source_with_columns_builds_rules():
     for source in SOURCES.values():
         if source.columns:
             assert default_rules(source.columns, REFERENCE)
+
+
+# ---------- Rules for utilities that publish limits and map colors ----------
+
+NG_COLUMNS = ColumnMap(
+    record_id="OBJECTID", feeder="feeder", capacity_mw="hc",
+    limit_columns=("lim_a", "lim_b"),
+    map_color="color",
+    color_bands=((0.0, "brown"), (0.5, "yellow"), (5.0, "dark blue")),
+)
+
+
+def make_ng(rows: list[dict]) -> gpd.GeoDataFrame:
+    base = {"feeder": "F1", "hc": 1.0, "lim_a": 1.0, "lim_b": 3.0, "color": "yellow"}
+    records = [{"OBJECTID": i, **base, **r} for i, r in enumerate(rows, start=1)]
+    return gpd.GeoDataFrame(records, geometry=[line(i) for i in range(len(rows))], crs="EPSG:4326")
+
+
+def run_ng(gdf):
+    results = QualityChecker(default_rules(NG_COLUMNS, REFERENCE), "OBJECTID").run(gdf)
+    return {r.rule_id: r for r in results}
+
+
+def test_color_band_rule():
+    gdf = make_ng([
+        {},                                                       # 1.0 yellow: correct
+        {"hc": 0.2, "color": "Yellow ", "lim_a": 0.2},            # should be brown
+        {"hc": 5.0, "color": "dark blue", "lim_a": 5.0, "lim_b": 9},  # exactly on edge: correct
+        {"hc": 0.5, "color": "yellow", "lim_a": 0.5},             # exactly on edge: correct
+    ])
+    assert run_ng(gdf)["map_color_mismatch"].example_ids == [2]
+
+
+def test_total_vs_limits():
+    gdf = make_ng([
+        {},                               # equals smallest limit: fine
+        {"hc": 2.0, "color": "yellow"},   # above smallest (1.0): error
+        {"hc": 0.6, "color": "yellow"},   # below every limit: info
+        {"hc": 1.004},                    # within rounding tolerance: fine
+        {"lim_a": None, "hc": 3.0, "color": "yellow"},  # one limit missing, equals the other: fine
+    ])
+    r = run_ng(gdf)
+    assert r["capacity_above_limit"].example_ids == [2]
+    assert r["capacity_below_all_limits"].example_ids == [3]
+
+
+def test_zero_capacity_is_info():
+    gdf = make_ng([{"hc": 0.0, "lim_a": 0.0, "color": "brown"}, {}])
+    r = run_ng(gdf)
+    assert r["capacity_exactly_zero"].example_ids == [1]
+    assert r["capacity_exactly_zero"].severity == "info"

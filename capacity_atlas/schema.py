@@ -14,7 +14,12 @@ class ColumnMap:
     feeder: str
     substation: str | None = None
     phases: str | None = None
-    capacity_min_mw: str | None = None
-    capacity_max_mw: str | None = None
+    capacity_mw: str | None = None  # main published hosting capacity value (MW)
+    capacity_max_mw: str | None = None  # upper value, only if the utility publishes a range
     analysis_date: str | None = None
     der_added_since_analysis_mw: str | None = None
+    # Individual limits whose minimum should bound the total (e.g. thermal, voltage, flicker)
+    limit_columns: tuple[str, ...] = ()
+    # Map color column and the utility's legend: ((lowest MW of band, color name), ...)
+    map_color: str | None = None
+    color_bands: tuple[tuple[float, str], ...] = ()

@@ -45,10 +45,47 @@ SOURCES: dict[str, Source] = {
             feeder="Feeder",
             substation="Substation",
             phases="Phases",
-            capacity_min_mw="HCMin",
+            capacity_mw="HCMin",
             capacity_max_mw="HCMax",
             analysis_date="HCA_REFRESH_DATE",
             der_added_since_analysis_mw="DG_INST_LASTHCA",
+        ),
+    ),
+    "national_grid_ny_pv": Source(
+        source_id="national_grid_ny_pv",
+        utility="National Grid",
+        state="NY",
+        capacity_type="generation",
+        layer_url=(
+            "https://systemdataportal.nationalgrid.com/arcgis/rest/services/"
+            "NYSDP/Hosting_Capacity_Data/MapServer/2"
+        ),
+        description="National Grid New York primary level PV hosting capacity by line section (MW).",
+        batch_size=1000,  # layer allows 2000; confirm with the diagnose script before collecting
+        columns=ColumnMap(
+            record_id="OBJECTID",
+            feeder="feeder_cdf",
+            capacity_mw="primary_hc",
+            limit_columns=(
+                "primary_hc_over_voltage",
+                "primary_hc_voltage_deviation",
+                "primary_hc_regulator_deviation",
+                "primary_hc_thermal_from_gen",
+                "primary_hc_anti_islanding",
+                "primary_hc_flicker",
+            ),
+            map_color="color",
+            # Legend read from the layer's renderer on National Grid's ArcGIS server.
+            color_bands=(
+                (0.0, "brown"),
+                (0.30, "red"),
+                (0.50, "yellow"),
+                (1.0, "green"),
+                (1.50, "turquoise"),
+                (2.0, "light blue"),
+                (3.0, "blue"),
+                (5.0, "dark blue"),
+            ),
         ),
     ),
 }

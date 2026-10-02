@@ -1,0 +1,89 @@
+# Weekly run: download every utility, check quality, publish results.
+#
+# Big data files (GeoParquet snapshots) go to a GitHub Release.
+# Small reports (quality reports, metadata, LATEST.md) are committed to the repository.
+
+name: Weekly snapshot
+
+on:
+  schedule:
+    - cron: "0 10 * * 1"   # every Monday 10:00 UTC (GitHub may start it a little late)
+  workflow_dispatch:         # also lets you start it by hand from the Actions tab
+
+permissions:
+  contents: write            # needed to commit reports and create releases
+
+concurrency:
+  group: weekly-snapshot     # never run two copies at the same time
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install libraries
+        run: pip install -r requirements.txt
+
+      - name: Run tests (stop here if anything is broken)
+        run: pytest
+
+      - name: Run pipeline for every source
+        id: pipeline
+        continue-on-error: true   # still publish what succeeded if one utility fails
+        run: python -m capacity_atlas.pipeline --all
+
+      - name: Upload snapshots to a release
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=()
+          for f in data/snapshots/*/*.parquet; do
+            source_id=$(basename "$(dirname "$f")")
+            renamed="data/${source_id}_$(basename "$f")"
+            cp "$f" "$renamed"
+            files+=("$renamed")
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No snapshots to upload."
+            exit 0
+          fi
+          tag="snapshot-$(date -u +%Y-%m-%d)"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" \
+              --title "Snapshot $(date -u +%Y-%m-%d)" \
+              --notes "Weekly hosting capacity snapshots. See reports/LATEST.md for the quality summary."
+          fi
+
+      - name: Commit reports
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports
+          if git diff --cached --quiet; then
+            echo "No report changes."
+          else
+            git commit -m "Weekly snapshot reports $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Fail the run if any source failed
+        if: steps.pipeline.outcome == 'failure'
+        run: |
+          echo "At least one source failed. See the 'Run pipeline' step and reports/LATEST.md."
+          exit 1

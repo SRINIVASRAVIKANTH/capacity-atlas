@@ -24,7 +24,7 @@ class FakeCollector:
 
 def central_hudson_like() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
-        {"OBJECTID": [1, 2], "Feeder": ["F1", "F2"], "Substation": ["S1", None],
+        {"OBJECTID": [1, 2], "Name": ["S1", "S2"], "Feeder": ["F1", "F2"], "Substation": ["S1", None],
          "Phases": ["ABC", "A"], "HCMin": [1.0, 0.0], "HCMax": [2.0, 1.0],
          "HCA_REFRESH_DATE": [None, None], "DG_INST_LASTHCA": [0.0, 0.0]},
         geometry=[LineString([(0, 0), (1, 1)]), LineString([(2, 2), (3, 3)])],
@@ -62,3 +62,27 @@ def test_one_failing_source_does_not_stop_the_others(tmp_path):
 
     latest = (tmp_path / "reports" / "LATEST.md").read_text(encoding="utf-8")
     assert "FAILED" in latest and "OK" in latest
+
+
+def test_second_run_compares_with_previous_release_file(tmp_path):
+    source = SOURCES["central_hudson_ny_pv"]
+    previous = tmp_path / "previous"
+    previous.mkdir()
+    central_hudson_like().to_parquet(previous / "central_hudson_ny_pv_2026-09-28.parquet")
+
+    changed = central_hudson_like()
+    changed.loc[0, "HCMin"] = 0.5
+    runs = run_all([source], tmp_path / "data", tmp_path / "reports", WHEN,
+                   make_collector=lambda s: FakeCollector(changed), previous_dir=previous)
+
+    assert "since 2026-09-28" in runs[0].changes
+    assert "down 1" in runs[0].changes
+    report = tmp_path / "reports" / "central_hudson_ny_pv" / "changes" / "2026-09-28_to_2026-10-05.md"
+    assert report.exists()
+    assert "Changes" in (tmp_path / "reports" / "LATEST.md").read_text(encoding="utf-8")
+
+
+def test_first_run_says_first_snapshot(tmp_path):
+    runs = run_all([SOURCES["central_hudson_ny_pv"]], tmp_path / "data", tmp_path / "reports", WHEN,
+                   make_collector=lambda s: FakeCollector(central_hudson_like()))
+    assert runs[0].changes == "first snapshot"

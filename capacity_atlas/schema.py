@@ -12,6 +12,7 @@ from dataclasses import dataclass
 class ColumnMap:
     record_id: str
     feeder: str
+    section_key: str | None = None  # the utility's own stable ID for a line section
     substation: str | None = None
     phases: str | None = None
     capacity_mw: str | None = None  # main published hosting capacity value (MW)

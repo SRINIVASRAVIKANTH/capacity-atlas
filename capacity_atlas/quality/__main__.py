@@ -24,7 +24,8 @@ def main() -> None:
 
     print(f"Checked {run.rows:,} rows (reference date {run.reference.date()})\n")
     for r in run.results:
-        count = "skipped" if r.status == "skipped" else f"{r.flagged:>8,}  ({r.percent}%)"
+        feeders = "" if r.feeders is None else f"  feeders {r.feeders:,}"
+        count = "skipped" if r.status == "skipped" else f"{r.flagged:>8,}  ({r.percent}%){feeders}"
         print(f"  [{SEVERITY_ICON[r.severity]:<7}] {r.title:<62} {count}")
     print(f"\nReports saved:\n  {run.json_path}\n  {run.md_path}")
 

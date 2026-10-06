@@ -36,7 +36,11 @@ def check_snapshot(source: Source, snapshot: Path) -> QualityRun:
         raise ValueError(f"Source '{source.source_id}' has no column map; cannot run checks.")
     gdf = gpd.read_parquet(snapshot)
     reference = snapshot_time(snapshot)
-    checker = QualityChecker(default_rules(source.columns, reference), source.columns.record_id)
+    checker = QualityChecker(
+        default_rules(source.columns, reference),
+        source.columns.record_id,
+        feeder_column=source.columns.feeder,
+    )
     results = checker.run(gdf)
     json_path, md_path = write_reports(results, snapshot, source.source_id)
     return QualityRun(len(gdf), reference, results, json_path, md_path)

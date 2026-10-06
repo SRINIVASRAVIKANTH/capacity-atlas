@@ -1,7 +1,7 @@
-# Weekly run: download every utility, check quality, publish results.
+# Weekly run: download every utility, check quality, compare with last week, publish results.
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
-# Small reports (quality reports, metadata, LATEST.md) are committed to the repository.
+# Small reports (quality reports, change reports, metadata, LATEST.md) are committed to the repository.
 
 name: Weekly snapshot
 
@@ -38,10 +38,32 @@ jobs:
       - name: Run tests (stop here if anything is broken)
         run: pytest
 
+      - name: Download last week's snapshots (for comparison)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p data/previous
+          gh release download --pattern "*.parquet" --dir data/previous \
+            || echo "No previous release yet; this run will be the first snapshot."
+          ls -la data/previous
+
       - name: Run pipeline for every source
         id: pipeline
         continue-on-error: true   # still publish what succeeded if one utility fails
-        run: python -m capacity_atlas.pipeline --all
+        run: python -m capacity_atlas.pipeline --all --previous data/previous
+
+      - name: Commit reports
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports
+          if git diff --cached --quiet; then
+            echo "No report changes."
+          else
+            git commit -m "Weekly snapshot reports $(date -u +%Y-%m-%d)"
+            git push
+          fi
 
       - name: Upload snapshots to a release
         if: always()
@@ -61,25 +83,14 @@ jobs:
             exit 0
           fi
           tag="snapshot-$(date -u +%Y-%m-%d)"
+          target="$(git rev-parse HEAD)"   # the commit that contains this run's reports
           if gh release view "$tag" > /dev/null 2>&1; then
             gh release upload "$tag" "${files[@]}" --clobber
           else
             gh release create "$tag" "${files[@]}" \
+              --target "$target" \
               --title "Snapshot $(date -u +%Y-%m-%d)" \
-              --notes "Weekly hosting capacity snapshots. See reports/LATEST.md for the quality summary."
-          fi
-
-      - name: Commit reports
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reports
-          if git diff --cached --quiet; then
-            echo "No report changes."
-          else
-            git commit -m "Weekly snapshot reports $(date -u +%Y-%m-%d)"
-            git push
+              --notes "Weekly hosting capacity snapshots. See reports/LATEST.md for the quality and change summary."
           fi
 
       - name: Fail the run if any source failed

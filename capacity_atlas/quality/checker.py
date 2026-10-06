@@ -25,6 +25,7 @@ class RuleResult:
     total: int
     percent: float
     example_ids: list
+    feeders: int | None = None  # distinct feeders among flagged rows
 
     @property
     def passed(self) -> bool:
@@ -32,10 +33,17 @@ class RuleResult:
 
 
 class QualityChecker:
-    def __init__(self, rules: list[QualityRule], record_id: str, max_examples: int = 5):
+    def __init__(
+        self,
+        rules: list[QualityRule],
+        record_id: str,
+        max_examples: int = 5,
+        feeder_column: str | None = None,
+    ):
         self.rules = rules
         self.record_id = record_id
         self.max_examples = max_examples
+        self.feeder_column = feeder_column
 
     def run(self, gdf: gpd.GeoDataFrame) -> list[RuleResult]:
         results = []
@@ -56,8 +64,11 @@ class QualityChecker:
                 examples = [int(x) if hasattr(x, "__int__") else str(x)
                             for x in gdf.loc[flags, self.record_id].head(self.max_examples)]
             percent = round(100 * flagged / total, 2) if total else 0.0
+            feeders = None
+            if self.feeder_column in gdf.columns:
+                feeders = int(gdf.loc[flags, self.feeder_column].nunique())
             results.append(RuleResult(rule.rule_id, rule.title, rule.severity, rule.explanation,
-                                      "ran", flagged, total, percent, examples))
+                                      "ran", flagged, total, percent, examples, feeders))
         return sorted(results, key=lambda r: (SEVERITY_ORDER.get(r.severity, 9), -r.flagged))
 
 
@@ -74,14 +85,16 @@ def write_reports(results: list[RuleResult], snapshot_path: Path, source_id: str
     total = results[0].total if results else 0
     lines = [f"# Data quality report: {source_id}", "",
              f"Snapshot: `{snapshot_path.name}`  ", f"Rows checked: {total:,}", "",
-             "| Severity | Check | Flagged | % of rows | Example record IDs |",
-             "|---|---|---:|---:|---|"]
+             "| Severity | Check | Flagged rows | % of rows | Feeders affected | Example record IDs |",
+             "|---|---|---:|---:|---:|---|"]
     for r in results:
         if r.status == "skipped":
-            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | skipped | | |")
+            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | skipped | | | |")
         else:
             ids = ", ".join(str(x) for x in r.example_ids) or "none"
-            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | {r.flagged:,} | {r.percent} | {ids} |")
+            feeders = "" if r.feeders is None else f"{r.feeders:,}"
+            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | {r.flagged:,} | {r.percent} | "
+                         f"{feeders} | {ids} |")
     lines += ["", "Hosting capacity values are utility estimates. Flags mean 'worth checking', "
               "not proof of an error."]
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

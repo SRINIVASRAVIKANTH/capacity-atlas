@@ -43,6 +43,7 @@ SOURCES: dict[str, Source] = {
         columns=ColumnMap(
             record_id="OBJECTID",
             feeder="Feeder",
+            section_key="Name",
             substation="Substation",
             phases="Phases",
             capacity_mw="HCMin",
@@ -65,6 +66,7 @@ SOURCES: dict[str, Source] = {
         columns=ColumnMap(
             record_id="OBJECTID",
             feeder="feeder_cdf",
+            section_key="ID",
             capacity_mw="primary_hc",
             limit_columns=(
                 "primary_hc_over_voltage",

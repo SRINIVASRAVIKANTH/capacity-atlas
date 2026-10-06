@@ -1,0 +1,126 @@
+{
+  "source_id": "national_grid_ny_pv",
+  "snapshot": "2026-10-06.parquet",
+  "results": [
+    {
+      "rule_id": "duplicate_shape_conflicting_capacity",
+      "title": "Duplicate line sections report different capacity",
+      "severity": "error",
+      "explanation": "The same place has two different hosting capacity values.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_negative",
+      "title": "Capacity value is negative",
+      "severity": "error",
+      "explanation": "Hosting capacity cannot be below zero.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_above_limit",
+      "title": "Total capacity is above one of its own published limits",
+      "severity": "error",
+      "explanation": "The total should never exceed the weakest limit; this overstates capacity.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "map_color_mismatch",
+      "title": "Map color does not match the capacity value",
+      "severity": "error",
+      "explanation": "People reading the official map would see the wrong capacity band.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "duplicate_shape",
+      "title": "Same line section published more than once",
+      "severity": "warning",
+      "explanation": "Identical geometry appears in several rows.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "feeder_without_capacity",
+      "title": "Feeder listed but capacity value missing",
+      "severity": "warning",
+      "explanation": "An analyzed feeder should have a result.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_exactly_zero",
+      "title": "Published capacity is exactly 0 MW",
+      "severity": "info",
+      "explanation": "May mean 'no room' or 'not analyzed'; the data does not say which.",
+      "status": "ran",
+      "flagged": 135482,
+      "total": 452496,
+      "percent": 29.94,
+      "example_ids": [
+        16,
+        18,
+        33,
+        43,
+        49
+      ],
+      "feeders": 423
+    },
+    {
+      "rule_id": "capacity_below_all_limits",
+      "title": "Total capacity is below every published limit",
+      "severity": "info",
+      "explanation": "An unpublished constraint is reducing the value; users cannot see why.",
+      "status": "ran",
+      "flagged": 28875,
+      "total": 452496,
+      "percent": 6.38,
+      "example_ids": [
+        4,
+        19,
+        31,
+        32,
+        41
+      ],
+      "feeders": 906
+    },
+    {
+      "rule_id": "no_analysis_published",
+      "title": "Line section has no hosting capacity analysis",
+      "severity": "info",
+      "explanation": "Shown as 'no data' on the map. Coverage information, not an error.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 452496,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    }
+  ]
+}

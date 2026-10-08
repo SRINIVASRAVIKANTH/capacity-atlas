@@ -4,7 +4,7 @@
   "state": "NY",
   "capacity_type": "generation",
   "layer_url": "https://systemdataportal.nationalgrid.com/arcgis/rest/services/NYSDP/Hosting_Capacity_Data/MapServer/2",
-  "fetched_at_utc": "2026-10-08T19:19:19.279819+00:00",
+  "fetched_at_utc": "2026-10-08T21:06:15.644787+00:00",
   "feature_count": 452496,
   "columns": [
     "distance_to_substation",

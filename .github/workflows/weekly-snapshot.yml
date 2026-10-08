@@ -1,7 +1,7 @@
 # Weekly run: download every utility, check quality, compare with last week, publish results.
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
-# The web map's tile file (PMTiles) goes to Cloudflare R2.
+# The web map's data (atlas.pmtiles and summary.json) goes to Cloudflare R2.
 # Small reports (quality reports, change reports, metadata, LATEST.md) are committed to the repository.
 
 name: Weekly snapshot
@@ -77,7 +77,7 @@ jobs:
           cp tippecanoe ~/.local/tippecanoe/
           ~/.local/tippecanoe/tippecanoe --version
 
-      - name: Build map tiles for every source
+      - name: Build map data for every source
         id: tiles
         if: always()
         continue-on-error: true   # a tile problem must not stop reports and snapshots from publishing
@@ -87,7 +87,7 @@ jobs:
             --out data/tiles/atlas.pmtiles \
             --tippecanoe ~/.local/tippecanoe/tippecanoe
 
-      - name: Upload map tiles to Cloudflare R2
+      - name: Upload map data to Cloudflare R2
         id: upload-tiles
         if: steps.tiles.outcome == 'success'
         continue-on-error: true
@@ -113,15 +113,23 @@ jobs:
             exit 1
           fi
           endpoint="https://${account}.r2.cloudflarestorage.com"
+          # The map file first, then the summary, so the site never describes tiles it can't load yet.
           aws s3 cp data/tiles/atlas.pmtiles "s3://${R2_BUCKET}/atlas.pmtiles" \
             --endpoint-url "$endpoint" \
             --content-type application/octet-stream \
             --cache-control "public, max-age=3600" \
             --only-show-errors
-          echo "Uploaded. Checking the file now in R2:"
-          aws s3api head-object --bucket "$R2_BUCKET" --key atlas.pmtiles \
+          aws s3 cp data/tiles/summary.json "s3://${R2_BUCKET}/summary.json" \
             --endpoint-url "$endpoint" \
-            --query "{size: ContentLength, modified: LastModified}"
+            --content-type application/json \
+            --cache-control "public, max-age=300" \
+            --only-show-errors
+          echo "Uploaded. Checking the files now in R2:"
+          for key in atlas.pmtiles summary.json; do
+            aws s3api head-object --bucket "$R2_BUCKET" --key "$key" \
+              --endpoint-url "$endpoint" \
+              --query "{file: '$key', size: ContentLength, modified: LastModified}"
+          done
 
       - name: Commit reports
         if: always()

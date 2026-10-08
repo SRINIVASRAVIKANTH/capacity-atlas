@@ -1,6 +1,7 @@
 # Weekly run: download every utility, check quality, compare with last week, publish results.
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
+# The web map's tile file (PMTiles) goes to Cloudflare R2.
 # Small reports (quality reports, change reports, metadata, LATEST.md) are committed to the repository.
 
 name: Weekly snapshot
@@ -12,6 +13,10 @@ on:
 
 permissions:
   contents: write            # needed to commit reports and create releases
+
+env:
+  TIPPECANOE_COMMIT: 4f2621186acfec33b63ddf636f665623c0fef2dd   # exact tippecanoe version we tested
+  R2_BUCKET: capacity-atlas
 
 concurrency:
   group: weekly-snapshot     # never run two copies at the same time
@@ -51,6 +56,63 @@ jobs:
         id: pipeline
         continue-on-error: true   # still publish what succeeded if one utility fails
         run: python -m capacity_atlas.pipeline --all --previous data/previous
+
+      - name: Restore tippecanoe (map tile tool) from cache
+        id: tippecanoe-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/tippecanoe
+          key: tippecanoe-${{ runner.os }}-${{ env.TIPPECANOE_COMMIT }}
+
+      - name: Build tippecanoe (only when not cached)
+        if: steps.tippecanoe-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libsqlite3-dev zlib1g-dev
+          git clone --quiet https://github.com/felt/tippecanoe.git /tmp/tippecanoe-src
+          cd /tmp/tippecanoe-src
+          git checkout --quiet "$TIPPECANOE_COMMIT"
+          make -j"$(nproc)" > /dev/null
+          mkdir -p ~/.local/tippecanoe
+          cp tippecanoe ~/.local/tippecanoe/
+          ~/.local/tippecanoe/tippecanoe --version
+
+      - name: Build map tiles for every source
+        id: tiles
+        if: always()
+        continue-on-error: true   # a tile problem must not stop reports and snapshots from publishing
+        run: |
+          python -m capacity_atlas.tiles \
+            --previous data/previous \
+            --out data/tiles/atlas.pmtiles \
+            --tippecanoe ~/.local/tippecanoe/tippecanoe
+
+      - name: Upload map tiles to Cloudflare R2
+        id: upload-tiles
+        if: steps.tiles.outcome == 'success'
+        continue-on-error: true
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto                        # R2 ignores the region but the tool requires one
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required  # keep uploads compatible with R2
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          if [ -z "$R2_ACCOUNT_ID" ]; then
+            echo "R2 secrets are not set; skipping the map upload."
+            exit 0
+          fi
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp data/tiles/atlas.pmtiles "s3://${R2_BUCKET}/atlas.pmtiles" \
+            --endpoint-url "$endpoint" \
+            --content-type application/octet-stream \
+            --cache-control "public, max-age=3600" \
+            --only-show-errors
+          echo "Uploaded. Checking the file now in R2:"
+          aws s3api head-object --bucket "$R2_BUCKET" --key atlas.pmtiles \
+            --endpoint-url "$endpoint" \
+            --query "{size: ContentLength, modified: LastModified}"
 
       - name: Commit reports
         if: always()
@@ -93,8 +155,14 @@ jobs:
               --notes "Weekly hosting capacity snapshots. See reports/LATEST.md for the quality and change summary."
           fi
 
-      - name: Fail the run if any source failed
-        if: steps.pipeline.outcome == 'failure'
+      - name: Fail the run if anything above failed
+        if: >-
+          steps.pipeline.outcome == 'failure' ||
+          steps.tiles.outcome == 'failure' ||
+          steps.upload-tiles.outcome == 'failure'
         run: |
-          echo "At least one source failed. See the 'Run pipeline' step and reports/LATEST.md."
+          echo "Pipeline: ${{ steps.pipeline.outcome }}"
+          echo "Map tiles: ${{ steps.tiles.outcome }}"
+          echo "Upload to R2: ${{ steps.upload-tiles.outcome }}"
+          echo "See the failed step above and reports/LATEST.md."
           exit 1

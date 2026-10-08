@@ -103,7 +103,16 @@ jobs:
             echo "R2 secrets are not set; skipping the map upload."
             exit 0
           fi
-          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Accept either the bare Account ID or the full endpoint URL pasted from Cloudflare.
+          account="$(echo "$R2_ACCOUNT_ID" | tr -d '[:space:]')"
+          account="${account#https://}"
+          account="${account%%.*}"
+          if ! [[ "$account" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "R2_ACCOUNT_ID does not look like a Cloudflare Account ID (32 letters/numbers)."
+            echo "Paste only the part between https:// and .r2.cloudflarestorage.com"
+            exit 1
+          fi
+          endpoint="https://${account}.r2.cloudflarestorage.com"
           aws s3 cp data/tiles/atlas.pmtiles "s3://${R2_BUCKET}/atlas.pmtiles" \
             --endpoint-url "$endpoint" \
             --content-type application/octet-stream \
@@ -122,10 +131,18 @@ jobs:
           git add reports
           if git diff --cached --quiet; then
             echo "No report changes."
-          else
-            git commit -m "Weekly snapshot reports $(date -u +%Y-%m-%d)"
-            git push
+            exit 0
           fi
+          git commit -m "Weekly snapshot reports $(date -u +%Y-%m-%d)"
+          # Someone (or an earlier run) may have pushed while this run was working.
+          # Bring in their changes first; if both touched the same report, keep this run's version.
+          for attempt in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            echo "Push attempt $attempt failed; retrying in 10 seconds."
+            sleep 10
+          done
+          echo "Could not push reports after 3 attempts."
+          exit 1
 
       - name: Upload snapshots to a release
         if: always()

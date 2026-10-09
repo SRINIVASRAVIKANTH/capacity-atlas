@@ -5,6 +5,8 @@ import shutil
 from datetime import datetime, timezone
 
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 import pytest
 from shapely.geometry import LineString
 
@@ -14,6 +16,8 @@ from capacity_atlas.tiles import (
     FLAG_IDS,
     TileBuildError,
     build_tiles,
+    build_overview,
+    capacity_band,
     combine,
     find_tippecanoe,
     flag_legend,
@@ -147,6 +151,37 @@ def test_combine_and_summary_file(tmp_path):
     assert data["generated_utc"] == "2026-10-08T00:00:00Z"
     assert [s["source_id"] for s in data["sources"]] == ["central_hudson_ny_pv", "national_grid_ny_pv"]
     assert {f["id"] for f in data["flags"]} == set(FLAG_IDS)
+
+
+def test_overview_merges_touching_sections_of_one_feeder_and_band():
+    from shapely.geometry import LineString as L
+    features = gpd.GeoDataFrame(
+        {
+            "src": ["a"] * 5,
+            "feeder": ["F1", "F1", "F1", "F2", None],
+            "hc": [0.6, 0.7, 3.0, 0.6, None],   # first two share the 0.5-1 band
+            "qs": [0, 0, 0, 0, 0],
+            "m": [100, 200, 300, 400, 50],
+        },
+        geometry=[L([(0, 0), (1, 0)]), L([(1, 0), (2, 0)]), L([(2, 0), (3, 0)]),
+                  L([(5, 5), (6, 5)]), L([(9, 9), (9, 8)])],
+        crs="EPSG:4326",
+    )
+    out = build_overview(features)
+    f1 = out[out["feeder"] == "F1"].sort_values("hc")
+    assert len(f1) == 2                                   # one line per band, not per section
+    assert f1.iloc[0].geometry.geom_type == "LineString"  # the two touching sections became one
+    assert f1.iloc[0].geometry.length == 2
+    assert list(f1["hc"]) == [0.5, 2.0]                   # lower edge of each band
+    assert (f1.iloc[0]["fn"], f1.iloc[0]["fmin"], f1.iloc[0]["fmax"]) == (3, 0.6, 3.0)
+    assert (f1.iloc[0]["fx0"], f1.iloc[0]["fx1"]) == (0, 3)
+    no_feeder = out[out["feeder"].isna()]
+    assert len(no_feeder) == 1 and np.isnan(no_feeder.iloc[0]["hc"])
+
+
+def test_capacity_bands_match_the_legend():
+    hc = pd.Series([None, 0.0, 0.2, 0.5, 0.99, 1.0, 4.9, 5.0, 12.0], dtype="float64")
+    assert list(capacity_band(hc)) == [-1, 0, 1, 2, 2, 3, 4, 5, 5]
 
 
 def test_combine_with_nothing_is_a_clear_error():

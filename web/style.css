@@ -21,6 +21,8 @@
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   --control-icon: invert(0.9);
   --selected: #ffffff;        /* the clicked section on the map */
+  --selected-halo: #5960c8;   /* must match THEMES in app.js */
+  --feeder-halo: #353978;
 
   /* Capacity scale: perceptual "plasma" ramp, dark = no room, bright = room */
   --c0: #4a2c7a;
@@ -60,6 +62,8 @@
   --shadow: 0 10px 32px rgba(27, 30, 38, 0.16);
   --control-icon: none;
   --selected: #1b1e26;
+  --selected-halo: #7f86f0;
+  --feeder-halo: #b3b8f6;
   --sev-error: #d62f2f;
   --sev-warning: #c27c00;
   --sev-info: #7c8191;
@@ -224,12 +228,21 @@ a:hover { color: var(--strong); }
 .d-issues .dot { margin-top: 6px; }
 .d-issues strong { font-weight: 500; display: block; }
 .d-issues span { color: var(--muted); font-size: 12.5px; }
+.d-capacity.d-feeder { font-size: 22px; line-height: 1.25; margin-top: 8px; }
+.d-capacity.d-feeder .code { font-family: var(--font-code); font-size: 19px; font-weight: 500; }
+.d-caption strong { color: var(--text); font-weight: 600; }
+.d-action {
+  margin-top: 8px; justify-self: start; padding: 8px 14px; border-radius: var(--radius-control);
+  background: var(--raised); color: var(--text); border: 1px solid var(--accent);
+  font: 500 13px/1 var(--font-text); cursor: pointer;
+}
+.d-action:hover { background: var(--accent); color: #fff; }
 .d-key { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; font-size: 13px; }
 .d-key div { display: flex; align-items: center; gap: 10px; }
 .d-key p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
 .key-section, .key-feeder { width: 22px; height: 4px; border-radius: 2px; flex: none; }
-.key-section { background: var(--selected); box-shadow: 0 0 0 2px rgba(110, 118, 240, 0.55); }
-.key-feeder { height: 8px; border-radius: 4px; background: rgba(110, 118, 240, 0.45); }
+.key-section { background: var(--selected); box-shadow: 0 0 0 2px var(--selected-halo); }
+.key-feeder { height: 8px; border-radius: 4px; background: var(--feeder-halo); }
 .d-clean { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 
 /* ---------- Status message ---------- */

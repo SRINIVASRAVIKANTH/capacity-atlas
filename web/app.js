@@ -25,17 +25,19 @@
 
   // Everything on the map that changes with the light or dark theme.
   const THEMES = {
+    // Halo colors are solid (no transparency): see-through lines darken wherever two
+    // sections overlap at their ends, which made lines look like strings of beads.
     dark: {
       chrome: "#171A21", fallbackGround: "#12141a",
-      casing: 0, glow: 0.35,
+      casing: null, glow: 0.35,
       issueWarning: "#ffffff", issueError: "#ff6b6b",
-      selectedLine: "#ffffff", selectedHalo: 0.55, feederHalo: 0.4,
+      selectedLine: "#ffffff", selectedHalo: "#5960c8", feederHalo: "#353978",
     },
     light: {
       chrome: "#EEF0F3", fallbackGround: "#eef0f3",
-      casing: 0.55, glow: 0,
+      casing: "#4f5464", glow: 0,
       issueWarning: "#1b1e26", issueError: "#d62f2f",
-      selectedLine: "#1b1e26", selectedHalo: 0.75, feederHalo: 0.35,
+      selectedLine: "#1b1e26", selectedHalo: "#7f86f0", feederHalo: "#b3b8f6",
     },
   };
 
@@ -53,7 +55,7 @@
   // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
   const fmtInt = (n) => Number(n).toLocaleString("en-US");
-  const fmtMW = (v) => (v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1).replace(/\.0$/, "") : v.toFixed(2).replace(/0$/, ""));
+  const fmtMW = (v) => (v === 0 ? "0" : v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1).replace(/\.0$/, "") : v.toFixed(2).replace(/0$/, ""));
   const fmtLength = (m) => {
     const feet = m * 3.28084;
     return feet < 1000 ? `${fmtInt(Math.max(1, Math.round(feet / 10) * 10))} ft` : `${(feet / 5280).toFixed(feet < 52800 ? 1 : 0)} mi`;
@@ -185,8 +187,13 @@
   }
 
   // ---------- map layers ----------
+  // Two copies of every grid layer: "lines" (each section, zoom 11 and closer) and
+  // "overview" (sections merged per feeder and capacity band, for zoomed-out views).
+  // The tile file only holds each one at its own zooms, so they never draw together.
+  const VARIANTS = [{ layer: LAYER, suffix: "" }, { layer: "overview", suffix: "-ov" }];
+  const ids = (base) => VARIANTS.map((v) => base + v.suffix);
   const width = (base) => ["interpolate", ["linear"], ["zoom"], 5, base * 0.5, 9, base, 13, base * 2.2, 16, base * 4];
-  const casingWidth = ["interpolate", ["linear"], ["zoom"], 5, 1.5, 9, 2.4, 13, 3.8, 16, 6.4];
+  const casingWidth = ["interpolate", ["linear"], ["zoom"], 5, 1.4, 9, 2.2, 13, 3.8, 16, 6.4];
   const round = { "line-cap": "round", "line-join": "round" };
 
   function capacityColor() {
@@ -198,7 +205,7 @@
     const t = look();
     const before = firstLabelLayer(map);
     const add = (layer) => map.addLayer(layer, before);
-    const vector = { source: SOURCE, "source-layer": LAYER };
+    const each = (make) => VARIANTS.forEach((v) => add(make({ source: SOURCE, "source-layer": v.layer }, v.suffix)));
 
     map.addSource(SOURCE, {
       type: "vector",
@@ -207,42 +214,48 @@
     });
 
     // Light theme: a thin dark edge so pale yellow lines stay visible on a pale map.
-    add({ id: "casing", type: "line", ...vector, filter: ["has", "hc"], layout: round,
-      paint: { "line-color": "#1b1e26", "line-width": casingWidth, "line-opacity": t.casing } });
-    add({ id: "unanalyzed", type: "line", ...vector, filter: ["!", ["has", "hc"]], layout: { "line-cap": "butt" },
-      paint: { "line-color": colors().none, "line-width": width(0.6), "line-dasharray": [2, 2], "line-opacity": 0.7 } });
-    // The rest of the clicked line's feeder, a soft band under everything else.
-    add({ id: "feeder-halo", type: "line", ...vector, filter: NOTHING, layout: round,
-      paint: { "line-color": ACCENT, "line-width": width(6), "line-opacity": t.feederHalo, "line-blur": 1 } });
+    each((src, sfx) => ({ id: "casing" + sfx, type: "line", ...src, filter: ["has", "hc"], layout: round,
+      paint: { "line-color": t.casing || "#000000", "line-width": casingWidth } }));
+    each((src, sfx) => ({ id: "unanalyzed" + sfx, type: "line", ...src, filter: ["!", ["has", "hc"]], layout: { "line-cap": "butt" },
+      paint: { "line-color": colors().none, "line-width": width(0.6), "line-dasharray": [2, 2], "line-opacity": 0.7 } }));
+    // The whole feeder of the clicked line, a soft band under everything else.
+    each((src, sfx) => ({ id: "feeder-halo" + sfx, type: "line", ...src, filter: NOTHING, layout: round,
+      paint: { "line-color": t.feederHalo, "line-width": width(6), "line-blur": 1 } }));
     // Dark theme: a soft glow under lines with real room.
-    add({ id: "glow", type: "line", ...vector, filter: [">=", HC, 2], layout: round,
-      paint: { "line-color": capacityColor(), "line-width": width(4), "line-blur": width(3), "line-opacity": t.glow } });
-    add({ id: "capacity", type: "line", ...vector, filter: ["has", "hc"], layout: round,
-      paint: { "line-color": capacityColor(), "line-width": width(1) } });
+    each((src, sfx) => ({ id: "glow" + sfx, type: "line", ...src, filter: [">=", HC, 2], layout: round,
+      paint: { "line-color": capacityColor(), "line-width": width(4), "line-blur": width(3), "line-opacity": t.glow } }));
+    each((src, sfx) => ({ id: "capacity" + sfx, type: "line", ...src, filter: ["has", "hc"], layout: round,
+      paint: { "line-color": capacityColor(), "line-width": width(1) } }));
     // Data issues, drawn over the flagged lines when the switch is on.
-    add({ id: "issues", type: "line", ...vector, filter: [">", ["coalesce", ["get", "qs"], 0], 0],
+    each((src, sfx) => ({ id: "issues" + sfx, type: "line", ...src, filter: [">", ["coalesce", ["get", "qs"], 0], 0],
       layout: { visibility: "none", "line-cap": "round" },
       paint: {
         "line-color": ["match", ["get", "qs"], 2, t.issueError, t.issueWarning],
         "line-width": width(0.9), "line-dasharray": [1.5, 1.5], "line-opacity": 0.85,
-      } });
+      } }));
 
-    // The clicked section, matched by its section number so it is drawn whole across tile edges.
-    const haloPaint = { "line-color": ACCENT, "line-width": width(5), "line-opacity": t.selectedHalo, "line-blur": 2 };
-    const linePaint = { "line-color": t.selectedLine, "line-width": width(1.6) };
-    add({ id: "selected-halo", type: "line", ...vector, filter: NOTHING, layout: round, paint: haloPaint });
-    add({ id: "selected-line", type: "line", ...vector, filter: NOTHING, layout: round, paint: linePaint });
+    // The clicked section, matched by its feature id (section number) so it is drawn
+    // whole even where it crosses tile edges.
+    const haloPaint = { "line-color": t.selectedHalo, "line-width": width(6.5), "line-blur": 1.5 };
+    const linePaint = { "line-color": t.selectedLine, "line-width": width(2) };
+    const lines = { source: SOURCE, "source-layer": LAYER };
+    add({ id: "selected-halo", type: "line", ...lines, filter: NOTHING, layout: round, paint: haloPaint });
+    add({ id: "selected-line", type: "line", ...lines, filter: NOTHING, layout: round, paint: linePaint });
     // Fallback for tiles built before sections were numbered: draw the clicked shape itself.
     map.addSource("selected", { type: "geojson", data: EMPTY });
     add({ id: "selected-shape-halo", type: "line", source: "selected", layout: round, paint: haloPaint });
     add({ id: "selected-shape", type: "line", source: "selected", layout: round, paint: linePaint });
+
+    // A ring where the person clicked, so even a very short section is easy to find.
+    map.addSource("click-point", { type: "geojson", data: EMPTY });
+    map.addLayer({ id: "click-ring", type: "circle", source: "click-point",
+      paint: { "circle-radius": 11, "circle-color": "rgba(0, 0, 0, 0)", "circle-stroke-width": 2.5, "circle-stroke-color": ACCENT } });
   }
 
   function applyPalette(map) {
     applyPagePalette();
     if (!state.layersReady) return;
-    map.setPaintProperty("capacity", "line-color", capacityColor());
-    map.setPaintProperty("glow", "line-color", capacityColor());
+    for (const id of [...ids("capacity"), ...ids("glow")]) map.setPaintProperty(id, "line-color", capacityColor());
     if (state.selected) renderDetail(state.selected.properties);
   }
 
@@ -255,20 +268,24 @@
       : true;
     const minimum = state.minMW > 0 ? [">=", HC, state.minMW] : ["has", "hc"];
     const shown = ["all", ["has", "hc"], minimum, utility];
-
-    map.setFilter("capacity", shown);
-    map.setFilter("casing", shown);
-    map.setFilter("glow", ["all", [">=", HC, Math.max(2, state.minMW)], utility]);
-    map.setFilter("unanalyzed", ["all", ["!", ["has", "hc"]], utility]);
-    map.setLayoutProperty("unanalyzed", "visibility", state.minMW > 0 ? "none" : "visible");
     const flagged = [">", ["coalesce", ["get", "qs"], 0], 0];
-    map.setFilter("issues", state.minMW > 0 ? ["all", flagged, minimum, utility] : ["all", flagged, utility]);
-    map.setLayoutProperty("issues", "visibility", state.issuesOnly ? "visible" : "none");
-    // With issues highlighted, fade the capacity colors so the flagged lines stand out.
-    map.setPaintProperty("capacity", "line-opacity", state.issuesOnly ? 0.3 : 1);
-    map.setPaintProperty("casing", "line-opacity", state.issuesOnly ? t.casing * 0.3 : t.casing);
-    map.setPaintProperty("glow", "line-opacity", state.issuesOnly ? t.glow * 0.3 : t.glow);
-    map.setPaintProperty("unanalyzed", "line-opacity", state.issuesOnly ? 0.25 : 0.7);
+
+    for (const v of VARIANTS) {
+      const id = (base) => base + v.suffix;
+      map.setFilter(id("capacity"), shown);
+      map.setFilter(id("casing"), shown);
+      map.setLayoutProperty(id("casing"), "visibility", t.casing ? "visible" : "none");
+      map.setFilter(id("glow"), ["all", [">=", HC, Math.max(2, state.minMW)], utility]);
+      map.setFilter(id("unanalyzed"), ["all", ["!", ["has", "hc"]], utility]);
+      map.setLayoutProperty(id("unanalyzed"), "visibility", state.minMW > 0 ? "none" : "visible");
+      map.setFilter(id("issues"), state.minMW > 0 ? ["all", flagged, minimum, utility] : ["all", flagged, utility]);
+      map.setLayoutProperty(id("issues"), "visibility", state.issuesOnly ? "visible" : "none");
+      // With issues highlighted, fade the capacity colors so the flagged lines stand out.
+      map.setPaintProperty(id("capacity"), "line-opacity", state.issuesOnly ? 0.3 : 1);
+      map.setPaintProperty(id("casing"), "line-opacity", state.issuesOnly ? 0.25 : 1);
+      map.setPaintProperty(id("glow"), "line-opacity", state.issuesOnly ? t.glow * 0.3 : t.glow);
+      map.setPaintProperty(id("unanalyzed"), "line-opacity", state.issuesOnly ? 0.25 : 0.7);
+    }
   }
 
   // ---------- theme switching ----------
@@ -403,7 +420,36 @@
     return found.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
   }
 
+  // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
+  function renderFeeder(props) {
+    const range = props.fmax === undefined || props.fmax === null
+      ? "Not analyzed"
+      : props.fmin === props.fmax ? `${fmtMW(props.fmax)} MW` : `${fmtMW(props.fmin)} to ${fmtMW(props.fmax)} MW`;
+    const facts = [
+      ["Sections", fmtInt(props.fn)],
+      ["Length", `${(props.fkm * 0.621371).toFixed(props.fkm < 16 ? 1 : 0)} mi`],
+    ];
+    $("detail-body").innerHTML = `
+      <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
+      <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines with no feeder listed"}</div>
+      <div class="d-caption">Room for new solar along this feeder: <strong>${range}</strong></div>
+      <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <div class="d-key">
+        <div><span class="key-feeder" aria-hidden="true"></span>This feeder</div>
+        <p>A feeder is one circuit leaving a substation. Zoom in to click its individual sections and see the capacity of each one.</p>
+        ${props.fx0 !== undefined ? '<button class="d-action" id="zoom-feeder" type="button">Zoom to this feeder</button>' : ""}
+      </div>`;
+    $("detail").hidden = false;
+    const button = $("zoom-feeder");
+    if (button) {
+      button.addEventListener("click", () => {
+        window.atlasMap.fitBounds([[props.fx0, props.fy0], [props.fx1, props.fy1]], { padding: 60, maxZoom: 15 });
+      });
+    }
+  }
+
   function renderDetail(props) {
+    if (props.fn !== undefined) return renderFeeder(props);
     const hc = props.hc;
     const analyzed = hc !== undefined && hc !== null;
     const facts = [
@@ -448,26 +494,31 @@
     state.selected = feature;
     if (!state.layersReady) return;
     const p = feature.properties;
-    const numbered = p.sid !== undefined && p.sid !== null;
-    const bySection = numbered ? ["==", ["get", "sid"], p.sid] : NOTHING;
+    const isFeeder = p.fn !== undefined; // zoomed-out click: the whole feeder, no single section
+    const numbered = !isFeeder && feature.id !== undefined && feature.id !== null;
+    const bySection = numbered ? ["==", ["id"], feature.id] : NOTHING;
     map.setFilter("selected-halo", bySection);
     map.setFilter("selected-line", bySection);
-    map.getSource("selected").setData(numbered ? EMPTY : { type: "Feature", geometry: feature.geometry, properties: {} });
-    map.setFilter("feeder-halo", p.feeder
+    map.getSource("selected").setData(numbered || isFeeder ? EMPTY : { type: "Feature", geometry: feature.geometry, properties: {} });
+    const sameFeeder = p.feeder
       ? ["all", ["==", ["get", "src"], p.src], ["==", ["get", "feeder"], p.feeder]]
-      : NOTHING);
+      : NOTHING;
+    for (const id of ids("feeder-halo")) map.setFilter(id, sameFeeder);
+    map.getSource("click-point").setData(isFeeder || !feature.at ? EMPTY
+      : { type: "Feature", geometry: { type: "Point", coordinates: feature.at }, properties: {} });
   }
 
   function clearSelection(map) {
     state.selected = null;
     $("detail").hidden = true;
     if (!state.layersReady) return;
-    for (const id of ["selected-halo", "selected-line", "feeder-halo"]) map.setFilter(id, NOTHING);
+    for (const id of ["selected-halo", "selected-line", ...ids("feeder-halo")]) map.setFilter(id, NOTHING);
     map.getSource("selected").setData(EMPTY);
+    map.getSource("click-point").setData(EMPTY);
   }
 
   function wireClicks(map) {
-    const clickable = ["capacity", "unanalyzed", "issues"];
+    const clickable = [...ids("capacity"), ...ids("unanalyzed"), ...ids("issues")];
     const hitBox = (point) => [[point.x - 6, point.y - 6], [point.x + 6, point.y + 6]];
     const hitsAt = (point) => (state.layersReady
       ? map.queryRenderedFeatures(hitBox(point), { layers: clickable.filter((id) => map.getLayer(id)) })
@@ -477,7 +528,10 @@
       const hits = hitsAt(e.point);
       if (!hits.length) return clearSelection(map);
       // Keep only what select() and renderDetail() need, so it survives a theme change.
-      const feature = { properties: { ...hits[0].properties }, geometry: hits[0].geometry };
+      const feature = {
+        id: hits[0].id, properties: { ...hits[0].properties }, geometry: hits[0].geometry,
+        at: [e.lngLat.lng, e.lngLat.lat],
+      };
       select(map, feature);
       renderDetail(feature.properties);
     });

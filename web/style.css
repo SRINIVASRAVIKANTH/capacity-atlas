@@ -237,6 +237,12 @@ a:hover { color: var(--strong); }
   font: 500 13px/1 var(--font-text); cursor: pointer;
 }
 .d-action:hover { background: var(--accent); color: #fff; }
+.issues-key { margin-top: 10px; }
+.issues-key .dash { display: inline-block; width: 22px; height: 0; margin: 0 6px 0 0; vertical-align: middle; border-top: 3px dashed; }
+.issues-key .dash-error { margin-left: 12px; }
+.issues-key .dash-warning { border-color: var(--sev-warning); }
+.issues-key .dash-error { border-color: var(--sev-error); }
+.issues-key-rest { display: block; margin-top: 4px; }
 .d-key { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; font-size: 13px; }
 .d-key div { display: flex; align-items: center; gap: 10px; }
 .d-key p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }

@@ -30,13 +30,13 @@
     dark: {
       chrome: "#171A21", fallbackGround: "#12141a",
       casing: null, glow: 0.35,
-      issueWarning: "#ffffff", issueError: "#ff6b6b",
+      issueWarning: "#fdb52e", issueError: "#ff6b6b", muted: "#3a3e49",
       selectedLine: "#ffffff", selectedHalo: "#5960c8", feederHalo: "#353978",
     },
     light: {
       chrome: "#EEF0F3", fallbackGround: "#eef0f3",
       casing: "#4f5464", glow: 0,
-      issueWarning: "#1b1e26", issueError: "#d62f2f",
+      issueWarning: "#c27c00", issueError: "#d62f2f", muted: "#d2d5dc",
       selectedLine: "#1b1e26", selectedHalo: "#7f86f0", feederHalo: "#b3b8f6",
     },
   };
@@ -228,10 +228,10 @@
       paint: { "line-color": capacityColor(), "line-width": width(1) } }));
     // Data issues, drawn over the flagged lines when the switch is on.
     each((src, sfx) => ({ id: "issues" + sfx, type: "line", ...src, filter: [">", ["coalesce", ["get", "qs"], 0], 0],
-      layout: { visibility: "none", "line-cap": "round" },
+      layout: { visibility: "none", "line-cap": "butt" },
       paint: {
         "line-color": ["match", ["get", "qs"], 2, t.issueError, t.issueWarning],
-        "line-width": width(0.9), "line-dasharray": [1.5, 1.5], "line-opacity": 0.85,
+        "line-width": width(1.5), "line-dasharray": [2, 1],
       } }));
 
     // The clicked section, matched by its feature id (section number) so it is drawn
@@ -255,7 +255,8 @@
   function applyPalette(map) {
     applyPagePalette();
     if (!state.layersReady) return;
-    for (const id of [...ids("capacity"), ...ids("glow")]) map.setPaintProperty(id, "line-color", capacityColor());
+    for (const id of ids("glow")) map.setPaintProperty(id, "line-color", capacityColor());
+    applyFilters(map); // sets the capacity colors (or the muted gray while issues are highlighted)
     if (state.selected) renderDetail(state.selected.properties);
   }
 
@@ -280,11 +281,14 @@
       map.setLayoutProperty(id("unanalyzed"), "visibility", state.minMW > 0 ? "none" : "visible");
       map.setFilter(id("issues"), state.minMW > 0 ? ["all", flagged, minimum, utility] : ["all", flagged, utility]);
       map.setLayoutProperty(id("issues"), "visibility", state.issuesOnly ? "visible" : "none");
-      // With issues highlighted, fade the capacity colors so the flagged lines stand out.
-      map.setPaintProperty(id("capacity"), "line-opacity", state.issuesOnly ? 0.3 : 1);
-      map.setPaintProperty(id("casing"), "line-opacity", state.issuesOnly ? 0.25 : 1);
-      map.setPaintProperty(id("glow"), "line-opacity", state.issuesOnly ? t.glow * 0.3 : t.glow);
-      map.setPaintProperty(id("unanalyzed"), "line-opacity", state.issuesOnly ? 0.25 : 0.7);
+      // With issues highlighted, every other line turns one solid quiet gray. Solid, not
+      // see-through: transparent lines darken where sections overlap and look dashed too.
+      map.setPaintProperty(id("capacity"), "line-color", state.issuesOnly ? t.muted : capacityColor());
+      if (state.issuesOnly) {
+        map.setLayoutProperty(id("casing"), "visibility", "none");
+        map.setLayoutProperty(id("unanalyzed"), "visibility", "none");
+      }
+      map.setPaintProperty(id("glow"), "line-opacity", state.issuesOnly ? 0 : t.glow);
     }
   }
 
@@ -315,6 +319,7 @@
     });
     $("issues-toggle").addEventListener("change", (e) => {
       state.issuesOnly = e.target.checked;
+      $("issues-key").hidden = !state.issuesOnly;
       applyFilters(map);
     });
     $("utility-toggles").addEventListener("change", (e) => {

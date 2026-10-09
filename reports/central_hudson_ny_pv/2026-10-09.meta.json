@@ -4,7 +4,7 @@
   "state": "NY",
   "capacity_type": "generation",
   "layer_url": "https://services1.arcgis.com/CEN9MBRF2dIzEmKF/ArcGIS/rest/services/Hosting_Capacity_Stage3/FeatureServer/0",
-  "fetched_at_utc": "2026-10-09T01:37:32.495712+00:00",
+  "fetched_at_utc": "2026-10-09T02:21:08.154993+00:00",
   "feature_count": 306419,
   "columns": [
     "OBJECTID",

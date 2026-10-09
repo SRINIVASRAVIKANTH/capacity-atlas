@@ -21,13 +21,34 @@ def test_every_font_in_the_stylesheet_exists():
     assert all((WEB / f).exists() for f in fonts)
 
 
+def _palette(js, name):
+    block = re.search(name + r": \{([^}]*)\}", js).group(1)
+    return dict(re.findall(r'(c\d|none): "(#[0-9a-fA-F]{6})"', block))
+
+
 def test_map_colors_match_the_legend_colors():
     css = (WEB / "style.css").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
     css_colors = dict(re.findall(r"--(c\d|none):\s*(#[0-9a-fA-F]{6})", css))
-    js_block = re.search(r"const COLORS = \{([^}]*)\}", js).group(1)
-    js_colors = dict(re.findall(r'(c\d|none): "(#[0-9a-fA-F]{6})"', js_block))
-    assert css_colors and css_colors == js_colors
+    assert css_colors and css_colors == _palette(js, "plasma")
+
+
+def test_every_palette_has_every_band():
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    keys = {"c0", "c1", "c2", "c3", "c4", "c5", "none"}
+    assert set(_palette(js, "plasma")) == keys
+    assert set(_palette(js, "cividis")) == keys
+
+
+def test_display_choices_match_the_code():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    themes = re.findall(r'name="theme" value="(\w+)"', html)
+    palettes = re.findall(r'name="palette" value="(\w+)"', html)
+    assert themes == ["auto", "light", "dark"]
+    assert all(p + ": {" in js for p in palettes) and palettes
+    config = (WEB / "config.js").read_text(encoding="utf-8")
+    assert "dark:" in config and "light:" in config
 
 
 def test_site_text_follows_the_copy_rules():

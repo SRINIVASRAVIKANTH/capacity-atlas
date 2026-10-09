@@ -92,6 +92,15 @@ def test_national_grid_is_reprojected_and_has_no_central_hudson_fields():
     assert out["qs"].iloc[0] == 0
 
 
+def test_section_length_in_meters_for_both_projections():
+    ch, _ = map_features(SOURCES["central_hudson_ny_pv"], central_hudson_like(), REFERENCE)
+    ng, _ = map_features(SOURCES["national_grid_ny_pv"], national_grid_like(), REFERENCE)
+    # About 0.01 degrees east and north at 41.5 N: roughly 830 m by 1110 m, so about 1390 m.
+    assert 1300 < ch["m"].iloc[0] < 1480
+    # 141 m in Web Mercator units is about 103 m on the ground at 43 N.
+    assert 95 < ng["m"].iloc[0] < 112
+
+
 def test_empty_geometries_are_dropped():
     gdf = central_hudson_like()
     gdf.loc[1, "geometry"] = LineString()
@@ -131,6 +140,7 @@ def test_combine_and_summary_file(tmp_path):
     national_grid_like().to_parquet(ng)
     features, summaries = combine({"central_hudson_ny_pv": ch, "national_grid_ny_pv": ng})
     assert len(features) == 4 and features.crs.to_epsg() == 4326
+    assert list(features["sid"]) == [1, 2, 3, 4]  # one number per section across all utilities
 
     path = write_summary(summaries, tmp_path / "summary.json", REFERENCE)
     data = json.loads(path.read_text(encoding="utf-8"))

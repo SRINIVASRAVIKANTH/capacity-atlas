@@ -13,6 +13,9 @@ utilities with one rule:
     kv      line voltage in kV       (only if the utility publishes it)
     ph      phases, for example ABC  (only if the utility publishes it)
     ad      analysis date YYYY-MM-DD (only if the utility publishes it)
+    m       section length in meters
+    sid     section number, unique within one weekly build (lets the map highlight
+            a whole section even when it crosses tile edges)
 
 summary.json carries what the side panel shows: per-utility totals, check results,
 and the meaning of every flag bit.
@@ -49,6 +52,7 @@ logger = logging.getLogger(__name__)
 LAYER = "lines"
 MIN_ZOOM = 5    # whole state
 MAX_ZOOM = 15   # street level
+LENGTH_CRS = 5070  # NAD83 / Conus Albers, used only to measure section lengths
 
 TIPPECANOE_ARGS = [
     "--layer", LAYER,
@@ -181,7 +185,10 @@ def map_features(
 
     out = gpd.GeoDataFrame(columns, geometry=gdf.geometry, crs=gdf.crs)
     shapes = np.asarray(out.geometry.values, dtype=object)
-    out = out[~(shapely.is_missing(shapes) | shapely.is_empty(shapes))].to_crs(4326)
+    out = out[~(shapely.is_missing(shapes) | shapely.is_empty(shapes))]
+    # Length in an equal-area projection for the contiguous US (meters, error well under 1%).
+    out["m"] = out.geometry.to_crs(LENGTH_CRS).length.round().astype("int64")
+    out = out.to_crs(4326)
 
     analyzed = hc.dropna()
     summary = SourceSummary(
@@ -209,6 +216,7 @@ def combine(snapshots: dict[str, Path]) -> tuple[gpd.GeoDataFrame, list[SourceSu
     if not frames:
         raise TileBuildError("No snapshots found for any source; nothing to draw.")
     features = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=4326)
+    features["sid"] = np.arange(1, len(features) + 1, dtype=np.int64)
     return features, summaries
 
 

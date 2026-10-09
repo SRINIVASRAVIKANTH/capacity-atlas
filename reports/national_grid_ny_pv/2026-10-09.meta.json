@@ -1,0 +1,28 @@
+{
+  "source_id": "national_grid_ny_pv",
+  "utility": "National Grid",
+  "state": "NY",
+  "capacity_type": "generation",
+  "layer_url": "https://systemdataportal.nationalgrid.com/arcgis/rest/services/NYSDP/Hosting_Capacity_Data/MapServer/2",
+  "fetched_at_utc": "2026-10-09T01:37:32.495712+00:00",
+  "feature_count": 452496,
+  "columns": [
+    "distance_to_substation",
+    "OBJECTID",
+    "ID",
+    "feeder_cdf",
+    "primary_voltage",
+    "primary_hc",
+    "primary_hc_over_voltage",
+    "primary_hc_voltage_deviation",
+    "primary_hc_regulator_deviation",
+    "primary_hc_thermal_from_gen",
+    "primary_hc_anti_islanding",
+    "primary_hc_flicker",
+    "feeder_rating",
+    "substation_bank_rating",
+    "color",
+    "Shape_Length",
+    "gridforce_feeder_url"
+  ]
+}

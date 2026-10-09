@@ -1,0 +1,27 @@
+{
+  "source_id": "central_hudson_ny_pv",
+  "old_snapshot": "2026-10-08.parquet",
+  "new_snapshot": "2026-10-09.parquet",
+  "old_rows": 306419,
+  "new_rows": 306419,
+  "added": 0,
+  "removed": 0,
+  "geometry_changed": 0,
+  "capacity_increased": 0,
+  "capacity_decreased": 0,
+  "newly_analyzed": 0,
+  "analysis_removed": 0,
+  "feeders_refreshed": 0,
+  "other_attributes_changed": 4,
+  "most_changed_columns": {
+    "OBJECTID": 4
+  },
+  "feeders_losing_capacity": [],
+  "examples": {
+    "added": [],
+    "removed": [],
+    "geometry_changed": [],
+    "capacity_increased": [],
+    "capacity_decreased": []
+  }
+}

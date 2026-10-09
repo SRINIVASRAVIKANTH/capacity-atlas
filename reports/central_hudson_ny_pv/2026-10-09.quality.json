@@ -1,0 +1,186 @@
+{
+  "source_id": "central_hudson_ny_pv",
+  "snapshot": "2026-10-09.parquet",
+  "results": [
+    {
+      "rule_id": "duplicate_shape_conflicting_capacity",
+      "title": "Duplicate line sections report different capacity",
+      "severity": "error",
+      "explanation": "The same place has two different hosting capacity values.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_negative",
+      "title": "Capacity value is negative",
+      "severity": "error",
+      "explanation": "Hosting capacity cannot be below zero.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_min_above_max",
+      "title": "Minimum capacity is greater than maximum capacity",
+      "severity": "error",
+      "explanation": "Logically impossible.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "stale_analysis_with_new_der",
+      "title": "Analysis older than 6 months with 0.5+ MW of new DER since",
+      "severity": "warning",
+      "explanation": "The published capacity may no longer reflect the circuit.",
+      "status": "ran",
+      "flagged": 30143,
+      "total": 306419,
+      "percent": 9.84,
+      "example_ids": [
+        19294,
+        19298,
+        19300,
+        19306,
+        19308
+      ],
+      "feeders": 31
+    },
+    {
+      "rule_id": "feeder_without_substation",
+      "title": "Feeder listed but substation missing",
+      "severity": "warning",
+      "explanation": "Every feeder is served by a substation.",
+      "status": "ran",
+      "flagged": 8716,
+      "total": 306419,
+      "percent": 2.84,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 22
+    },
+    {
+      "rule_id": "feeder_without_phase",
+      "title": "Feeder listed but phase missing",
+      "severity": "warning",
+      "explanation": "Every energized line section has a phase.",
+      "status": "ran",
+      "flagged": 1759,
+      "total": 306419,
+      "percent": 0.57,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 138
+    },
+    {
+      "rule_id": "feeder_without_capacity",
+      "title": "Feeder listed but capacity value missing",
+      "severity": "warning",
+      "explanation": "An analyzed feeder should have a result.",
+      "status": "ran",
+      "flagged": 1370,
+      "total": 306419,
+      "percent": 0.45,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 14
+    },
+    {
+      "rule_id": "duplicate_shape",
+      "title": "Same line section published more than once",
+      "severity": "warning",
+      "explanation": "Identical geometry appears in several rows.",
+      "status": "ran",
+      "flagged": 70,
+      "total": 306419,
+      "percent": 0.02,
+      "example_ids": [
+        19234,
+        19236,
+        19286,
+        19288,
+        19298
+      ],
+      "feeders": 22
+    },
+    {
+      "rule_id": "substation_without_feeder",
+      "title": "Substation listed but feeder missing",
+      "severity": "warning",
+      "explanation": "A substation value without a feeder is inconsistent.",
+      "status": "ran",
+      "flagged": 5,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [
+        67247,
+        67250,
+        119647,
+        144817,
+        144818
+      ],
+      "feeders": 0
+    },
+    {
+      "rule_id": "no_analysis_published",
+      "title": "Line section has no hosting capacity analysis",
+      "severity": "info",
+      "explanation": "Shown as 'no data' on the map. Coverage information, not an error.",
+      "status": "ran",
+      "flagged": 139293,
+      "total": 306419,
+      "percent": 45.46,
+      "example_ids": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_exactly_zero",
+      "title": "Published capacity is exactly 0 MW",
+      "severity": "info",
+      "explanation": "May mean 'no room' or 'not analyzed'; the data does not say which.",
+      "status": "ran",
+      "flagged": 102896,
+      "total": 306419,
+      "percent": 33.58,
+      "example_ids": [
+        19410,
+        19428,
+        19439,
+        19552,
+        19554
+      ],
+      "feeders": 225
+    }
+  ]
+}

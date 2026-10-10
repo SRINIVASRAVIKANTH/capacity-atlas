@@ -60,3 +60,18 @@ def test_data_url_has_no_trailing_slash():
     config = (WEB / "config.js").read_text(encoding="utf-8")
     url = re.search(r'dataUrl:\s*"([^"]+)"', config).group(1)
     assert url.startswith("https://") and not url.endswith("/")
+
+
+def test_search_service_is_https():
+    config = (WEB / "config.js").read_text(encoding="utf-8")
+    url = re.search(r'searchUrl:\s*"([^"]+)"', config).group(1)
+    assert url.startswith("https://")
+
+
+def test_every_id_the_script_uses_exists_in_the_page():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
+    created_by_script = {"zoom-feeder", "copy-link"}  # built inside the detail card at runtime
+    missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
+    assert not missing, f"ids used in app.js but missing from index.html: {missing}"

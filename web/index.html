@@ -22,7 +22,7 @@
 <body>
   <div id="map" role="region" aria-label="Map of grid hosting capacity"></div>
 
-  <aside class="panel" id="panel" aria-label="Map key and filters">
+  <aside class="panel" id="panel" aria-label="Map key, search and filters">
     <button class="sheet-handle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="panel-body">
       <span class="sheet-grip" aria-hidden="true"></span>
       <span class="visually-hidden">Show or hide the panel</span>
@@ -31,91 +31,132 @@
     <header class="panel-head">
       <div class="title-row">
         <h1>Capacity Atlas</h1>
-        <button class="icon-button" id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body" title="Hide the panel">
+        <button class="icon-button" id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body" title="Collapse panel">
           <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="visually-hidden" id="panel-toggle-label">Hide the panel</span>
+          <span class="visually-hidden" id="panel-toggle-label">Collapse panel</span>
         </button>
       </div>
-      <p class="lede">Where New York's power lines have room for new solar, from the utilities' own data, checked for problems every week.</p>
+      <p class="lede">Solar hosting capacity on New York's distribution grid, from published utility data, validated weekly.</p>
+      <p class="updated" id="updated"></p>
+
+      <form class="search" id="search" role="search" autocomplete="off">
+        <label class="visually-hidden" for="search-input">Search for a town, address or coordinates</label>
+        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="search-input" type="search" placeholder="Search a town, address or lat, long" enterkeyhint="search">
+        <ul class="search-results" id="search-results" hidden></ul>
+      </form>
 
       <section class="key" aria-labelledby="legend-title">
-        <h2 id="legend-title">Room for new solar</h2>
-        <div class="ramp" id="ramp" role="img" aria-label="Color scale from no room to 5 megawatts or more"></div>
+        <h2 id="legend-title">Hosting capacity</h2>
+        <p class="key-sub">New solar a line can take without upgrades</p>
+        <div class="ramp" id="ramp" role="img" aria-label="Color scale from 0 to 5 megawatts or more"></div>
         <div class="ramp-labels" aria-hidden="true">
-          <span style="left:0">0</span><span style="left:25%">0.5</span><span style="left:44%">1</span><span style="left:63%">2</span><span style="left:82%">5</span><span>MW</span>
+          <span style="left:0">0</span><span style="left:25%">0.5</span><span style="left:44%">1</span><span style="left:63%">2</span><span style="left:82%">5+</span><span>MW</span>
         </div>
-        <p class="note key-none"><span class="swatch-none" aria-hidden="true"></span>Gray dashed line: the utility published no number for it.</p>
+        <p class="note key-none"><span class="swatch-none" aria-hidden="true"></span>Not published by the utility</p>
       </section>
     </header>
 
     <div class="panel-body" id="panel-body">
       <section class="block" aria-labelledby="filter-title">
-        <h2 id="filter-title">Filter the map</h2>
+        <h2 id="filter-title">Filters</h2>
         <fieldset class="segmented" id="min-mw">
-          <legend>Show lines with room for at least</legend>
-          <label><input type="radio" name="min-mw" value="0" checked><span>All</span></label>
+          <legend>Minimum hosting capacity</legend>
+          <label><input type="radio" name="min-mw" value="0" checked><span>Any</span></label>
           <label><input type="radio" name="min-mw" value="0.5"><span>0.5 MW</span></label>
           <label><input type="radio" name="min-mw" value="1"><span>1 MW</span></label>
           <label><input type="radio" name="min-mw" value="2"><span>2 MW</span></label>
           <label><input type="radio" name="min-mw" value="5"><span>5 MW</span></label>
         </fieldset>
-        <div class="toggles" id="utility-toggles" role="group" aria-label="Utilities"></div>
+        <p class="field-label" id="utilities-label">Utilities</p>
+        <div class="toggles" id="utility-toggles" role="group" aria-labelledby="utilities-label"></div>
       </section>
 
       <section class="block" aria-labelledby="quality-title">
-        <h2 id="quality-title">Data check</h2>
-        <p class="note">Every week, each line is tested with 12 rules for missing, outdated or contradictory data.</p>
+        <h2 id="quality-title">Data quality</h2>
+        <p class="note">Each utility's published data is validated weekly against 12 rules for missing, outdated and contradictory values.</p>
         <div class="check-summary" id="check-summary" aria-live="polite"></div>
         <label class="switch">
           <input type="checkbox" id="issues-toggle" aria-controls="issues-details">
           <span class="switch-track" aria-hidden="true"></span>
-          <span>Show problem lines on the map</span>
+          <span>Highlight data quality issues</span>
         </label>
         <div class="issues-details" id="issues-details" hidden>
           <p class="note issues-key">
             <span class="dash dash-warning" aria-hidden="true"></span>Warning
             <span class="dash dash-error" aria-hidden="true"></span>Error
-            <span class="issues-key-rest">All other lines turn gray. Info items are listed below but not drawn.</span>
+            <span class="issues-key-rest">Lines without warnings or errors are shown in gray.</span>
           </p>
-          <div id="quality"><p class="note">Loading the latest check.</p></div>
-          <p class="note legend-shapes"><span class="dot sev-error" aria-hidden="true"></span> Error: the data contradicts itself.
-            <span class="dot sev-warning" aria-hidden="true"></span> Warning: missing or possibly out of date.
-            <span class="dot sev-info" aria-hidden="true"></span> Info: worth knowing, not a problem.</p>
+          <div id="quality"><p class="note">Loading the latest results.</p></div>
+          <p class="note legend-shapes"><span class="dot sev-error" aria-hidden="true"></span> Error: values contradict each other.
+            <span class="dot sev-warning" aria-hidden="true"></span> Warning: values missing or possibly out of date.
+            <span class="dot sev-info" aria-hidden="true"></span> Info: worth knowing, not an error. Not highlighted on the map.</p>
         </div>
       </section>
 
       <footer class="panel-foot">
-        <p>Capacity values are utility estimates, not an interconnection study.</p>
-        <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and method on GitHub</a></p>
+        <p>Hosting capacity values are utility estimates and do not replace an interconnection study.</p>
+        <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a></p>
       </footer>
     </div>
   </aside>
 
-  <div class="display" id="display">
-    <button class="icon-button display-button" id="display-toggle" type="button" aria-expanded="false" aria-controls="display-menu" title="Display settings">
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
-      <span class="visually-hidden">Display settings</span>
+  <div class="toolbar" id="toolbar">
+    <button class="icon-button tool-button" id="help-toggle" type="button" aria-expanded="false" aria-controls="help" title="How to read this map">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>
+      <span class="visually-hidden">How to read this map</span>
     </button>
-    <div class="display-menu" id="display-menu" hidden>
-      <fieldset class="segmented" id="theme-choice">
-        <legend>Theme</legend>
-        <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
-        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
-        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
-      </fieldset>
-      <p class="note">Auto follows your computer's light or dark setting.</p>
-      <fieldset class="segmented" id="palette-choice">
-        <legend>Color scale</legend>
-        <label><input type="radio" name="palette" value="plasma"><span>Standard</span></label>
-        <label><input type="radio" name="palette" value="cividis"><span>Color-blind</span></label>
-      </fieldset>
-      <p class="note">Both scales work for most color blindness. The color-blind scale is tuned for red-green color blindness and still reads in grayscale.</p>
+    <div class="display">
+      <button class="icon-button tool-button" id="display-toggle" type="button" aria-expanded="false" aria-controls="display-menu" title="Display settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+        <span class="visually-hidden">Display settings</span>
+      </button>
+      <div class="popover display-menu" id="display-menu" hidden>
+        <fieldset class="segmented" id="theme-choice">
+          <legend>Theme</legend>
+          <label><input type="radio" name="theme" value="auto"><span>System</span></label>
+          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+        </fieldset>
+        <fieldset class="segmented" id="palette-choice">
+          <legend>Color scale</legend>
+          <label><input type="radio" name="palette" value="plasma"><span>Standard</span></label>
+          <label><input type="radio" name="palette" value="cividis"><span>Color-blind safe</span></label>
+        </fieldset>
+        <p class="note">Color-blind safe is tuned for red-green color vision deficiency and stays readable in grayscale.</p>
+      </div>
     </div>
   </div>
 
+  <section class="popover help" id="help" hidden aria-labelledby="help-title">
+    <div class="help-head">
+      <h2 id="help-title">How to read this map</h2>
+      <button class="icon-button" id="help-close" type="button" aria-label="Close guide">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <ol class="steps">
+      <li><strong>Read the colors.</strong> Each colored line is a real distribution line. Its color shows the hosting capacity: how many megawatts of new solar can connect there without upgrades. Yellow has the most room, dark purple the least.</li>
+      <li><strong>Filter by project size.</strong> Set a minimum hosting capacity to hide lines too small for your project.</li>
+      <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value.</li>
+      <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
+    </ol>
+    <h3>Terms</h3>
+    <dl class="glossary">
+      <dt>Hosting capacity</dt><dd>The amount of new generation, in megawatts (MW), a line can accept without upgrades. Published by each utility.</dd>
+      <dt>Feeder</dt><dd>One circuit leaving a substation, with all its branches. Projects on the same feeder share its capacity.</dd>
+      <dt>Section</dt><dd>A short stretch of a feeder, typically 100 to 500 ft in towns. Utilities publish a value for each one.</dd>
+      <dt>Substation</dt><dd>Where a feeder starts. It connects local lines to the high-voltage grid.</dd>
+      <dt>kV</dt><dd>Line voltage in kilovolts.</dd>
+      <dt>DER</dt><dd>Distributed energy resources, such as rooftop and community solar.</dd>
+    </dl>
+    <p class="note">Values are utility estimates for early screening. A utility interconnection study is still required for any project.</p>
+  </section>
+
   <div class="hint" id="hint" hidden>
-    <span>Click any line to see how much new solar it can take.</span>
-    <button class="hint-close" id="hint-close" type="button" aria-label="Dismiss tip">
+    <span class="hint-text">New to this map?</span>
+    <button class="hint-action" id="hint-open" type="button">Read the 1-minute guide</button>
+    <button class="hint-close" id="hint-close" type="button" aria-label="Dismiss">
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
   </div>

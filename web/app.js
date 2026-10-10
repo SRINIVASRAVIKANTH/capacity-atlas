@@ -345,21 +345,29 @@
       if (state.prefs.theme === "auto") applyTheme(map);
     });
 
-    // Display settings: a small menu behind the button in the top right corner.
-    const menu = $("display-menu");
-    const setMenu = (open) => {
-      menu.hidden = !open;
-      $("display-toggle").setAttribute("aria-expanded", String(open));
+    // Toolbar popovers (display settings, guide): one open at a time.
+    const popovers = { display: ["display-toggle", "display-menu"], help: ["help-toggle", "help"] };
+    const setPopover = (name, open) => {
+      for (const [key, [button, panel]] of Object.entries(popovers)) {
+        const show = key === name && open;
+        $(panel).hidden = !show;
+        $(button).setAttribute("aria-expanded", String(show));
+      }
     };
-    $("display-toggle").addEventListener("click", () => setMenu(menu.hidden));
+    const isOpen = (name) => !$(popovers[name][1]).hidden;
+    $("display-toggle").addEventListener("click", () => setPopover("display", !isOpen("display")));
+    $("help-toggle").addEventListener("click", () => setPopover("help", !isOpen("help")));
+    $("help-close").addEventListener("click", () => setPopover("help", false));
     document.addEventListener("click", (e) => {
-      if (!menu.hidden && !$("display").contains(e.target)) setMenu(false);
+      if (isOpen("display") && !e.target.closest(".display")) setPopover("display", false);
     });
+    state.openGuide = () => setPopover("help", true);
 
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      if (!menu.hidden) setMenu(false);
+      if (isOpen("display") || isOpen("help")) setPopover(null, false);
+      else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
     });
 
@@ -367,7 +375,7 @@
     const setCollapsed = (collapsed) => {
       $("panel").classList.toggle("is-collapsed", collapsed);
       for (const id of ["panel-toggle", "sheet-toggle"]) $(id).setAttribute("aria-expanded", String(!collapsed));
-      const label = collapsed ? "Show the panel" : "Hide the panel";
+      const label = collapsed ? "Expand panel" : "Collapse panel";
       $("panel-toggle").title = label;
       $("panel-toggle-label").textContent = label;
       padForPanel(map);
@@ -377,9 +385,15 @@
     }
     if (window.matchMedia("(max-width: 760px)").matches) setCollapsed(true);
 
-    // First-visit tip, until the person clicks a line or closes it.
+    // First visit: offer the guide once.
     if (!readFlag(HINT_KEY)) $("hint").hidden = false;
     $("hint-close").addEventListener("click", dismissHint);
+    $("hint-open").addEventListener("click", () => {
+      dismissHint();
+      state.openGuide();
+    });
+
+    wireSearch(map);
 
     $("repo-link").href = cfg.repoUrl;
   }
@@ -391,6 +405,78 @@
   function dismissHint() {
     $("hint").hidden = true;
     try { window.localStorage.setItem(HINT_KEY, "1"); } catch (err) { /* storage blocked: the tip just returns next visit */ }
+  }
+
+  // ---------- place search ----------
+  // Photon (komoot) geocoder over OpenStreetMap data, biased to New York. It runs only when
+  // the person presses Enter, never on each keystroke, to respect the free service's fair use.
+  const NY_BBOX = [-79.8, 40.4, -71.8, 45.1];
+  const COORDS = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+
+  function wireSearch(map) {
+    const form = $("search");
+    const input = $("search-input");
+    const list = $("search-results");
+    const show = (html) => { list.innerHTML = html; list.hidden = false; };
+    let pin = null;
+    const flyTo = (lng, lat, extent) => {
+      list.hidden = true;
+      clearSelection(map);
+      // A pin marks the searched place, so it is easy to find among the lines.
+      if (pin) pin.remove();
+      const el = document.createElement("div");
+      el.className = "search-pin";
+      pin = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+      if (extent) map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 40, maxZoom: 15 });
+      else map.flyTo({ center: [lng, lat], zoom: 14 });
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+      const coords = query.match(COORDS);
+      if (coords) {
+        const lat = Number(coords[1]), lng = Number(coords[2]);
+        if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return flyTo(lng, lat);
+      }
+      show('<li class="search-msg">Searching</li>');
+      try {
+        const url = `${cfg.searchUrl}?q=${encodeURIComponent(query)}&limit=6&lang=en&bbox=${NY_BBOX.join(",")}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const results = ((await response.json()).features || []).filter((f) => f.geometry && f.geometry.type === "Point");
+        if (!results.length) return show('<li class="search-msg">No places found in New York. Try a town name or lat, long.</li>');
+        show(results.map((f, i) => {
+          const p = f.properties || {};
+          const where = [p.city && p.city !== p.name ? p.city : null, p.county, p.state].filter(Boolean).join(", ");
+          return `<li><button type="button" data-i="${i}">${escapeHtml(p.name || p.street || "Unnamed place")}<small>${escapeHtml(where)}</small></button></li>`;
+        }).join("") + '<li class="search-credit">Search by Photon, data from OpenStreetMap</li>');
+        list.querySelectorAll("button[data-i]").forEach((b) => b.addEventListener("click", () => {
+          const f = results[Number(b.dataset.i)];
+          flyTo(f.geometry.coordinates[0], f.geometry.coordinates[1], f.properties && f.properties.extent);
+        }));
+      } catch (err) {
+        console.warn("Search failed:", err);
+        show('<li class="search-msg">Search is unavailable right now. You can enter coordinates instead, for example 42.65, -73.75.</li>');
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (!list.hidden && !form.contains(e.target)) list.hidden = true;
+    });
+  }
+
+  // ---------- map controls ----------
+  // Returns to the starting view of the whole service area.
+  class HomeControl {
+    onAdd(map) {
+      this.container = document.createElement("div");
+      this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+      this.container.innerHTML = '<button type="button" title="Reset view" aria-label="Reset view"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg></button>';
+      this.container.querySelector("button").addEventListener("click", () => map.flyTo({ center: cfg.startView.center, zoom: cfg.startView.zoom }));
+      return this.container;
+    }
+    onRemove() { this.container.remove(); }
   }
 
   // Keep the map's center clear of the side panel on wide screens.
@@ -433,11 +519,14 @@
     // One line per utility, always visible: the overall result of this week's check.
     $("check-summary").innerHTML = summary.sources.map((s) => {
       const has = (severity) => s.checks.some((c) => c.severity === severity && c.flagged > 0);
-      const [cls, text] = has("error") ? ["sev-error", "errors found"]
-        : has("warning") ? ["sev-warning", "warnings found, no errors"]
-        : ["sev-ok", "no warnings or errors"];
-      return `<div><span class="dot ${cls}" aria-hidden="true"></span><span><strong>${escapeHtml(s.utility)}</strong>: ${text}</span></div>`;
+      const [cls, text] = has("error") ? ["sev-error", "Errors found"]
+        : has("warning") ? ["sev-warning", "Warnings, no errors"]
+        : ["sev-ok", "No warnings or errors"];
+      return `<div><span class="dot ${cls}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-status">${text}</span></div>`;
     }).join("");
+
+    const newest = summary.sources.map((s) => s.snapshot_date).sort().pop();
+    if (newest) $("updated").textContent = `Data as of ${fmtDate(newest)}. Updated every Monday.`;
 
     quality.innerHTML = summary.sources.map((s) => {
       const findings = s.checks
@@ -452,10 +541,10 @@
       return `
         <div class="utility">
           <div class="utility-name">${escapeHtml(s.utility)}</div>
-          <div class="utility-meta">Data from ${fmtDate(s.snapshot_date)}. Capacity published for ${analyzedPct}% of ${fmtInt(s.sections)} line sections.</div>
+          <div class="utility-meta">Data as of ${fmtDate(s.snapshot_date)}. Hosting capacity published for ${analyzedPct}% of ${fmtInt(s.sections)} line sections.</div>
           <ul class="findings">
             ${list}
-            ${errorsClean ? '<li><span class="dot sev-ok" aria-hidden="true"></span><span class="clean">No errors (contradictory values) found</span><span></span></li>' : ""}
+            ${errorsClean ? '<li><span class="dot sev-ok" aria-hidden="true"></span><span class="clean">No contradictory values found</span><span></span></li>' : ""}
           </ul>
         </div>`;
     }).join("");
@@ -478,7 +567,7 @@
   // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
   function renderFeeder(props) {
     const range = props.fmax === undefined || props.fmax === null
-      ? "Not analyzed"
+      ? "Not published"
       : props.fmin === props.fmax ? `${fmtMW(props.fmax)} MW` : `${fmtMW(props.fmin)} to ${fmtMW(props.fmax)} MW`;
     const facts = [
       ["Sections", fmtInt(props.fn)],
@@ -486,21 +575,42 @@
     ];
     $("detail-body").innerHTML = `
       <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
-      <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines with no feeder listed"}</div>
-      <div class="d-caption">Room for new solar along this feeder: <strong>${range}</strong></div>
+      <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines without a feeder ID"}</div>
+      <div class="d-caption">Hosting capacity along this feeder: <strong>${range}</strong></div>
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       <div class="d-key">
-        <div><span class="key-feeder" aria-hidden="true"></span>This feeder</div>
-        <p>A feeder is one circuit leaving a substation. Zoom in to click its individual sections and see the capacity of each one.</p>
+        <div><span class="key-feeder" aria-hidden="true"></span>Selected feeder</div>
+        <p>A feeder is one circuit leaving a substation. Zoom in and select a line to see the value for a single section.</p>
         ${props.fx0 !== undefined ? '<button class="d-action" id="zoom-feeder" type="button">Zoom to this feeder</button>' : ""}
-      </div>`;
+      </div>
+      ${shareHtml()}`;
     $("detail").hidden = false;
+    wireShare();
     const button = $("zoom-feeder");
     if (button) {
       button.addEventListener("click", () => {
         window.atlasMap.fitBounds([[props.fx0, props.fy0], [props.fx1, props.fy1]], { padding: 60, maxZoom: 15 });
       });
     }
+  }
+
+  // A link that opens the map at the selected spot, for sharing with a colleague.
+  const shareHtml = () => '<div class="d-share"><button class="d-link" id="copy-link" type="button">Copy link to this location</button></div>';
+  function wireShare() {
+    const button = $("copy-link");
+    if (!button) return;
+    button.addEventListener("click", async () => {
+      const map = window.atlasMap;
+      const at = state.selected && state.selected.at ? state.selected.at : map.getCenter().toArray();
+      const zoom = Math.max(map.getZoom(), 13).toFixed(2);
+      const url = `${location.origin}${location.pathname}${location.search}#${zoom}/${at[1].toFixed(5)}/${at[0].toFixed(5)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        button.textContent = "Link copied";
+      } catch (err) {
+        window.prompt("Copy this link:", url);
+      }
+    });
   }
 
   function renderDetail(props) {
@@ -518,22 +628,22 @@
 
     const issues = issuesFor(props.q || 0);
     const issuesHtml = issues.length
-      ? `<div class="d-issues"><h3>Data issues on this line</h3><ul>${issues.map((f) => `
+      ? `<div class="d-issues"><h3>Data quality</h3><ul>${issues.map((f) => `
           <li><span class="dot sev-${f.severity}" aria-hidden="true"></span>
             <div><strong>${escapeHtml(f.title)}</strong><span>${escapeHtml(f.explanation)}</span></div></li>`).join("")}</ul></div>`
-      : analyzed ? '<p class="d-clean">No data issues found on this line in the latest check.</p>' : "";
+      : analyzed ? '<p class="d-clean">No warnings or errors in the latest validation.</p>' : "";
 
     const capacityHtml = analyzed
       ? `<div class="d-capacity">${fmtMW(hc)}<small>MW</small></div>
-         <div class="d-caption"><span class="d-swatch" style="background:${colorFor(hc)}" aria-hidden="true"></span>${hc <= 0 ? "No room for new solar without upgrades" : "Estimated room for new solar here"}</div>`
-      : `<div class="d-capacity is-none">Not analyzed</div>
-         <div class="d-caption">The utility drew this line but published no capacity for it.</div>`;
+         <div class="d-caption"><span class="d-swatch" style="background:${colorFor(hc)}" aria-hidden="true"></span>${hc <= 0 ? "No hosting capacity left without upgrades" : "Hosting capacity at this section"}</div>`
+      : `<div class="d-capacity is-none">Not published</div>
+         <div class="d-caption">The utility mapped this line but did not publish a hosting capacity value.</div>`;
 
     const keyHtml = `
       <div class="d-key">
-        <div><span class="key-section" aria-hidden="true"></span>This section</div>
-        ${props.feeder ? '<div><span class="key-feeder" aria-hidden="true"></span>Rest of the same feeder</div>' : ""}
-        <p>Utilities split every feeder into short sections and publish a separate capacity for each one, so one street can change color from block to block.</p>
+        <div><span class="key-section" aria-hidden="true"></span>Selected section</div>
+        ${props.feeder ? '<div><span class="key-feeder" aria-hidden="true"></span>Rest of its feeder</div>' : ""}
+        <p>Utilities publish a value for each section, so capacity can change from one block to the next.</p>
       </div>`;
 
     $("detail-body").innerHTML = `
@@ -541,8 +651,10 @@
       ${capacityHtml}
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       ${keyHtml}
-      ${issuesHtml}`;
+      ${issuesHtml}
+      ${shareHtml()}`;
     $("detail").hidden = false;
+    wireShare();
   }
 
   function select(map, feature) {
@@ -620,6 +732,7 @@
     });
     padForPanel(map);
     window.addEventListener("resize", () => padForPanel(map));
+    map.addControl(new HomeControl(), "bottom-right");
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 

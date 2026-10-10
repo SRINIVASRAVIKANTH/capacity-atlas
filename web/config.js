@@ -8,4 +8,6 @@ window.ATLAS_CONFIG = {
     light: "https://tiles.openfreemap.org/styles/positron",
   },
   startView: { center: [-75.9, 42.9], zoom: 6.4 },
+  // Place search: Photon by komoot, a free OpenStreetMap geocoder (fair use, no key).
+  searchUrl: "https://photon.komoot.io/api/",
 };

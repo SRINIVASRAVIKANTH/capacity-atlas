@@ -104,9 +104,32 @@ a:hover { color: var(--strong); }
   box-shadow: var(--shadow);
   z-index: 2;
 }
-.panel-head { padding: 22px 22px 18px; border-bottom: 1px solid var(--line); }
-.lede { margin-top: 8px; color: var(--muted); max-width: 34ch; }
+.panel-head { padding: 18px 22px 16px; border-bottom: 1px solid var(--line); }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lede { margin-top: 6px; color: var(--muted); max-width: 36ch; }
+.key { margin-top: 16px; }
+.key h2 { margin-bottom: 8px; }
+.key .ramp-labels { margin-bottom: 8px; }
 .panel-body { overflow-y: auto; padding: 4px 22px 18px; scrollbar-width: thin; }
+
+/* Collapsed: only the title and the color key stay, so the map gets the screen. */
+.panel.is-collapsed { bottom: auto; }
+.panel.is-collapsed .lede,
+.panel.is-collapsed .key-none,
+.panel.is-collapsed .panel-body { display: none; }
+.panel.is-collapsed .panel-head { border-bottom: 0; }
+.panel.is-collapsed .key { margin-top: 10px; }
+.panel.is-collapsed .key .ramp-labels { margin-bottom: 0; }
+.panel.is-collapsed .chevron { transform: rotate(180deg); }
+
+/* Small square buttons: collapse the panel, open display settings. */
+.icon-button {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+  border-radius: var(--radius-control); border: 1px solid var(--line);
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.icon-button:hover { background: var(--raised); color: var(--text); }
+.chevron { transition: transform 0.15s; }
 .block { padding: 18px 0; border-bottom: 1px solid var(--line); }
 .block:last-of-type { border-bottom: 0; }
 .note { color: var(--muted); font-size: 13px; }
@@ -159,7 +182,7 @@ a:hover { color: var(--strong); }
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
 .check .count { margin-left: auto; color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 12px; font-weight: 500; }
 .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .switch-track {
   width: 32px; height: 18px; border-radius: 9px; background: var(--raised);
@@ -174,9 +197,17 @@ a:hover { color: var(--strong); }
 :root[data-theme="light"] .switch input:checked + .switch-track::after { background: var(--accent); }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Weekly check summary */
-.utility { padding: 2px 0 16px; }
-.utility + .utility { border-top: 1px solid var(--line); padding-top: 14px; }
+/* Data check: a one-line result per utility, details only when switched on */
+.check-summary { display: grid; gap: 4px; margin-top: 10px; font-size: 13px; }
+.check-summary div { display: flex; align-items: baseline; gap: 8px; }
+.check-summary .dot { transform: translateY(-1px); }
+.issues-details { margin-top: 14px; }
+.issues-details[hidden] { display: none; }
+.legend-shapes { margin-top: 4px; line-height: 1.7; }
+
+/* Weekly check details */
+.utility { padding: 14px 0 14px; border-top: 1px solid var(--line); }
+
 .utility-name { font-family: var(--font-display); font-weight: 500; font-size: 15px; }
 .utility-meta { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
 .findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -195,10 +226,37 @@ a:hover { color: var(--strong); }
 
 .panel-foot { padding-top: 16px; color: var(--faint); font-size: 12.5px; display: grid; gap: 6px; }
 
+/* ---------- Display settings: a small button in the top right corner ---------- */
+.display { position: fixed; top: var(--gap); right: var(--gap); z-index: 4; }
+.display-button { width: 40px; height: 40px; background: var(--surface); box-shadow: var(--shadow); backdrop-filter: blur(10px); }
+.display-menu {
+  position: absolute; top: 48px; right: 0; width: 300px;
+  background: var(--surface); backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: var(--radius-panel);
+  box-shadow: var(--shadow); padding: 16px 16px 12px;
+}
+.display-menu[hidden] { display: none; }
+.display-menu .segmented { margin-bottom: 6px; }
+.display-menu .note { font-size: 12.5px; margin-bottom: 14px; }
+.display-menu .note:last-child { margin-bottom: 4px; }
+
+/* ---------- First-visit tip ---------- */
+.hint {
+  position: fixed; top: var(--gap); left: 50%; transform: translateX(-50%); z-index: 3;
+  display: flex; align-items: center; gap: 10px;
+  max-width: calc(100% - 2 * var(--gap) - 100px);
+  background: var(--surface); backdrop-filter: blur(10px);
+  border: 1px solid var(--accent); border-radius: 999px;
+  box-shadow: var(--shadow); padding: 8px 8px 8px 16px; font-size: 13px;
+}
+.hint[hidden] { display: none; }
+.hint-close { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.hint-close:hover { background: var(--raised); color: var(--text); }
+
 /* ---------- Detail card ---------- */
 .detail {
-  position: fixed; top: var(--gap); right: var(--gap);
-  width: 320px; max-height: calc(100% - 2 * var(--gap)); overflow-y: auto;
+  position: fixed; top: calc(var(--gap) + 52px); right: var(--gap);
+  width: 320px; max-height: calc(100% - 2 * var(--gap) - 52px); overflow-y: auto;
   background: var(--surface); backdrop-filter: blur(10px);
   border: 1px solid var(--line); border-radius: var(--radius-panel);
   box-shadow: var(--shadow);
@@ -237,7 +295,7 @@ a:hover { color: var(--strong); }
   font: 500 13px/1 var(--font-text); cursor: pointer;
 }
 .d-action:hover { background: var(--accent); color: #fff; }
-.issues-key { margin-top: 10px; }
+.issues-key { margin-bottom: 4px; }
 .issues-key .dash { display: inline-block; width: 22px; height: 0; margin: 0 6px 0 0; vertical-align: middle; border-top: 3px dashed; }
 .issues-key .dash-error { margin-left: 12px; }
 .issues-key .dash-warning { border-color: var(--sev-warning); }
@@ -282,20 +340,20 @@ a:hover { color: var(--strong); }
     border-radius: 18px 18px 0 0; border-bottom: 0;
     max-height: 62vh;
   }
+  .panel.is-collapsed { bottom: 0; }
   .sheet-handle {
     display: grid; place-items: center; height: 22px; width: 100%;
     background: transparent; border: 0; cursor: pointer; padding: 0;
   }
   .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--faint); }
-  .panel-head { padding: 4px 18px 14px; }
+  .panel-head { padding: 2px 18px 14px; }
   h1 { font-size: 22px; }
   .panel-body { padding: 0 18px 18px; }
-  /* Collapsed: title and color scale only, so the map keeps most of the screen. */
-  .panel.is-collapsed .lede,
-  .panel.is-collapsed .panel-body > :not(:first-child) { display: none; }
-  .panel.is-collapsed .panel-body > .block:first-child { padding: 12px 0 4px; border-bottom: 0; }
-  .panel.is-collapsed .panel-head { border-bottom: 0; padding-bottom: 0; }
-  .panel.is-collapsed .note { display: none; }
+  .hint { left: var(--gap); right: calc(var(--gap) + 52px); transform: none; max-width: none; }
+  /* Bottom sheet: the chevron points the way the sheet will move. */
+  .chevron { transform: rotate(180deg); }
+  .panel.is-collapsed .chevron { transform: none; }
+  .display-menu { width: min(300px, calc(100vw - 2 * var(--gap))); }
   .detail { top: auto; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; max-height: 60vh; }
   .maplibregl-ctrl-bottom-right { bottom: 150px; }
 }

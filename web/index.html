@@ -22,69 +22,66 @@
 <body>
   <div id="map" role="region" aria-label="Map of grid hosting capacity"></div>
 
-  <aside class="panel" id="panel" aria-label="Map controls and data summary">
+  <aside class="panel" id="panel" aria-label="Map key and filters">
     <button class="sheet-handle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="panel-body">
       <span class="sheet-grip" aria-hidden="true"></span>
-      <span class="visually-hidden">Show or hide the side panel</span>
+      <span class="visually-hidden">Show or hide the panel</span>
     </button>
 
     <header class="panel-head">
-      <h1>Capacity Atlas</h1>
-      <p class="lede">Where New York's distribution grid can take new solar. Built from the utilities' own hosting capacity maps, checked for errors every week.</p>
-    </header>
+      <div class="title-row">
+        <h1>Capacity Atlas</h1>
+        <button class="icon-button" id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body" title="Hide the panel">
+          <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="visually-hidden" id="panel-toggle-label">Hide the panel</span>
+        </button>
+      </div>
+      <p class="lede">Where New York's power lines have room for new solar, from the utilities' own data, checked for problems every week.</p>
 
-    <div class="panel-body" id="panel-body">
-      <section class="block" aria-labelledby="legend-title">
+      <section class="key" aria-labelledby="legend-title">
         <h2 id="legend-title">Room for new solar</h2>
         <div class="ramp" id="ramp" role="img" aria-label="Color scale from no room to 5 megawatts or more"></div>
         <div class="ramp-labels" aria-hidden="true">
           <span style="left:0">0</span><span style="left:25%">0.5</span><span style="left:44%">1</span><span style="left:63%">2</span><span style="left:82%">5</span><span>MW</span>
         </div>
-        <p class="note"><span class="swatch-none" aria-hidden="true"></span>Dashed gray: the utility published no capacity for that line.</p>
+        <p class="note key-none"><span class="swatch-none" aria-hidden="true"></span>Gray dashed line: the utility published no number for it.</p>
       </section>
+    </header>
 
+    <div class="panel-body" id="panel-body">
       <section class="block" aria-labelledby="filter-title">
-        <h2 id="filter-title">Show</h2>
+        <h2 id="filter-title">Filter the map</h2>
         <fieldset class="segmented" id="min-mw">
-          <legend>Minimum capacity</legend>
+          <legend>Show lines with room for at least</legend>
           <label><input type="radio" name="min-mw" value="0" checked><span>All</span></label>
           <label><input type="radio" name="min-mw" value="0.5"><span>0.5 MW</span></label>
           <label><input type="radio" name="min-mw" value="1"><span>1 MW</span></label>
           <label><input type="radio" name="min-mw" value="2"><span>2 MW</span></label>
           <label><input type="radio" name="min-mw" value="5"><span>5 MW</span></label>
         </fieldset>
-        <div class="toggles" id="utility-toggles" aria-label="Utilities"></div>
-        <label class="switch">
-          <input type="checkbox" id="issues-toggle">
-          <span class="switch-track" aria-hidden="true"></span>
-          <span>Highlight lines with data issues</span>
-        </label>
-        <p class="note issues-key" id="issues-key" hidden>
-          <span class="dash dash-warning" aria-hidden="true"></span>Warning
-          <span class="dash dash-error" aria-hidden="true"></span>Error
-          <span class="issues-key-rest">Gray lines: no warnings or errors found. Notes (gray circles in the list below) are not highlighted.</span>
-        </p>
+        <div class="toggles" id="utility-toggles" role="group" aria-label="Utilities"></div>
       </section>
 
       <section class="block" aria-labelledby="quality-title">
-        <h2 id="quality-title">What the weekly check found</h2>
-        <div id="quality" aria-live="polite"><p class="note">Loading the latest check…</p></div>
-      </section>
-
-      <section class="block" aria-labelledby="display-title">
-        <h2 id="display-title">Display</h2>
-        <fieldset class="segmented" id="theme-choice">
-          <legend>Theme</legend>
-          <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
-          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
-          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
-        </fieldset>
-        <fieldset class="segmented" id="palette-choice">
-          <legend>Color scale</legend>
-          <label><input type="radio" name="palette" value="plasma"><span>Plasma</span></label>
-          <label><input type="radio" name="palette" value="cividis"><span>Cividis</span></label>
-        </fieldset>
-        <p class="note">Both scales work with common color blindness. Cividis is tuned for red-green color blindness and still reads in grayscale. Issue markers use shapes as well as color: <span class="dot sev-error" aria-hidden="true"></span> error, <span class="dot sev-warning" aria-hidden="true"></span> warning, <span class="dot sev-info" aria-hidden="true"></span> note.</p>
+        <h2 id="quality-title">Data check</h2>
+        <p class="note">Every week, each line is tested with 12 rules for missing, outdated or contradictory data.</p>
+        <div class="check-summary" id="check-summary" aria-live="polite"></div>
+        <label class="switch">
+          <input type="checkbox" id="issues-toggle" aria-controls="issues-details">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span>Show problem lines on the map</span>
+        </label>
+        <div class="issues-details" id="issues-details" hidden>
+          <p class="note issues-key">
+            <span class="dash dash-warning" aria-hidden="true"></span>Warning
+            <span class="dash dash-error" aria-hidden="true"></span>Error
+            <span class="issues-key-rest">All other lines turn gray. Info items are listed below but not drawn.</span>
+          </p>
+          <div id="quality"><p class="note">Loading the latest check.</p></div>
+          <p class="note legend-shapes"><span class="dot sev-error" aria-hidden="true"></span> Error: the data contradicts itself.
+            <span class="dot sev-warning" aria-hidden="true"></span> Warning: missing or possibly out of date.
+            <span class="dot sev-info" aria-hidden="true"></span> Info: worth knowing, not a problem.</p>
+        </div>
       </section>
 
       <footer class="panel-foot">
@@ -93,6 +90,35 @@
       </footer>
     </div>
   </aside>
+
+  <div class="display" id="display">
+    <button class="icon-button display-button" id="display-toggle" type="button" aria-expanded="false" aria-controls="display-menu" title="Display settings">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+      <span class="visually-hidden">Display settings</span>
+    </button>
+    <div class="display-menu" id="display-menu" hidden>
+      <fieldset class="segmented" id="theme-choice">
+        <legend>Theme</legend>
+        <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
+        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+      </fieldset>
+      <p class="note">Auto follows your computer's light or dark setting.</p>
+      <fieldset class="segmented" id="palette-choice">
+        <legend>Color scale</legend>
+        <label><input type="radio" name="palette" value="plasma"><span>Standard</span></label>
+        <label><input type="radio" name="palette" value="cividis"><span>Color-blind</span></label>
+      </fieldset>
+      <p class="note">Both scales work for most color blindness. The color-blind scale is tuned for red-green color blindness and still reads in grayscale.</p>
+    </div>
+  </div>
+
+  <div class="hint" id="hint" hidden>
+    <span>Click any line to see how much new solar it can take.</span>
+    <button class="hint-close" id="hint-close" type="button" aria-label="Dismiss tip">
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
 
   <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected line details">
     <button class="detail-close" id="detail-close" type="button" aria-label="Close details">

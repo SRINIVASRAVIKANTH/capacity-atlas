@@ -319,7 +319,7 @@
     });
     $("issues-toggle").addEventListener("change", (e) => {
       state.issuesOnly = e.target.checked;
-      $("issues-key").hidden = !state.issuesOnly;
+      $("issues-details").hidden = !state.issuesOnly;
       applyFilters(map);
     });
     $("utility-toggles").addEventListener("change", (e) => {
@@ -345,20 +345,59 @@
       if (state.prefs.theme === "auto") applyTheme(map);
     });
 
+    // Display settings: a small menu behind the button in the top right corner.
+    const menu = $("display-menu");
+    const setMenu = (open) => {
+      menu.hidden = !open;
+      $("display-toggle").setAttribute("aria-expanded", String(open));
+    };
+    $("display-toggle").addEventListener("click", () => setMenu(menu.hidden));
+    document.addEventListener("click", (e) => {
+      if (!menu.hidden && !$("display").contains(e.target)) setMenu(false);
+    });
+
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !$("detail").hidden) clearSelection(map);
+      if (e.key !== "Escape") return;
+      if (!menu.hidden) setMenu(false);
+      else if (!$("detail").hidden) clearSelection(map);
     });
-    $("sheet-toggle").addEventListener("click", () => {
-      const panel = $("panel");
-      const collapsed = panel.classList.toggle("is-collapsed");
-      $("sheet-toggle").setAttribute("aria-expanded", String(!collapsed));
-    });
-    $("repo-link").href = cfg.repoUrl;
-    if (window.matchMedia("(max-width: 760px)").matches) {
-      $("panel").classList.add("is-collapsed");
-      $("sheet-toggle").setAttribute("aria-expanded", "false");
+
+    // The panel folds down to its title and color key, on any screen size.
+    const setCollapsed = (collapsed) => {
+      $("panel").classList.toggle("is-collapsed", collapsed);
+      for (const id of ["panel-toggle", "sheet-toggle"]) $(id).setAttribute("aria-expanded", String(!collapsed));
+      const label = collapsed ? "Show the panel" : "Hide the panel";
+      $("panel-toggle").title = label;
+      $("panel-toggle-label").textContent = label;
+      padForPanel(map);
+    };
+    for (const id of ["panel-toggle", "sheet-toggle"]) {
+      $(id).addEventListener("click", () => setCollapsed(!$("panel").classList.contains("is-collapsed")));
     }
+    if (window.matchMedia("(max-width: 760px)").matches) setCollapsed(true);
+
+    // First-visit tip, until the person clicks a line or closes it.
+    if (!readFlag(HINT_KEY)) $("hint").hidden = false;
+    $("hint-close").addEventListener("click", dismissHint);
+
+    $("repo-link").href = cfg.repoUrl;
+  }
+
+  const HINT_KEY = "capacity-atlas-hint-seen";
+  function readFlag(key) {
+    try { return window.localStorage.getItem(key) === "1"; } catch (err) { return false; }
+  }
+  function dismissHint() {
+    $("hint").hidden = true;
+    try { window.localStorage.setItem(HINT_KEY, "1"); } catch (err) { /* storage blocked: the tip just returns next visit */ }
+  }
+
+  // Keep the map's center clear of the side panel on wide screens.
+  function padForPanel(map) {
+    const wide = window.matchMedia("(min-width: 761px)").matches;
+    const open = !$("panel").classList.contains("is-collapsed");
+    map.setPadding({ left: wide && open ? $("panel").offsetWidth + 16 : 0, top: 0, right: 0, bottom: 0 });
   }
 
   // ---------- summary panel ----------
@@ -377,7 +416,9 @@
     const quality = $("quality");
     const toggles = $("utility-toggles");
     if (!summary) {
-      quality.innerHTML = '<p class="note">The weekly summary could not be loaded. The map still shows the latest published data.</p>';
+      const message = '<p class="note">The weekly check results could not be loaded. The map still shows the latest published data.</p>';
+      quality.innerHTML = message;
+      $("check-summary").innerHTML = message;
       return;
     }
     for (const flag of summary.flags) state.flagsByBit.set(flag.bit, flag);
@@ -388,6 +429,15 @@
         <span>${escapeHtml(s.utility)}</span>
         <span class="count">${fmtInt(s.sections)} lines</span>
       </label>`).join("");
+
+    // One line per utility, always visible: the overall result of this week's check.
+    $("check-summary").innerHTML = summary.sources.map((s) => {
+      const has = (severity) => s.checks.some((c) => c.severity === severity && c.flagged > 0);
+      const [cls, text] = has("error") ? ["sev-error", "errors found"]
+        : has("warning") ? ["sev-warning", "warnings found, no errors"]
+        : ["sev-ok", "no warnings or errors"];
+      return `<div><span class="dot ${cls}" aria-hidden="true"></span><span><strong>${escapeHtml(s.utility)}</strong>: ${text}</span></div>`;
+    }).join("");
 
     quality.innerHTML = summary.sources.map((s) => {
       const findings = s.checks
@@ -405,7 +455,7 @@
           <div class="utility-meta">Data from ${fmtDate(s.snapshot_date)}. Capacity published for ${analyzedPct}% of ${fmtInt(s.sections)} line sections.</div>
           <ul class="findings">
             ${list}
-            ${errorsClean ? '<li><span class="dot sev-ok" aria-hidden="true"></span><span class="clean">No contradictory values found</span><span></span></li>' : ""}
+            ${errorsClean ? '<li><span class="dot sev-ok" aria-hidden="true"></span><span class="clean">No errors (contradictory values) found</span><span></span></li>' : ""}
           </ul>
         </div>`;
     }).join("");
@@ -539,6 +589,7 @@
       };
       select(map, feature);
       renderDetail(feature.properties);
+      if (!$("hint").hidden) dismissHint();
     });
     map.on("mousemove", (e) => {
       map.getCanvas().style.cursor = hitsAt(e.point).length ? "pointer" : "";
@@ -567,12 +618,8 @@
       hash: true,
       attributionControl: { compact: true },
     });
-    const padForPanel = () => {
-      const wide = window.matchMedia("(min-width: 761px)").matches;
-      map.setPadding(wide ? { left: $("panel").offsetWidth + 16, top: 0, right: 0, bottom: 0 } : { left: 0, top: 0, right: 0, bottom: 0 });
-    };
-    padForPanel();
-    window.addEventListener("resize", padForPanel);
+    padForPanel(map);
+    window.addEventListener("resize", () => padForPanel(map));
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 

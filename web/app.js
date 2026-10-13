@@ -394,6 +394,7 @@
     });
 
     wireSearch(map);
+    wireAssistant(map);
 
     $("repo-link").href = cfg.repoUrl;
   }
@@ -413,13 +414,21 @@
   const NY_BBOX = [-79.8, 40.4, -71.8, 45.1];
   const COORDS = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
+  // Photon place lookup, shared by place search and AI search.
+  async function geocode(query, limit) {
+    const url = `${cfg.searchUrl}?q=${encodeURIComponent(query)}&limit=${limit}&lang=en&bbox=${NY_BBOX.join(",")}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return ((await response.json()).features || []).filter((f) => f.geometry && f.geometry.type === "Point");
+  }
+
   function wireSearch(map) {
     const form = $("search");
     const input = $("search-input");
     const list = $("search-results");
     const show = (html) => { list.innerHTML = html; list.hidden = false; };
     let pin = null;
-    const flyTo = (lng, lat, extent) => {
+    const flyTo = (lng, lat, extent, zoom = 14) => {
       list.hidden = true;
       clearSelection(map);
       // A pin marks the searched place, so it is easy to find among the lines.
@@ -427,9 +436,10 @@
       const el = document.createElement("div");
       el.className = "search-pin";
       pin = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
-      if (extent) map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 40, maxZoom: 15 });
-      else map.flyTo({ center: [lng, lat], zoom: 14 });
+      if (extent) map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 40, maxZoom: zoom, minZoom: 11 });
+      else map.flyTo({ center: [lng, lat], zoom });
     };
+    state.flyToPlace = flyTo;
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -442,11 +452,8 @@
       }
       show('<li class="search-msg">Searching</li>');
       try {
-        const url = `${cfg.searchUrl}?q=${encodeURIComponent(query)}&limit=6&lang=en&bbox=${NY_BBOX.join(",")}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        const results = ((await response.json()).features || []).filter((f) => f.geometry && f.geometry.type === "Point");
-        if (!results.length) return show('<li class="search-msg">No places found in New York. Try a town name or lat, long.</li>');
+        const results = await geocode(query, 6);
+        if (!results.length) return show('<li class="search-msg">No places found in New York. Try a town name or lat, long. For questions, use the assistant.</li>');
         show(results.map((f, i) => {
           const p = f.properties || {};
           const where = [p.city && p.city !== p.name ? p.city : null, p.county, p.state].filter(Boolean).join(", ");
@@ -464,6 +471,230 @@
     document.addEventListener("click", (e) => {
       if (!list.hidden && !form.contains(e.target)) list.hidden = true;
     });
+  }
+
+  // ---------- grid assistant (AI) ----------
+  // Claude only turns the question into map settings. Every number in a reply is
+  // computed here, from the utilities' data currently on the map.
+  function setMinMW(map, value) {
+    state.minMW = value || 0;
+    document.querySelectorAll("#min-mw input").forEach((r) => (r.checked = Number(r.value) === state.minMW));
+    applyFilters(map);
+  }
+
+  function setUtility(map, only) {
+    state.hidden = new Set();
+    document.querySelectorAll("#utility-toggles input").forEach((box) => {
+      box.checked = !only || box.value === only;
+      if (!box.checked) state.hidden.add(box.value);
+    });
+    applyFilters(map);
+  }
+
+  function setIssues(map, on) {
+    $("issues-toggle").checked = on;
+    state.issuesOnly = on;
+    $("issues-details").hidden = !on;
+    applyFilters(map);
+  }
+
+  function highlightFeeder(map, src, feeder) {
+    const same = ["all", ["==", ["get", "src"], src], ["==", ["get", "feeder"], feeder]];
+    for (const id of ids("feeder-halo")) map.setFilter(id, same);
+    const parts = map.queryRenderedFeatures({ layers: [...ids("capacity"), ...ids("unanalyzed")], filter: same });
+    if (!parts.length) return;
+    const bounds = new maplibregl.LngLatBounds();
+    for (const f of parts) {
+      const lines = f.geometry.type === "LineString" ? [f.geometry.coordinates] : f.geometry.coordinates;
+      for (const line of lines) for (const c of line) bounds.extend(c);
+    }
+    map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+  }
+
+  // Count what the map shows now: sections (zoomed in) or feeders (zoomed out) meeting the minimum.
+  function summarizeView(map) {
+    const zoomedIn = map.getZoom() >= 11;
+    const layer = zoomedIn ? "capacity" : "capacity-ov";
+    const seen = new Set();
+    const feeders = new Map();
+    let sections = 0, meters = 0;
+    for (const f of map.queryRenderedFeatures({ layers: [layer] })) {
+      const p = f.properties;
+      const key = zoomedIn ? f.id : `${p.src}|${p.feeder}|${p.hc}|${p.qs}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sections += 1;
+      meters += p.m || 0;
+      if (!p.feeder) continue;
+      const fk = `${p.src}|${p.feeder}`;
+      const best = feeders.get(fk);
+      if (!best || p.hc > best.hc) feeders.set(fk, { src: p.src, feeder: p.feeder, hc: p.hc });
+    }
+    const top = [...feeders.values()].sort((a, b) => b.hc - a.hc).slice(0, 3);
+    return { zoomedIn, sections, miles: meters / 1609.34, feeders: feeders.size, top };
+  }
+
+  function describe(summary, minMW) {
+    const need = minMW ? `at least ${fmtMW(minMW)} MW of hosting capacity` : "published hosting capacity";
+    if (!summary.feeders && !summary.sections) {
+      return `<p>No lines in this view have ${need}. Try a nearby area, zoom out, or a smaller project size.</p>`;
+    }
+    const facts = summary.zoomedIn
+      ? `In this view, <strong>${fmtInt(summary.sections)} line sections</strong> (${summary.miles.toFixed(summary.miles < 10 ? 1 : 0)} mi) on <strong>${fmtInt(summary.feeders)} feeders</strong> have ${need}.`
+      : `In this view, <strong>${fmtInt(summary.feeders)} feeders</strong> have lines with ${need}. Zoom in to count individual sections.`;
+    const top = summary.top.map((t) =>
+      `<li><button type="button" data-src="${escapeHtml(t.src)}" data-feeder="${escapeHtml(t.feeder)}">Feeder <span class="code">${escapeHtml(t.feeder)}</span></button><span>${summary.zoomedIn ? "up to" : "from"} ${fmtMW(t.hc)} MW</span></li>`).join("");
+    return `<p>${facts}</p>${top ? `<p class="msg-sub">Highest capacity in view</p><ul class="msg-top">${top}</ul>` : ""}`;
+  }
+
+  function addMessage(who, html) {
+    const el = document.createElement("div");
+    el.className = `msg msg-${who}`;
+    el.innerHTML = html;
+    $("chat-log").appendChild(el);
+    $("chat-log").scrollTop = $("chat-log").scrollHeight;
+    return el;
+  }
+
+  // Volta: a small sun with a visor, colored with the map's own capacity scale,
+  // circled by a current. Its eyes follow the pointer.
+  function voltaSVG(id) {
+    return `<svg viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <radialGradient id="${id}-sun" cx="0.35" cy="0.3" r="0.85">
+          <stop offset="0" stop-color="#f0f921"/><stop offset="0.35" stop-color="#fdb52e"/>
+          <stop offset="0.7" stop-color="#c7427c"/><stop offset="1" stop-color="#4a2c7a"/>
+        </radialGradient>
+      </defs>
+      <path class="v-bolt" d="M34 2 28.5 11h4L30 18l7-10h-4.2L35.5 2z"/>
+      <circle class="v-head" cx="32" cy="36" r="20" fill="url(#${id}-sun)"/>
+      <rect class="v-visor" x="17" y="29" width="30" height="13" rx="6.5"/>
+      <g class="v-eyes"><rect class="v-eye" x="23" y="32" width="5" height="7" rx="2.5"/><rect class="v-eye" x="36" y="32" width="5" height="7" rx="2.5"/></g>
+      <ellipse class="v-orbit" cx="32" cy="36" rx="29" ry="9" transform="rotate(-16 32 36)"/>
+      <circle class="v-spark" r="2.4"/>
+    </svg>`;
+  }
+
+  function wireVoltaEyes() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    window.addEventListener("pointermove", (e) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        document.querySelectorAll(".volta").forEach((el) => {
+          const r = el.getBoundingClientRect();
+          const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+          const d = Math.hypot(dx, dy) || 1;
+          const eyes = el.querySelector(".v-eyes");
+          if (eyes) eyes.style.transform = `translate(${(2.6 * dx / d).toFixed(2)}px, ${(1.6 * dy / d).toFixed(2)}px)`;
+        });
+      });
+    });
+  }
+
+  function wireAssistant(map) {
+    if (!cfg.askUrl) return;
+    document.querySelectorAll("[data-volta]").forEach((el) => (el.innerHTML = voltaSVG("volta-" + el.dataset.volta)));
+    wireVoltaEyes();
+    $("assistant").hidden = false;
+    const panel = $("assistant-panel");
+    const greeting = $("greeting");
+    const hideGreeting = () => {
+      greeting.hidden = true;
+      try { sessionStorage.setItem("volta-greeted", "1"); } catch (err) { /* ignore */ }
+    };
+    let greeted = false;
+    try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch (err) { /* ignore */ }
+    if (!greeted) setTimeout(() => { if (panel.hidden) greeting.hidden = false; }, 1500);
+    $("greeting-close").addEventListener("click", hideGreeting);
+    $("greeting-open").addEventListener("click", () => setOpen(true));
+    const setOpen = (open) => {
+      if (open) hideGreeting();
+      panel.hidden = !open;
+      $("assistant-toggle").setAttribute("aria-expanded", String(open));
+      document.body.classList.toggle("assistant-open", open);
+      if (open) setTimeout(() => $("chat-input").focus(), 50);
+    };
+    state.closeAssistant = () => setOpen(false);
+    $("assistant-toggle").addEventListener("click", () => setOpen(panel.hidden));
+    $("assistant-close").addEventListener("click", () => setOpen(false));
+    $("assistant-reset").addEventListener("click", () => {
+      setMinMW(map, 0);
+      setUtility(map, null);
+      setIssues(map, false);
+      clearSelection(map);
+      addMessage("bot", "<p>Filters reset. The map shows every line again.</p>");
+    });
+    $("chat-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = $("chat-input").value.trim();
+      if (!q) return;
+      $("chat-input").value = "";
+      askAI(map, q);
+    });
+    $("chat-chips").addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (b) askAI(map, b.textContent);
+    });
+    $("chat-log").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-feeder]");
+      if (b) highlightFeeder(map, b.dataset.src, b.dataset.feeder);
+    });
+  }
+
+  let asking = false;
+  async function askAI(map, question) {
+    if (asking) return;
+    asking = true;
+    $("chat-send").disabled = true;
+    addMessage("user", `<p>${escapeHtml(question)}</p>`);
+    const reply = addMessage("bot", '<p class="typing" aria-label="Thinking"><span></span><span></span><span></span></p>');
+    try {
+      let plan;
+      try {
+        const response = await fetch(cfg.askUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ question }),
+        });
+        plan = await response.json();
+        if (!response.ok) throw new Error(plan.error || "HTTP " + response.status);
+      } catch (err) {
+        console.warn("Assistant failed:", err);
+        const message = err && err.message && !/^HTTP|fetch|JSON|Unexpected/i.test(err.message) ? err.message : "The assistant is unavailable right now.";
+        reply.innerHTML = `<p>${escapeHtml(message)} You can still use place search and the filters.</p>`;
+        return;
+      }
+      if (plan.out_of_scope) {
+        reply.innerHTML = `<p>${escapeHtml(plan.reply || "I can help with solar hosting capacity in this part of New York.")}</p>`;
+        return;
+      }
+      setUtility(map, plan.utility);
+      setMinMW(map, plan.min_mw);
+      setIssues(map, plan.show_issues);
+      reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
+      if (plan.place) {
+        try {
+          const [place] = await geocode(plan.place, 1);
+          if (place) {
+            const [lng, lat] = place.geometry.coordinates;
+            state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
+          } else {
+            reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
+          }
+        } catch (err) {
+          console.warn("Place lookup failed:", err);
+        }
+      }
+      await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); });
+      reply.querySelector(".typing")?.remove();
+      reply.insertAdjacentHTML("beforeend", describe(summarizeView(map), plan.min_mw));
+      $("chat-log").scrollTop = $("chat-log").scrollHeight;
+    } finally {
+      asking = false;
+      $("chat-send").disabled = false;
+    }
   }
 
   // ---------- map controls ----------
@@ -702,6 +933,8 @@
       select(map, feature);
       renderDetail(feature.properties);
       if (!$("hint").hidden) dismissHint();
+      // On phones the chat covers the map, so a line click closes it to show the card.
+      if (state.closeAssistant && window.matchMedia("(max-width: 760px)").matches) state.closeAssistant();
     });
     map.on("mousemove", (e) => {
       map.getCanvas().style.cursor = hitsAt(e.point).length ? "pointer" : "";

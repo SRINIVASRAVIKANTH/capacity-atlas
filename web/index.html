@@ -136,6 +136,7 @@
       </button>
     </div>
     <ol class="steps">
+      <li><strong>Ask Volta.</strong> The assistant in the bottom right corner answers questions such as "Where near Albany can I connect 2 MW?" It sets the map, and every number comes from the data.</li>
       <li><strong>Read the colors.</strong> Each colored line is a real distribution line. Its color shows the hosting capacity: how many megawatts of new solar can connect there without upgrades. Yellow has the most room, dark purple the least.</li>
       <li><strong>Filter by project size.</strong> Set a minimum hosting capacity to hide lines too small for your project.</li>
       <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value.</li>
@@ -159,6 +160,56 @@
     <button class="hint-close" id="hint-close" type="button" aria-label="Dismiss">
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
+  </div>
+
+  <div class="assistant" id="assistant" hidden>
+    <button class="assistant-launcher" id="assistant-toggle" type="button" aria-expanded="false" aria-controls="assistant-panel" title="Ask Volta, the grid assistant">
+      <span class="volta" data-volta="launch"></span>
+      <span class="visually-hidden">Ask Volta, the grid assistant</span>
+    </button>
+    <div class="greeting" id="greeting" hidden role="status">
+      <button class="greeting-body" id="greeting-open" type="button">
+        <strong>Hi, I am Volta.</strong>
+        <span>Looking for room on the grid? Ask me where new solar can connect.</span>
+      </button>
+      <button class="greeting-close" id="greeting-close" type="button" aria-label="Dismiss">
+        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <section class="assistant-panel" id="assistant-panel" hidden aria-labelledby="assistant-title">
+      <header class="assistant-head">
+        <span class="assistant-avatar"><span class="volta volta-small" data-volta="head"></span></span>
+        <div>
+          <h2 id="assistant-title">Volta</h2>
+          <p>Grid assistant, answering from utility data</p>
+        </div>
+        <button class="icon-button" id="assistant-reset" type="button" title="Reset map filters">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="visually-hidden">Reset map filters</span>
+        </button>
+        <button class="icon-button" id="assistant-close" type="button" title="Close assistant">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="visually-hidden">Close assistant</span>
+        </button>
+      </header>
+      <div class="chat-log" id="chat-log" aria-live="polite">
+        <div class="msg msg-bot"><p>Hi, I am Volta. Ask me where new solar can connect, and I will set the map for you.</p>
+          <div class="chips" id="chat-chips">
+            <button type="button">Where near Albany can I connect 2 MW?</button>
+            <button type="button">Lines with room for 5 MW near Syracuse</button>
+            <button type="button">Show data quality issues near Poughkeepsie</button>
+          </div>
+        </div>
+      </div>
+      <form class="chat-form" id="chat-form" autocomplete="off">
+        <label class="visually-hidden" for="chat-input">Ask a question</label>
+        <input id="chat-input" type="text" maxlength="300" placeholder="Ask about hosting capacity" enterkeyhint="send">
+        <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+      <p class="chat-note">AI sets the map. Every number comes from the utilities' data.</p>
+    </section>
   </div>
 
   <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected line details">

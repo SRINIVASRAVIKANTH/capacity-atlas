@@ -1,0 +1,136 @@
+/* AI search for Capacity Atlas: a Cloudflare Pages Function at /api/ask.
+ *
+ * The browser sends a plain-English question. This function asks Claude to turn it into map
+ * settings (a place, a minimum hosting capacity, a utility, whether to show data issues).
+ * Claude never states capacity numbers: the map computes every number from the utilities'
+ * own data after it applies these settings.
+ *
+ * The API key lives only in Cloudflare (Pages project > Settings > Variables and Secrets,
+ * name ANTHROPIC_API_KEY, type Secret). It is never sent to the browser.
+ */
+
+const MODEL = "claude-haiku-5-5";
+const MAX_QUESTION = 300;           // characters
+const LIMIT_PER_MINUTE = 6;         // per visitor IP, best effort (per Cloudflare instance)
+const LIMIT_PER_DAY = 60;
+
+const UTILITIES = ["central_hudson_ny_pv", "national_grid_ny_pv"];
+
+const SYSTEM = `You turn questions about a solar hosting capacity map of New York into map settings.
+
+The map shows distribution lines from two utilities:
+- Central Hudson Gas & Electric (id central_hudson_ny_pv): the Hudson Valley, for example Poughkeepsie, Kingston, Newburgh, New Paltz, Catskill, Middletown.
+- National Grid (id national_grid_ny_pv): upstate New York, for example Albany, Schenectady, Troy, Saratoga Springs, Syracuse, Utica, Buffalo, Niagara Falls, Glens Falls.
+
+Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades.
+
+Always call the set_map_view tool. Rules:
+- place: the town, city, county or address the person names, written so a geocoder can find it, with ", New York" added. null if they name no place.
+- min_mw: the project size or minimum capacity they need, in MW. Convert kW to MW (500 kW = 0.5). null if they give none.
+- utility: only if they name a utility. Otherwise null.
+- show_issues: true only if they ask about data quality, errors, problems or reliability of the data.
+- reply: one short sentence saying what the map will show. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
+- out_of_scope: true if the question is not about solar, the grid, hosting capacity or places on this map. Then reply politely says what you can help with.`;
+
+const TOOL = {
+  name: "set_map_view",
+  description: "Set the map to answer the person's question.",
+  input_schema: {
+    type: "object",
+    properties: {
+      place: { type: ["string", "null"], description: "Place to center the map on, for example 'Albany, New York'." },
+      min_mw: { type: ["number", "null"], description: "Minimum hosting capacity in MW." },
+      utility: { type: ["string", "null"], enum: [...UTILITIES, null] },
+      show_issues: { type: "boolean" },
+      reply: { type: "string", description: "One short sentence, no numbers about capacity." },
+      out_of_scope: { type: "boolean" },
+    },
+    required: ["place", "min_mw", "utility", "show_issues", "reply", "out_of_scope"],
+  },
+};
+
+// Best-effort rate limit, kept in memory of this Cloudflare instance. The prepaid API
+// credit (auto-reload off) is the hard spending cap behind it.
+const visits = new Map();
+function allowed(ip, now) {
+  const recent = (visits.get(ip) || []).filter((t) => now - t < 86_400_000);
+  const lastMinute = recent.filter((t) => now - t < 60_000).length;
+  if (lastMinute >= LIMIT_PER_MINUTE || recent.length >= LIMIT_PER_DAY) return false;
+  recent.push(now);
+  visits.set(ip, recent);
+  if (visits.size > 5000) visits.clear(); // keep memory bounded
+  return true;
+}
+
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
+
+// Clean what Claude returned, so the browser only ever receives known fields and values.
+export function sanitize(input) {
+  const out = {
+    place: typeof input.place === "string" && input.place.trim() ? input.place.trim().slice(0, 120) : null,
+    min_mw: Number.isFinite(input.min_mw) && input.min_mw > 0 && input.min_mw <= 100 ? Math.round(input.min_mw * 100) / 100 : null,
+    utility: UTILITIES.includes(input.utility) ? input.utility : null,
+    show_issues: input.show_issues === true,
+    reply: typeof input.reply === "string" ? input.reply.trim().slice(0, 300) : "",
+    out_of_scope: input.out_of_scope === true,
+  };
+  return out;
+}
+
+export async function onRequest({ request, env }) {
+  if (request.method !== "POST") return json({ error: `Use POST, not ${request.method}.` }, 405);
+  if (!env.ANTHROPIC_API_KEY) return json({ error: "AI search is not configured." }, 503);
+
+  // Only answer the map's own pages.
+  const origin = request.headers.get("origin");
+  if (origin && new URL(origin).host !== new URL(request.url).host) return json({ error: "Not allowed." }, 403);
+
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  if (!allowed(ip, Date.now())) return json({ error: "Too many questions. Please wait a minute and try again." }, 429);
+
+  let question = "";
+  try {
+    question = String((await request.json()).question || "").trim();
+  } catch (err) {
+    return json({ error: "Send a JSON body with a question." }, 400);
+  }
+  if (!question) return json({ error: "Ask a question first." }, 400);
+  if (question.length > MAX_QUESTION) return json({ error: `Keep questions under ${MAX_QUESTION} characters.` }, 400);
+
+  let response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: env.ANTHROPIC_MODEL || MODEL,
+        max_tokens: 300,
+        system: SYSTEM,
+        tools: [TOOL],
+        tool_choice: { type: "tool", name: TOOL.name },
+        messages: [{ role: "user", content: question }],
+      }),
+    });
+  } catch (err) {
+    return json({ error: "AI search is unavailable right now." }, 502);
+  }
+
+  if (!response.ok) {
+    // 400 with a credit message, 401 bad key, 429 rate limit, 529 overloaded: all mean "try later" to a visitor.
+    console.log("Anthropic API error", response.status, (await response.text()).slice(0, 300));
+    return json({ error: "AI search is unavailable right now." }, 502);
+  }
+
+  const data = await response.json();
+  const call = (data.content || []).find((block) => block.type === "tool_use" && block.name === TOOL.name);
+  if (!call) return json({ error: "AI search could not read that question. Try rephrasing it." }, 502);
+  return json(sanitize(call.input || {}));
+}

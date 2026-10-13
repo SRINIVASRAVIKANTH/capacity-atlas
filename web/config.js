@@ -10,4 +10,6 @@ window.ATLAS_CONFIG = {
   startView: { center: [-75.9, 42.9], zoom: 6.4 },
   // Place search: Photon by komoot, a free OpenStreetMap geocoder (fair use, no key).
   searchUrl: "https://photon.komoot.io/api/",
+  // AI search: a Cloudflare Pages Function in this repo (functions/api/ask.js). Empty string turns it off.
+  askUrl: "/api/ask",
 };

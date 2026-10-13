@@ -534,6 +534,33 @@
     return { zoomedIn, sections, miles: meters / 1609.34, feeders: feeders.size, top };
   }
 
+  // For data quality questions: count flagged lines in view, worst feeders first.
+  function describeIssues(map) {
+    const zoomedIn = map.getZoom() >= 11;
+    const layer = zoomedIn ? "issues" : "issues-ov";
+    const seen = new Set();
+    const feeders = new Map();
+    let warnings = 0, errors = 0;
+    for (const f of map.queryRenderedFeatures({ layers: [layer] })) {
+      const p = f.properties;
+      const key = zoomedIn ? f.id : `${p.src}|${p.feeder}|${p.hc}|${p.qs}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (p.qs === 2) errors += 1; else warnings += 1;
+      if (!p.feeder) continue;
+      const fk = `${p.src}|${p.feeder}`;
+      const entry = feeders.get(fk) || { src: p.src, feeder: p.feeder, n: 0 };
+      entry.n += 1;
+      feeders.set(fk, entry);
+    }
+    if (!warnings && !errors) return "<p>No warnings or errors in this view. The utility data here passed every check.</p>";
+    const unit = zoomedIn ? "line sections" : "merged line groups";
+    const facts = `In this view, <strong>${fmtInt(warnings + errors)} ${unit}</strong> on <strong>${fmtInt(feeders.size)} feeders</strong> are flagged: ${fmtInt(errors)} with errors, ${fmtInt(warnings)} with warnings. Select a dashed line to see why.`;
+    const top = [...feeders.values()].sort((a, b) => b.n - a.n).slice(0, 3).map((t) =>
+      `<li><button type="button" data-src="${escapeHtml(t.src)}" data-feeder="${escapeHtml(t.feeder)}">Feeder <span class="code">${escapeHtml(t.feeder)}</span></button><span>${fmtInt(t.n)} flagged</span></li>`).join("");
+    return `<p>${facts}</p>${top ? `<p class="msg-sub">Most flagged feeders in view</p><ul class="msg-top">${top}</ul>` : ""}`;
+  }
+
   function describe(summary, minMW) {
     const need = minMW ? `at least ${fmtMW(minMW)} MW of hosting capacity` : "published hosting capacity";
     if (!summary.feeders && !summary.sections) {
@@ -689,7 +716,7 @@
       }
       await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); });
       reply.querySelector(".typing")?.remove();
-      reply.insertAdjacentHTML("beforeend", describe(summarizeView(map), plan.min_mw));
+      reply.insertAdjacentHTML("beforeend", plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
       $("chat-log").scrollTop = $("chat-log").scrollHeight;
     } finally {
       asking = false;

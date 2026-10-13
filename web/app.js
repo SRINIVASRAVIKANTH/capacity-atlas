@@ -766,6 +766,7 @@
       return;
     }
     for (const flag of summary.flags) state.flagsByBit.set(flag.bit, flag);
+    $("rule-count").textContent = new Set(summary.sources.flatMap((x) => x.checks.map((c) => c.id))).size;
 
     toggles.innerHTML = summary.sources.map((s) => `
       <label class="check">

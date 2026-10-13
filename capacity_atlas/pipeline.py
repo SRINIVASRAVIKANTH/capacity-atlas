@@ -158,9 +158,12 @@ def run_all(
     previous_dir: Path | None = None,
 ) -> list[SourceRun]:
     fetched_at = fetched_at or datetime.now(timezone.utc)
-    runs = [run_source(s, data_root, reports_root, fetched_at, make_collector, previous_dir)
-            for s in sources]
-    write_summary(runs, reports_root, fetched_at)
+    runs: list[SourceRun] = []
+    for source in sources:
+        runs.append(run_source(source, data_root, reports_root, fetched_at, make_collector, previous_dir))
+        # Rewrite the summary after every source, so a run that is stopped midway
+        # (for example by a time limit) still reports what finished.
+        write_summary(runs, reports_root, fetched_at)
     return runs
 
 

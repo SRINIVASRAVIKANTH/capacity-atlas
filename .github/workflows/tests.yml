@@ -1,0 +1,28 @@
+# Runs every test on each push and pull request, so a broken change shows a red mark on GitHub
+# before it reaches the weekly run or the live site.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - run: pip install -r requirements.txt
+      - run: pytest -q

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="Capacity Atlas: hosting capacity across New York, checked weekly">
+<style>
+.bg{fill:#171a21}
+.ln{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:var(--l);stroke-dashoffset:var(--l);animation:draw 2.2s ease-out forwards, glow 4s ease-in-out 2.4s infinite}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.55}}
+.sub{fill:#fff;animation:pulse 2s ease-in-out infinite}
+.ring{fill:none;stroke:#8ef4ff;stroke-width:2;transform-box:fill-box;transform-origin:center;animation:ring 2.6s ease-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes ring{0%{transform:scale(.4);opacity:.9}100%{transform:scale(2.6);opacity:0}}
+.t{font-family:"Space Grotesk","Segoe UI",Helvetica,Arial,sans-serif;font-weight:700;font-size:64px;fill:#e8e6e1;letter-spacing:-1px}
+.s{font-family:Inter,"Segoe UI",Helvetica,Arial,sans-serif;font-size:21px;fill:#9a9fad}
+.k{font-family:Inter,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;fill:#9a9fad}
+.fade{opacity:0;animation:fadein 1s ease-out forwards}
+@keyframes fadein{to{opacity:1}}
+.eye{fill:#8ef4ff;transform-box:fill-box;transform-origin:center;animation:blink 4s infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+.bolt{fill:#f0f921;transform-box:fill-box;transform-origin:bottom center;animation:zap 2.6s infinite}
+@keyframes zap{0%,70%,100%{transform:scale(1)}78%{transform:scale(1.3) rotate(-8deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;stroke-dashoffset:0!important;opacity:1!important}}
+</style>
+<defs><radialGradient id="sun" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#f0f921"/><stop offset=".35" stop-color="#fdb52e"/><stop offset=".7" stop-color="#c7427c"/><stop offset="1" stop-color="#4a2c7a"/></radialGradient><linearGradient id="ramp" x1="0" x2="1"><stop offset="0" stop-color="#4a2c7a"/><stop offset=".2" stop-color="#8b0aa5"/><stop offset=".4" stop-color="#c7427c"/><stop offset=".6" stop-color="#ef7b45"/><stop offset=".8" stop-color="#fdb52e"/><stop offset="1" stop-color="#f0f921"/></linearGradient></defs>
+<rect class="bg" width="1200" height="320" rx="18"/>
+<polyline class="ln" points="760,95 760,124 724,124 724,159 724,141" stroke="#f0f921" style="--l:118;animation-delay:0.00s,2.40s"/>
+<polyline class="ln" points="724,141 674,141 674,107 646,107" stroke="#ef7b45" style="--l:112;animation-delay:0.60s,3.00s"/>
+<polyline class="ln" points="674,141 674,166 620,166 676,166" stroke="#c7427c" style="--l:135;animation-delay:1.20s,3.60s"/>
+<polyline class="ln" points="760,95 760,130 719,130 662,130" stroke="#f0f921" style="--l:133;animation-delay:0.20s,2.60s"/>
+<polyline class="ln" points="719,130 719,103 768,103 743,103" stroke="#fdb52e" style="--l:101;animation-delay:0.80s,3.20s"/>
+<polyline class="ln" points="719,103 770,103 728,103 774,103" stroke="#ef7b45" style="--l:139;animation-delay:1.40s,3.80s"/>
+<polyline class="ln" points="910,220 910,201 885,201 921,201" stroke="#f0f921" style="--l:80;animation-delay:0.25s,2.65s"/>
+<polyline class="ln" points="921,201 870,201 870,174 845,174 871,174" stroke="#fdb52e" style="--l:129;animation-delay:0.85s,3.25s"/>
+<polyline class="ln" points="870,174 870,158 870,129 913,129 883,129" stroke="#ef7b45" style="--l:118;animation-delay:1.45s,3.85s"/>
+<polyline class="ln" points="910,220 910,205 910,239 943,239" stroke="#f0f921" style="--l:82;animation-delay:0.45s,2.85s"/>
+<polyline class="ln" points="910,239 870,239 870,201 870,165 870,199 839,199" stroke="#fdb52e" style="--l:179;animation-delay:1.05s,3.45s"/>
+<polyline class="ln" points="870,239 870,201 870,229 870,253 837,253 795,253" stroke="#ef7b45" style="--l:165;animation-delay:1.65s,4.05s"/>
+<polyline class="ln" points="1060,110 1060,72 1111,72 1084,72" stroke="#f0f921" style="--l:116;animation-delay:0.50s,2.90s"/>
+<polyline class="ln" points="1060,72 1030,72 1076,72 1076,39 1021,39" stroke="#ef7b45" style="--l:164;animation-delay:1.10s,3.50s"/>
+<polyline class="ln" points="1076,39 1021,39 1066,39 1037,39" stroke="#8b0aa5" style="--l:129;animation-delay:1.70s,4.10s"/>
+<polyline class="ln" points="1060,110 1027,110 1027,136 1056,136 1056,176" stroke="#f0f921" style="--l:128;animation-delay:0.70s,3.10s"/>
+<polyline class="ln" points="1027,110 1076,110 1076,93 1035,93 1035,120 1035,149" stroke="#ef7b45" style="--l:163;animation-delay:1.30s,3.70s"/>
+<polyline class="ln" points="1035,120 1035,96 1035,111 979,111 979,134 979,158" stroke="#c7427c" style="--l:142;animation-delay:1.90s,4.30s"/>
+<polyline class="ln" points="680,235 680,204 733,204 688,204" stroke="#f0f921" style="--l:129;animation-delay:0.75s,3.15s"/>
+<polyline class="ln" points="733,204 733,183 771,183 818,183" stroke="#ef7b45" style="--l:106;animation-delay:1.35s,3.75s"/>
+<polyline class="ln" points="733,183 733,154 682,154 727,154 727,179" stroke="#c7427c" style="--l:150;animation-delay:1.95s,4.35s"/>
+<polyline class="ln" points="680,235 680,269 727,269 694,269" stroke="#f0f921" style="--l:114;animation-delay:0.95s,3.35s"/>
+<polyline class="ln" points="727,269 767,269 767,234 708,234" stroke="#ef7b45" style="--l:134;animation-delay:1.55s,3.95s"/>
+<polyline class="ln" points="708,234 708,204 653,204 620,204" stroke="#8b0aa5" style="--l:118;animation-delay:2.15s,4.55s"/>
+<polyline class="ln" points="1120,250 1176,250 1176,223 1176,206" stroke="#f0f921" style="--l:100;animation-delay:1.00s,3.40s"/>
+<polyline class="ln" points="1176,223 1151,223 1176,223 1145,223" stroke="#ef7b45" style="--l:81;animation-delay:1.60s,4.00s"/>
+<polyline class="ln" points="1145,223 1175,223 1175,246 1175,220" stroke="#c7427c" style="--l:79;animation-delay:2.20s,4.60s"/>
+<polyline class="ln" points="1120,250 1166,250 1166,280 1166,240 1166,280 1176,280" stroke="#f0f921" style="--l:166;animation-delay:1.20s,3.60s"/>
+<polyline class="ln" points="1166,280 1166,296 1166,257 1176,257 1176,281 1176,257" stroke="#fdb52e" style="--l:113;animation-delay:1.80s,4.20s"/>
+<polyline class="ln" points="1166,257 1176,257 1127,257 1069,257 1069,227 1040,227" stroke="#c7427c" style="--l:176;animation-delay:2.40s,4.80s"/>
+<circle class="ring" cx="760" cy="95" r="9" style="animation-delay:0.0s"/><circle class="sub" cx="760" cy="95" r="6"/>
+<circle class="ring" cx="910" cy="220" r="9" style="animation-delay:0.5s"/><circle class="sub" cx="910" cy="220" r="6"/>
+<circle class="ring" cx="1060" cy="110" r="9" style="animation-delay:1.0s"/><circle class="sub" cx="1060" cy="110" r="6"/>
+<circle class="ring" cx="680" cy="235" r="9" style="animation-delay:1.5s"/><circle class="sub" cx="680" cy="235" r="6"/>
+<circle class="ring" cx="1120" cy="250" r="9" style="animation-delay:2.0s"/><circle class="sub" cx="1120" cy="250" r="6"/>
+<g class="fade"><text class="t" x="56" y="138">Capacity Atlas</text><text class="s" x="58" y="180">Where New York's power lines have room for new solar.</text><text class="s" x="58" y="208">Utility data, validated every week.</text><rect x="58" y="244" width="300" height="10" rx="5" fill="url(#ramp)"/><text class="k" x="58" y="278">0 MW</text><text class="k" x="318" y="278">5+ MW</text></g>
+<g transform="translate(500,190) scale(1.4)" class="fade" style="animation-delay:1.2s"><path class="bolt" d="M34 2 28.5 11h4L30 18l7-10h-4.2L35.5 2z"/><circle cx="32" cy="36" r="20" fill="url(#sun)"/><rect x="17" y="29" width="30" height="13" rx="6.5" fill="#12141b"/><rect class="eye" x="23" y="32" width="5" height="7" rx="2.5"/><rect class="eye" x="36" y="32" width="5" height="7" rx="2.5"/><ellipse cx="32" cy="36" rx="29" ry="9" transform="rotate(-16 32 36)" fill="none" stroke="#8ef4ff" stroke-width="1.4" stroke-dasharray="2 3.5" opacity=".55"/></g>
+</svg>

@@ -383,7 +383,7 @@ a:hover { color: var(--strong); }
 .bar-feeder { background: var(--strong); }
 .dot.chg-yes { background: var(--accent); }
 .dot.chg-none { background: var(--muted); }
-.switch input:disabled + .switch-track, .switch input:disabled ~ span { opacity: 0.5; cursor: not-allowed; }
+.switch[hidden] { display: none; }
 .d-change { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 13px; }
 .d-change .bar { margin: 0; flex: none; }
 .d-key { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; font-size: 13px; }

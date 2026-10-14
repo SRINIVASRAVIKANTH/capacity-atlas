@@ -798,6 +798,7 @@
       $("check-summary").innerHTML = message;
       $("change-summary").innerHTML = '<p class="note">The weekly comparison could not be loaded.</p>';
       $("changes-toggle").disabled = true;
+      $("changes-switch").hidden = true;
       return;
     }
     for (const flag of summary.flags) state.flagsByBit.set(flag.bit, flag);
@@ -875,9 +876,9 @@
       }
       return `<div class="cs-row"><span class="dot ${changed ? "chg-yes" : "chg-none"}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-detail">${escapeHtml(text)}</span></div>`;
     }).join("");
-    const toggle = $("changes-toggle");
-    toggle.disabled = total === 0;
-    $("changes-toggle-label").textContent = total === 0 ? "Highlight changed lines (none this week)" : "Highlight changed lines";
+    // The switch appears only when there is something to highlight; the lines above say why not.
+    $("changes-toggle").disabled = total === 0;
+    $("changes-switch").hidden = total === 0;
   }
 
   // Since when a source's changes are counted, for the detail card.

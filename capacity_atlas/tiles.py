@@ -21,16 +21,21 @@ utilities with one rule. The lines layer carries:
     ph      phases, for example ABC  (only if the utility publishes it)
     ad      analysis date YYYY-MM-DD (only if the utility publishes it)
     m       section length in meters
+    ch      change since the previous weekly snapshot, only on changed sections:
+            1 more capacity, 2 less capacity, 3 new section or newly published value,
+            4 value no longer published
+    hp      the previous week's capacity in MW (on ch 1, 2 and 4)
     (id)    the tile feature id is a section number, unique within one weekly build, so
             the map can highlight a whole section even when it crosses tile edges
 
 The overview layer carries src, feeder, qs, and hc set to the LOWER EDGE of the capacity
 band (so the same colors and minimum-capacity filter work on both layers), plus per-feeder
 facts for the zoomed-out detail card: fn (sections), fkm (length in km), fmin and fmax
-(capacity range in MW), and fx0, fy0, fx1, fy1 (the feeder's bounding box).
+(capacity range in MW), fx0, fy0, fx1, fy1 (the feeder's bounding box), and fc (number
+of sections on the feeder that changed since the previous snapshot, only when above 0).
 
 summary.json carries what the side panel shows: per-utility totals, check results,
-and the meaning of every flag bit.
+what changed since the previous snapshot, and the meaning of every flag bit.
 
 The tiles themselves are cut by tippecanoe, the standard open-source tiler.
 
@@ -43,7 +48,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import shutil
 import subprocess
 import tempfile
@@ -56,7 +60,9 @@ import numpy as np
 import pandas as pd
 import shapely
 
+from capacity_atlas.changes import TOLERANCE_MW, keyed
 from capacity_atlas.quality.rules import ERROR, WARNING, QualityRule, default_rules, to_utc_datetime
+from capacity_atlas.snapshot import SnapshotStore, snapshot_day
 from capacity_atlas.sources import SOURCES, Source
 
 logger = logging.getLogger(__name__)
@@ -105,7 +111,8 @@ FLAG_IDS: tuple[str, ...] = (
 )
 FLAG_BIT = {rule_id: 1 << i for i, rule_id in enumerate(FLAG_IDS)}
 
-DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})$")
+# Change codes stored in "ch" on each changed line section.
+MORE, LESS, NEW, UNPUBLISHED = 1, 2, 3, 4
 
 
 class TileBuildError(RuntimeError):
@@ -124,28 +131,21 @@ class SourceSummary:
     median_mw: float | None
     max_mw: float | None
     checks: list[dict] = field(default_factory=list)
+    changes: dict | None = None  # counts since the previous snapshot; None on the first snapshot
 
 
 def latest_snapshot(source_id: str, data_root: Path, previous_dir: Path | None = None) -> Path | None:
-    """Newest snapshot of a source: this run's folder first, then last week's release files."""
-    candidates: dict[str, Path] = {}
-    if previous_dir and previous_dir.exists():
-        prefix = f"{source_id}_"
-        for path in previous_dir.glob(f"{prefix}*.parquet"):
-            candidates[path.stem[len(prefix):]] = path
-    for path in (data_root / source_id).glob("*.parquet"):
-        candidates[path.stem] = path  # this run's file wins over a release copy of the same date
-    if not candidates:
-        return None
-    return candidates[max(candidates)]
+    """Newest snapshot of a source: this run's folder first, then earlier release files."""
+    return SnapshotStore(data_root, previous_dir).latest(source_id)
 
 
 def snapshot_date(path: Path) -> datetime:
     """Snapshot files are named by download date (2026-10-08.parquet or source_2026-10-08.parquet)."""
-    match = DATE_IN_NAME.search(path.stem)
-    if not match:
-        raise TileBuildError(f"Cannot read a date from the snapshot name '{path.name}'.")
-    return datetime.strptime(match.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    try:
+        day = snapshot_day(path)
+    except ValueError as exc:
+        raise TileBuildError(str(exc)) from None
+    return datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
 
 def _optional(gdf: gpd.GeoDataFrame, column: str | None) -> pd.Series | None:
@@ -156,8 +156,58 @@ def _ready(rule: QualityRule, gdf: gpd.GeoDataFrame) -> bool:
     return all(c in gdf.columns for c in rule.required_columns())
 
 
+def section_changes(
+    source: Source, gdf: gpd.GeoDataFrame, previous: gpd.GeoDataFrame | None, since: str | None
+) -> tuple[pd.Series, pd.Series, dict] | None:
+    """What changed on each line section since the previous snapshot.
+
+    Returns the change code and previous capacity per row of `gdf` (missing where unchanged)
+    and the counts for the side panel, or None when there is nothing to compare with.
+    Sections are matched by the utility's section ID, exactly like the weekly change report.
+    """
+    c = source.columns
+    key, cap = (c.section_key, c.capacity_mw) if c else (None, None)
+    if previous is None or not key or not cap:
+        return None
+    if any(col not in frame.columns for frame in (gdf, previous) for col in (key, cap)):
+        logger.warning("%s: cannot compare snapshots, section ID or capacity column missing", source.source_id)
+        return None
+
+    new, old = keyed(gdf, key), keyed(previous, key)
+    new_cap = pd.to_numeric(new[cap], errors="coerce").to_numpy(dtype=float)
+    old_cap = pd.to_numeric(old[cap], errors="coerce").reindex(new.index).to_numpy(dtype=float)
+    existed = new.index.isin(old.index)
+    both = ~np.isnan(new_cap) & ~np.isnan(old_cap)
+    delta = np.where(both, new_cap - np.where(both, old_cap, 0), 0)
+
+    code = np.zeros(len(gdf), dtype=np.int8)
+    code[both & (delta > TOLERANCE_MW)] = MORE
+    code[both & (delta < -TOLERANCE_MW)] = LESS
+    code[~existed | (existed & np.isnan(old_cap) & ~np.isnan(new_cap))] = NEW
+    code[existed & ~np.isnan(old_cap) & np.isnan(new_cap)] = UNPUBLISHED
+
+    ch = pd.Series(code, dtype="Int64").where(code > 0)
+    keep_old = np.isin(code, (MORE, LESS, UNPUBLISHED))
+    hp = pd.Series(np.round(old_cap, 2)).where(keep_old)
+    feeder = gdf[c.feeder] if c.feeder in gdf.columns else None
+    counts = {
+        "since": since,
+        "more": int((code == MORE).sum()),
+        "less": int((code == LESS).sum()),
+        "new": int((code == NEW).sum()),
+        "unpublished": int((code == UNPUBLISHED).sum()),
+        "removed": int(len(old.index.difference(new.index))),
+        "feeders": int(feeder[code > 0].nunique()) if feeder is not None else None,
+    }
+    return ch, hp, counts
+
+
 def map_features(
-    source: Source, gdf: gpd.GeoDataFrame, reference: datetime
+    source: Source,
+    gdf: gpd.GeoDataFrame,
+    reference: datetime,
+    previous: gpd.GeoDataFrame | None = None,
+    previous_date: str | None = None,
 ) -> tuple[gpd.GeoDataFrame, SourceSummary]:
     """Reduce one source's snapshot to the shared map fields and summarize it."""
     if source.columns is None:
@@ -176,7 +226,11 @@ def map_features(
     for rule in default_rules(c, reference):
         if not _ready(rule, gdf):
             continue
-        hit = rule.check(gdf).to_numpy(dtype=bool)
+        try:
+            hit = rule.check(gdf).to_numpy(dtype=bool)
+        except Exception:  # a broken check is left off the map; the others still publish
+            logger.exception("Quality check %s failed for %s", rule.rule_id, source.source_id)
+            continue
         if rule.rule_id in FLAG_BIT:
             flags[hit] |= FLAG_BIT[rule.rule_id]
             severity = {ERROR: 2, WARNING: 1}.get(rule.severity, 0)
@@ -205,6 +259,9 @@ def map_features(
     analysis = _optional(gdf, c.analysis_date)
     if analysis is not None:
         columns["ad"] = to_utc_datetime(analysis).dt.strftime("%Y-%m-%d")
+    changes = section_changes(source, gdf, previous, previous_date)
+    if changes is not None:
+        columns["ch"], columns["hp"], _ = changes
 
     out = gpd.GeoDataFrame(columns, geometry=gdf.geometry, crs=gdf.crs)
     shapes = np.asarray(out.geometry.values, dtype=object)
@@ -225,14 +282,27 @@ def map_features(
         median_mw=float(analyzed.median()) if len(analyzed) else None,
         max_mw=float(analyzed.max()) if len(analyzed) else None,
         checks=checks,
+        changes=changes[2] if changes is not None else None,
     )
     return out, summary
 
 
-def combine(snapshots: dict[str, Path]) -> tuple[gpd.GeoDataFrame, list[SourceSummary]]:
+def combine(
+    snapshots: dict[str, Path], previous: dict[str, Path | None] | None = None
+) -> tuple[gpd.GeoDataFrame, list[SourceSummary]]:
+    """Map fields for every source. `previous` names each source's earlier snapshot, if any."""
     frames, summaries = [], []
+    previous = previous or {}
     for source_id, path in snapshots.items():
-        frame, summary = map_features(SOURCES[source_id], gpd.read_parquet(path), snapshot_date(path))
+        before = previous.get(source_id)
+        old = None
+        if before is not None:
+            try:
+                old = gpd.read_parquet(before)
+            except Exception:  # a damaged old file only costs this week's change highlight
+                logger.exception("Could not read the previous snapshot %s", before)
+        frame, summary = map_features(SOURCES[source_id], gpd.read_parquet(path), snapshot_date(path),
+                                      old, snapshot_day(before) if old is not None else None)
         logger.info("%s: %d line sections from %s", source_id, len(frame), path)
         frames.append(frame)
         summaries.append(summary)
@@ -255,6 +325,7 @@ def build_overview(features: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Merge touching sections of one feeder that share a capacity band and issue level."""
     f = features[["src", "feeder", "hc", "qs", "m", "geometry"]].copy()
     f["feeder"] = f["feeder"].astype("string").fillna("")
+    f["changed"] = features["ch"].notna().astype(int) if "ch" in features.columns else 0
     f["band"] = capacity_band(f["hc"])
 
     # Facts about each whole feeder, shown when someone clicks it while zoomed out.
@@ -263,7 +334,9 @@ def build_overview(features: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     per_feeder = f.groupby(["src", "feeder"]).agg(
         fn=("m", "size"), fkm=("m", "sum"), fmin=("hc", "min"), fmax=("hc", "max"),
         fx0=("minx", "min"), fy0=("miny", "min"), fx1=("maxx", "max"), fy1=("maxy", "max"),
+        fc=("changed", "sum"),
     )
+    per_feeder["fc"] = per_feeder["fc"].astype("Int64").where(per_feeder["fc"] > 0)  # omitted when 0
     per_feeder["fkm"] = (per_feeder["fkm"] / 1000).round(1)
     per_feeder[["fx0", "fy0", "fx1", "fy1"]] = per_feeder[["fx0", "fy0", "fx1", "fy1"]].round(4)
 
@@ -351,15 +424,19 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     tippecanoe = find_tippecanoe(args.tippecanoe)
-    snapshots = {}
+    store = SnapshotStore(args.data, args.previous)
+    snapshots, previous = {}, {}
     for source_id in SOURCES:
-        path = latest_snapshot(source_id, args.data, args.previous)
+        path = store.latest(source_id)
         if path is None:
             logger.warning("No snapshot for %s; it will be missing from the map.", source_id)
-        else:
-            snapshots[source_id] = path
+            continue
+        snapshots[source_id] = path
+        previous[source_id] = store.before(source_id, snapshot_day(path))
+        logger.info("%s: %s, compared with %s", source_id, path.name,
+                    previous[source_id].name if previous[source_id] else "nothing (first snapshot)")
 
-    features, summaries = combine(snapshots)
+    features, summaries = combine(snapshots, previous)
     out = build_tiles(features, args.out, tippecanoe)
     summary = write_summary(summaries, args.out.with_name("summary.json"))
     print(f"\nMap tiles: {out} ({out.stat().st_size / 1e6:.1f} MB, {len(features):,} line sections)")

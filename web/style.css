@@ -37,6 +37,10 @@
   --sev-warning: #fdb52e;
   --sev-info: #8a90a0;
   --sev-ok: #5fd39a;
+  /* Change colors: blue and orange stay distinct with common color blindness. */
+  --chg-more: #4d9dff;
+  --chg-less: #ff9a3c;
+  --chg-new: #c08cff;
 
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-text: "Inter", "Segoe UI", system-ui, sans-serif;
@@ -68,6 +72,9 @@
   --sev-warning: #c27c00;
   --sev-info: #7c8191;
   --sev-ok: #1f9d63;
+  --chg-more: #1f6fe0;
+  --chg-less: #d96500;
+  --chg-new: #8a4fe0;
 }
 :root[data-theme="dark"] { color-scheme: dark; }
 
@@ -240,6 +247,8 @@ a:hover { color: var(--strong); }
 .check-summary div { justify-content: flex-start; }
 .cs-name { font-weight: 500; }
 .cs-status { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.check-summary .cs-row { flex-wrap: wrap; row-gap: 0; }
+.cs-detail { flex-basis: 100%; padding-left: 17px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .issues-details { margin-top: 14px; }
 .issues-details[hidden] { display: none; }
 .legend-shapes { margin-top: 4px; line-height: 1.7; }
@@ -365,6 +374,18 @@ a:hover { color: var(--strong); }
 .issues-key .dash-warning { border-color: var(--sev-warning); }
 .issues-key .dash-error { border-color: var(--sev-error); }
 .issues-key-rest { display: block; margin-top: 4px; }
+.changes-key { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.changes-key .issues-key-rest { flex-basis: 100%; }
+.bar { display: inline-block; width: 22px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.bar-more { background: var(--chg-more); }
+.bar-less { background: var(--chg-less); }
+.bar-new { background: var(--chg-new); }
+.bar-feeder { background: var(--strong); }
+.dot.chg-yes { background: var(--accent); }
+.dot.chg-none { background: var(--muted); }
+.switch input:disabled + .switch-track, .switch input:disabled ~ span { opacity: 0.5; cursor: not-allowed; }
+.d-change { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font-size: 13px; }
+.d-change .bar { margin: 0; flex: none; }
 .d-key { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 6px; font-size: 13px; }
 .d-key div { display: flex; align-items: center; gap: 10px; }
 .d-key p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
@@ -540,4 +561,10 @@ body.assistant-open .detail { right: calc(var(--gap) + 396px); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Phones: the open panel covers the lower screen, so Volta's greeting waits until it is folded. */
+@media (max-width: 760px) {
+  body:has(.panel:not(.is-collapsed)) .greeting,
+  body:has(.panel:not(.is-collapsed)):not(.assistant-open) .assistant-launcher { display: none; }
 }

@@ -167,3 +167,19 @@ def test_zero_capacity_is_info():
     r = run_ng(gdf)
     assert r["capacity_exactly_zero"].example_ids == [1]
     assert r["capacity_exactly_zero"].severity == "info"
+
+
+def test_a_broken_check_is_reported_and_the_others_still_run():
+    from capacity_atlas.quality.rules import QualityRule
+
+    class Broken(QualityRule):
+        rule_id, title, severity, explanation = "broken", "Broken check", "error", "Always fails."
+
+        def check(self, gdf):
+            raise KeyError("surprise")
+
+    gdf = make([{"Substation": None}])
+    results = QualityChecker([Broken(), *default_rules(COLUMNS, REFERENCE)], "OBJECTID").run(gdf)
+    broken = next(r for r in results if r.rule_id == "broken")
+    assert broken.status == "failed" and "KeyError" in broken.explanation
+    assert next(r for r in results if r.rule_id == "feeder_without_substation").flagged == 1

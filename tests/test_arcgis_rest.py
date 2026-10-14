@@ -1,6 +1,7 @@
 """Tests use a fake server so they run offline and never hit a real utility."""
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -109,3 +110,48 @@ def test_every_source_batch_size_is_valid():
     for source in SOURCES.values():
         assert 1 <= source.batch_size <= 2000
         assert source.pause_seconds >= 0
+
+
+def test_collectors_share_one_interface():
+    from capacity_atlas.collectors import Collector, CollectorError
+
+    assert isinstance(ArcGISRestCollector("https://example.com/FeatureServer/0"), Collector)
+    assert issubclass(ArcGISRestError, CollectorError)
+    with pytest.raises(TypeError):
+        Collector()  # abstract: a collector must say how it collects
+
+
+def test_a_failed_write_keeps_the_previous_snapshot(tmp_path, monkeypatch):
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    source = get_source("central_hudson_ny_pv")
+    when = datetime(2026, 10, 5, tzinfo=timezone.utc)
+    first = gpd.GeoDataFrame({"OBJECTID": [1]}, geometry=[LineString([(0, 0), (1, 1)])], crs="EPSG:4326")
+    path = save_snapshot(first, source, tmp_path, when)
+
+    def disk_full(self, *args, **kwargs):
+        Path(args[0]).write_bytes(b"half a file")
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_parquet", disk_full)
+    with pytest.raises(OSError):
+        save_snapshot(first, source, tmp_path, when)
+    monkeypatch.undo()
+    assert len(gpd.read_parquet(path)) == 1                    # old file intact
+    assert not list(path.parent.glob(".*.tmp"))                # no leftovers
+
+
+def test_snapshot_store_finds_latest_and_previous(tmp_path):
+    from capacity_atlas.snapshot import SnapshotStore
+
+    (tmp_path / "data" / "src").mkdir(parents=True)
+    (tmp_path / "prev").mkdir()
+    for name in ("prev/src_2026-09-21.parquet", "prev/src_2026-09-28.parquet",
+                 "data/src/2026-10-05.parquet", "prev/other_2026-10-04.parquet", "prev/src_notes.parquet"):
+        (tmp_path / name).write_bytes(b"")
+    store = SnapshotStore(tmp_path / "data", tmp_path / "prev")
+    assert store.latest("src").name == "2026-10-05.parquet"
+    assert store.before("src", "2026-10-05").name == "src_2026-09-28.parquet"
+    assert store.before("src", "2026-09-21") is None
+    assert store.latest("missing") is None

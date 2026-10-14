@@ -1,0 +1,18 @@
+# Opens a pull request once a month when a GitHub Action or Python library has a new version,
+# so security fixes are not missed. The Tests workflow checks each update before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]

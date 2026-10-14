@@ -41,14 +41,30 @@ flowchart LR
 | Step | Code | Output |
 |---|---|---|
 | Download every line section, in batches, with retries and polite pauses | `capacity_atlas/collectors/arcgis_rest.py` | GeoDataFrame |
-| Save a dated snapshot | `capacity_atlas/snapshot.py` | `data/snapshots/<source>/<date>.parquet` and `.meta.json` |
+| Refuse a broken download: empty, or under half the rows of the last good snapshot | `capacity_atlas/pipeline.py` | The previous snapshot stays in use |
+| Save a dated snapshot, written to a temporary file and then renamed, so a stopped run never leaves half a file | `capacity_atlas/snapshot.py` | `data/snapshots/<source>/<date>.parquet` and `.meta.json` |
 | Run the data checks | `capacity_atlas/quality/` | `reports/<source>/<date>.quality.md` and `.json` |
 | Compare with the previous snapshot by the utility's own section ID | `capacity_atlas/changes.py` | `reports/<source>/changes/<old>_to_<new>.md` |
 | Summarize the run | `capacity_atlas/pipeline.py` | `reports/LATEST.md` |
 | Build the map data | `capacity_atlas/tiles.py` | `atlas.pmtiles`, `summary.json` |
 
-One utility failing never stops the others. The run is marked failed at the end so the
-problem is visible in the Actions tab.
+One utility failing never stops the others, and one broken quality check never hides the
+results of the other checks. The run is marked failed at the end so the problem is visible in
+the Actions tab.
+
+Last week's snapshots come from the GitHub Releases. The run looks through recent releases
+until it has one for every utility, because a release can be missing a utility whose download
+failed that week.
+
+### Classes
+
+| Class | Role |
+|---|---|
+| `Collector` (abstract) | What every collector must do: `collect()` returns a GeoDataFrame. `ArcGISRestCollector` is the one used today; a utility on another platform gets its own subclass and nothing else changes. |
+| `Source`, `ColumnMap` | One utility layer and the meaning of its columns. |
+| `SnapshotStore` | Finds the latest snapshot of a source, and the one before a date, across this run and earlier releases. Used by the pipeline and the map build. |
+| `QualityRule` (abstract) | Each of the 14 checks is a subclass with `required_columns()` and `check()`. `QualityChecker` runs any list of them. |
+| `ChangeSummary` | The result of comparing two snapshots, written as the weekly change report. |
 
 Each utility publishes different column names. A `ColumnMap` in `capacity_atlas/sources.py`
 translates them, so the checks, the comparison and the map all work on one shared vocabulary.
@@ -60,8 +76,8 @@ Adding a utility means adding one `Source` entry (see [operations.md](operations
 
 | Layer | Zooms | Content |
 |---|---|---|
-| `lines` | 11 and closer | Every section with capacity (`hc`), quality flags (`q`, `qs`), feeder, substation, voltage, phases, analysis date and length. The tile feature id is a section number, so a selected section is highlighted whole across tile edges. |
-| `overview` | 5 to 10 | Touching sections of one feeder in the same capacity band merged into continuous lines, plus feeder totals for the zoomed out card. |
+| `lines` | 11 and closer | Every section with capacity (`hc`), quality flags (`q`, `qs`), feeder, substation, voltage, phases, analysis date and length, plus the change since the previous snapshot (`ch`: more, less, new or withdrawn) and the previous value (`hp`). The tile feature id is a section number, so a selected section is highlighted whole across tile edges. |
+| `overview` | 5 to 10 | Touching sections of one feeder in the same capacity band merged into continuous lines, plus feeder totals for the zoomed out card, including how many of its sections changed (`fc`). |
 
 Quality flags are stored as a bit mask, one bit per check, in a fixed order (`FLAG_IDS`).
 New checks are only ever added at the end so older files keep their meaning.
@@ -77,6 +93,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
 * Basemaps: OpenFreeMap (free, no key), one style per theme.
 * Place search: Photon over OpenStreetMap, called only when the person presses Enter.
+* Security headers and a Content Security Policy are set in `web/_headers`: scripts load only
+  from the site itself, and data only from R2, OpenFreeMap and Photon.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
 

@@ -8,7 +8,10 @@
   "use strict";
 
   const cfg = window.ATLAS_CONFIG;
-  const params = new URLSearchParams(window.location.search);
+  // Test overrides (?data=...&basemap=...) work only on a local copy of the site. On the public
+  // site they are ignored, so nobody can share a link that shows someone else's data here.
+  const LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
+  const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const DATA_URL = (params.get("data") || cfg.dataUrl).replace(/\/+$/, "");
   const BASEMAP_OVERRIDE = params.get("basemap"); // for testing: one style for both themes
   const SOURCE = "atlas";
@@ -32,12 +35,14 @@
       casing: null, glow: 0.35,
       issueWarning: "#fdb52e", issueError: "#ff6b6b", muted: "#3a3e49",
       selectedLine: "#ffffff", selectedHalo: "#5960c8", feederHalo: "#353978",
+      chgMore: "#4d9dff", chgLess: "#ff9a3c", chgNew: "#c08cff", chgFeeder: "#e8e6e1",
     },
     light: {
       chrome: "#EEF0F3", fallbackGround: "#eef0f3",
       casing: "#4f5464", glow: 0,
       issueWarning: "#c27c00", issueError: "#d62f2f", muted: "#d2d5dc",
       selectedLine: "#1b1e26", selectedHalo: "#7f86f0", feederHalo: "#b3b8f6",
+      chgMore: "#1f6fe0", chgLess: "#d96500", chgNew: "#8a4fe0", chgFeeder: "#1b1e26",
     },
   };
 
@@ -48,7 +53,7 @@
   const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 };
 
   const state = {
-    minMW: 0, hidden: new Set(), issuesOnly: false, summary: null, flagsByBit: new Map(),
+    minMW: 0, hidden: new Set(), issuesOnly: false, changesOnly: false, summary: null, flagsByBit: new Map(),
     prefs: loadPrefs(), theme: null, selected: null, layersReady: false,
   };
 
@@ -234,6 +239,16 @@
         "line-width": width(1.5), "line-dasharray": [2, 1],
       } }));
 
+    // Changes since the previous weekly snapshot, drawn over the muted network when the switch
+    // is on. Sections show the direction of the change; zoomed out, each changed feeder.
+    each((src, sfx) => ({ id: "changes" + sfx, type: "line", ...src,
+      filter: sfx ? [">", ["coalesce", ["get", "fc"], 0], 0] : ["has", "ch"],
+      layout: { visibility: "none", ...round },
+      paint: {
+        "line-color": sfx ? t.chgFeeder : ["match", ["get", "ch"], 1, t.chgMore, 3, t.chgNew, t.chgLess],
+        "line-width": width(1.6),
+      } }));
+
     // The clicked section, matched by its feature id (section number) so it is drawn
     // whole even where it crosses tile edges.
     const haloPaint = { "line-color": t.selectedHalo, "line-width": width(6.5), "line-blur": 1.5 };
@@ -270,6 +285,7 @@
     const minimum = state.minMW > 0 ? [">=", HC, state.minMW] : ["has", "hc"];
     const shown = ["all", ["has", "hc"], minimum, utility];
     const flagged = [">", ["coalesce", ["get", "qs"], 0], 0];
+    const highlighting = state.issuesOnly || state.changesOnly;
 
     for (const v of VARIANTS) {
       const id = (base) => base + v.suffix;
@@ -281,14 +297,17 @@
       map.setLayoutProperty(id("unanalyzed"), "visibility", state.minMW > 0 ? "none" : "visible");
       map.setFilter(id("issues"), state.minMW > 0 ? ["all", flagged, minimum, utility] : ["all", flagged, utility]);
       map.setLayoutProperty(id("issues"), "visibility", state.issuesOnly ? "visible" : "none");
-      // With issues highlighted, every other line turns one solid quiet gray. Solid, not
-      // see-through: transparent lines darken where sections overlap and look dashed too.
-      map.setPaintProperty(id("capacity"), "line-color", state.issuesOnly ? t.muted : capacityColor());
-      if (state.issuesOnly) {
+      const changed = v.suffix ? [">", ["coalesce", ["get", "fc"], 0], 0] : ["has", "ch"];
+      map.setFilter(id("changes"), ["all", changed, utility]);
+      map.setLayoutProperty(id("changes"), "visibility", state.changesOnly ? "visible" : "none");
+      // While issues or changes are highlighted, every other line turns one solid quiet gray.
+      // Solid, not see-through: transparent lines darken where sections overlap and look dashed.
+      map.setPaintProperty(id("capacity"), "line-color", highlighting ? t.muted : capacityColor());
+      if (highlighting) {
         map.setLayoutProperty(id("casing"), "visibility", "none");
         map.setLayoutProperty(id("unanalyzed"), "visibility", "none");
       }
-      map.setPaintProperty(id("glow"), "line-opacity", state.issuesOnly ? 0 : t.glow);
+      map.setPaintProperty(id("glow"), "line-opacity", highlighting ? 0 : t.glow);
     }
   }
 
@@ -317,11 +336,8 @@
       state.minMW = Number(e.target.value);
       applyFilters(map);
     });
-    $("issues-toggle").addEventListener("change", (e) => {
-      state.issuesOnly = e.target.checked;
-      $("issues-details").hidden = !state.issuesOnly;
-      applyFilters(map);
-    });
+    $("issues-toggle").addEventListener("change", (e) => setIssues(map, e.target.checked));
+    $("changes-toggle").addEventListener("change", (e) => setChanges(map, e.target.checked));
     $("utility-toggles").addEventListener("change", (e) => {
       const id = e.target.value;
       if (e.target.checked) state.hidden.delete(id);
@@ -415,9 +431,12 @@
   const COORDS = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
   // Photon place lookup, shared by place search and AI search.
+  // A signal that cancels a request after `ms`, where the browser supports it.
+  const withTimeout = (ms) => (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
+
   async function geocode(query, limit) {
     const url = `${cfg.searchUrl}?q=${encodeURIComponent(query)}&limit=${limit}&lang=en&bbox=${NY_BBOX.join(",")}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: withTimeout(10000) });
     if (!response.ok) throw new Error("HTTP " + response.status);
     return ((await response.json()).features || []).filter((f) => f.geometry && f.geometry.type === "Point");
   }
@@ -491,10 +510,21 @@
     applyFilters(map);
   }
 
+  // Issues and changes each gray out the rest of the network, so only one is on at a time.
   function setIssues(map, on) {
     $("issues-toggle").checked = on;
     state.issuesOnly = on;
     $("issues-details").hidden = !on;
+    if (on && state.changesOnly) setChanges(map, false);
+    applyFilters(map);
+  }
+
+  function setChanges(map, on) {
+    on = on && !$("changes-toggle").disabled;
+    $("changes-toggle").checked = on;
+    state.changesOnly = on;
+    $("changes-details").hidden = !on;
+    if (on && state.issuesOnly) setIssues(map, false);
     applyFilters(map);
   }
 
@@ -650,6 +680,7 @@
       setMinMW(map, 0);
       setUtility(map, null);
       setIssues(map, false);
+      setChanges(map, false);
       clearSelection(map);
       addMessage("bot", "<p>Filters reset. The map shows every line again.</p>");
     });
@@ -684,6 +715,7 @@
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ question }),
+          signal: withTimeout(25000),
         });
         plan = await response.json();
         if (!response.ok) throw new Error(plan.error || "HTTP " + response.status);
@@ -714,7 +746,8 @@
           console.warn("Place lookup failed:", err);
         }
       }
-      await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); });
+      // Wait for the map to finish drawing, but never leave the answer hanging.
+      await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
       reply.querySelector(".typing")?.remove();
       reply.insertAdjacentHTML("beforeend", plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
       $("chat-log").scrollTop = $("chat-log").scrollHeight;
@@ -747,7 +780,7 @@
   // ---------- summary panel ----------
   async function loadSummary() {
     try {
-      const response = await fetch(DATA_URL + "/summary.json", { cache: "no-cache" });
+      const response = await fetch(DATA_URL + "/summary.json", { cache: "no-cache", signal: withTimeout(15000) });
       if (!response.ok) throw new Error("HTTP " + response.status);
       return await response.json();
     } catch (err) {
@@ -763,6 +796,8 @@
       const message = '<p class="note">The weekly check results could not be loaded. The map still shows the latest published data.</p>';
       quality.innerHTML = message;
       $("check-summary").innerHTML = message;
+      $("change-summary").innerHTML = '<p class="note">The weekly comparison could not be loaded.</p>';
+      $("changes-toggle").disabled = true;
       return;
     }
     for (const flag of summary.flags) state.flagsByBit.set(flag.bit, flag);
@@ -783,6 +818,8 @@
         : ["sev-ok", "No warnings or errors"];
       return `<div><span class="dot ${cls}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-status">${text}</span></div>`;
     }).join("");
+
+    renderChanges(summary);
 
     const newest = summary.sources.map((s) => s.snapshot_date).sort().pop();
     if (newest) $("updated").textContent = `Data as of ${fmtDate(newest)}. Updated every Monday.`;
@@ -809,6 +846,59 @@
     }).join("");
   }
 
+  // One line per utility: what changed since its previous weekly snapshot.
+  function renderChanges(summary) {
+    let total = 0;
+    $("change-summary").innerHTML = summary.sources.map((s) => {
+      const c = s.changes;
+      let text;
+      let changed = false;
+      if (!("changes" in s)) {
+        text = "Shown after the next weekly update";      // map data built before this feature
+      } else if (!c || !c.since) {
+        text = "First snapshot, nothing to compare yet";
+      } else {
+        const shown = (c.less || 0) + (c.more || 0) + (c.new || 0) + (c.unpublished || 0);
+        const parts = [
+          c.less ? `${fmtInt(c.less)} lost capacity` : null,
+          c.more ? `${fmtInt(c.more)} gained capacity` : null,
+          c.new ? `${fmtInt(c.new)} are new` : null,
+          c.unpublished ? `${fmtInt(c.unpublished)} no longer have a value` : null,
+        ].filter(Boolean);
+        total += shown;
+        changed = shown > 0 || c.removed > 0;
+        const where = c.feeders ? ` on ${fmtInt(c.feeders)} ${c.feeders === 1 ? "feeder" : "feeders"}` : "";
+        const removed = c.removed ? ` ${fmtInt(c.removed)} ${c.removed === 1 ? "section was" : "sections were"} removed.` : "";
+        text = changed
+          ? (shown ? `Since ${fmtDate(c.since)}, ${fmtInt(shown)} sections${where} changed: ${parts.join(", ")}.` : `Since ${fmtDate(c.since)}:`) + removed
+          : `No changes since ${fmtDate(c.since)}`;
+      }
+      return `<div class="cs-row"><span class="dot ${changed ? "chg-yes" : "chg-none"}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-detail">${escapeHtml(text)}</span></div>`;
+    }).join("");
+    const toggle = $("changes-toggle");
+    toggle.disabled = total === 0;
+    $("changes-toggle-label").textContent = total === 0 ? "Highlight changed lines (none this week)" : "Highlight changed lines";
+  }
+
+  // Since when a source's changes are counted, for the detail card.
+  function changedSince(sourceId) {
+    const s = state.summary && state.summary.sources.find((x) => x.source_id === sourceId);
+    return s && s.changes && s.changes.since ? fmtDate(s.changes.since) : "last week";
+  }
+
+  function changeHtml(props) {
+    if (!props.ch) return "";
+    const since = changedSince(props.src);
+    const was = props.hp !== undefined && props.hp !== null ? `${fmtMW(props.hp)} MW` : null;
+    const [cls, text] = {
+      1: ["more", `More capacity than on ${since}${was ? `, was ${was}` : ""}`],
+      2: ["less", `Less capacity than on ${since}${was ? `, was ${was}` : ""}`],
+      3: ["new", `New since ${since}`],
+      4: ["less", `Value withdrawn since ${since}${was ? `, was ${was}` : ""}`],
+    }[props.ch] || ["new", `Changed since ${since}`];
+    return `<div class="d-change"><span class="bar bar-${cls}" aria-hidden="true"></span><span>${escapeHtml(text)}</span></div>`;
+  }
+
   // ---------- detail card ----------
   function utilityName(sourceId) {
     const s = state.summary && state.summary.sources.find((x) => x.source_id === sourceId);
@@ -831,7 +921,8 @@
     const facts = [
       ["Sections", fmtInt(props.fn)],
       ["Length", `${(props.fkm * 0.621371).toFixed(props.fkm < 16 ? 1 : 0)} mi`],
-    ];
+      props.fc ? ["Changed", `${fmtInt(props.fc)} ${props.fc === 1 ? "section" : "sections"} since ${escapeHtml(changedSince(props.src))}`] : null,
+    ].filter(Boolean);
     $("detail-body").innerHTML = `
       <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
       <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines without a feeder ID"}</div>
@@ -879,7 +970,7 @@
     const facts = [
       ["Feeder", props.feeder ? `<span class="code">${escapeHtml(props.feeder)}</span>` : "Not listed"],
       props.sub !== undefined ? ["Substation", props.sub ? escapeHtml(props.sub) : "Not listed"] : null,
-      props.kv ? ["Voltage", `${props.kv} kV`] : null,
+      props.kv ? ["Voltage", `${escapeHtml(props.kv)} kV`] : null,
       props.m ? ["Section length", fmtLength(props.m)] : null,
       props.ph !== undefined ? ["Phases", props.ph ? escapeHtml(props.ph) : "Not listed"] : null,
       props.ad ? ["Analysis date", fmtDate(props.ad)] : null,
@@ -908,6 +999,7 @@
     $("detail-body").innerHTML = `
       <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
       ${capacityHtml}
+      ${changeHtml(props)}
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       ${keyHtml}
       ${issuesHtml}
@@ -944,7 +1036,7 @@
   }
 
   function wireClicks(map) {
-    const clickable = [...ids("capacity"), ...ids("unanalyzed"), ...ids("issues")];
+    const clickable = [...ids("capacity"), ...ids("unanalyzed"), ...ids("issues"), ...ids("changes")];
     const hitBox = (point) => [[point.x - 6, point.y - 6], [point.x + 6, point.y + 6]];
     const hitsAt = (point) => (state.layersReady
       ? map.queryRenderedFeatures(hitBox(point), { layers: clickable.filter((id) => map.getLayer(id)) })
@@ -1007,5 +1099,9 @@
     window.atlasMap = map; // handy for debugging in the browser console
   }
 
-  start();
+  start().catch((err) => {
+    // Something the page cannot recover from (for example the browser has no WebGL).
+    console.error("Map failed to start:", err);
+    showStatus("The map could not start in this browser. Try another browser, or turn on hardware acceleration.");
+  });
 })();

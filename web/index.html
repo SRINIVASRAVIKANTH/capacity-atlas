@@ -7,15 +7,7 @@
   <meta name="description" content="Where New York's distribution grid can take new solar, from utility hosting capacity data checked every week.">
   <meta name="theme-color" content="#171A21">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A21'/%3E%3Cpath d='M6 22 L13 13 L19 18 L26 9' stroke='%23FDB52E' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <script>
-    // Pick the light or dark theme before the page paints, so it never flashes the wrong one.
-    (function () {
-      var theme = "auto";
-      try { theme = JSON.parse(localStorage.getItem("capacity-atlas-display") || "{}").theme || "auto"; } catch (e) {}
-      if (theme !== "light" && theme !== "dark") theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.dataset.theme = theme;
-    })();
-  </script>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="vendor/maplibre-gl.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -94,6 +86,26 @@
         </div>
       </section>
 
+      <section class="block" aria-labelledby="changes-title">
+        <h2 id="changes-title">Changes since last week</h2>
+        <p class="note">Every weekly snapshot is compared with the one before, section by section.</p>
+        <div class="check-summary" id="change-summary" aria-live="polite"></div>
+        <label class="switch">
+          <input type="checkbox" id="changes-toggle" aria-controls="changes-details">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span id="changes-toggle-label">Highlight changed lines</span>
+        </label>
+        <div class="issues-details" id="changes-details" hidden>
+          <p class="note issues-key changes-key">
+            <span><span class="bar bar-more" aria-hidden="true"></span>More capacity</span>
+            <span><span class="bar bar-less" aria-hidden="true"></span>Less capacity</span>
+            <span><span class="bar bar-new" aria-hidden="true"></span>New</span>
+            <span><span class="bar bar-feeder" aria-hidden="true"></span>Feeder with changes, when zoomed out</span>
+            <span class="issues-key-rest">Zoom in to see which sections changed. Other lines are shown in gray.</span>
+          </p>
+        </div>
+      </section>
+
       <footer class="panel-foot">
         <p>Hosting capacity values are utility estimates and do not replace an interconnection study.</p>
         <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a></p>
@@ -141,6 +153,7 @@
       <li><strong>Filter by project size.</strong> Set a minimum hosting capacity to hide lines too small for your project.</li>
       <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value.</li>
       <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
+      <li><strong>See what changed.</strong> Each week is compared with the one before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
     </ol>
     <h3>Terms</h3>
     <dl class="glossary">

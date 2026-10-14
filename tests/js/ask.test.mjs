@@ -65,3 +65,52 @@ test("limits how often one visitor can ask", async () => {
   for (let i = 0; i < 8; i++) codes.push((await onRequest({ request: same(), env: ENV })).status);
   assert.deepEqual(codes, [200, 200, 200, 200, 200, 200, 429, 429]);
 });
+
+test("odd Origin headers are refused, never crash", async () => {
+  fakeClaude({});
+  for (const origin of ["null", "not a url", "https://capacity-atlas.pages.dev.evil.example"]) {
+    const res = await onRequest({ request: request({ question: "hi" }, { origin }), env: ENV });
+    assert.equal(res.status, 403, origin);
+  }
+});
+
+test("bodies that are not a question object get a 400, oversized bodies a 413", async () => {
+  fakeClaude({ place: null, min_mw: null, utility: null, show_issues: false, reply: "ok", out_of_scope: false });
+  const raw = (body) => new Request("https://capacity-atlas.pages.dev/api/ask", {
+    method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": `10.1.0.${++ipCounter}` }, body,
+  });
+  for (const body of ["not json", "null", "[1,2]", '"text"', '{"question": 42}', '{"question": {"a": 1}}']) {
+    assert.equal((await onRequest({ request: raw(body), env: ENV })).status, 400, body);
+  }
+  assert.equal((await onRequest({ request: raw(JSON.stringify({ question: "x".repeat(5000) })), env: ENV })).status, 413);
+});
+
+test("a slow or broken Claude API gives a calm message", async () => {
+  globalThis.fetch = async () => { const e = new Error("timed out"); e.name = "TimeoutError"; throw e; };
+  let res = await onRequest({ request: request({ question: "2 MW near Troy" }), env: ENV });
+  assert.equal(res.status, 504);
+  assert.equal((await res.json()).error, "AI search is unavailable right now.");
+
+  globalThis.fetch = async () => new Response("<html>gateway</html>", { status: 200 });
+  res = await onRequest({ request: request({ question: "2 MW near Troy" }), env: ENV });
+  assert.equal(res.status, 502);
+
+  globalThis.fetch = async () => Response.json({ content: "unexpected" });
+  res = await onRequest({ request: request({ question: "2 MW near Troy" }), env: ENV });
+  assert.equal(res.status, 502);
+});
+
+test("every response is JSON that browsers will not sniff as something else", async () => {
+  fakeClaude({ place: null, min_mw: null, utility: null, show_issues: false, reply: "ok", out_of_scope: false });
+  const res = await onRequest({ request: request({ question: "solar near Utica" }), env: ENV });
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+});
+
+test("whatever Claude returns, only known fields and values reach the browser", () => {
+  const out = sanitize({ place: "<img src=x onerror=alert(1)>", min_mw: 1e9, utility: "national_grid_ny_pv", show_issues: true, reply: "x".repeat(1000), out_of_scope: false, html: "<script>" });
+  assert.deepEqual(Object.keys(out).sort(), ["min_mw", "out_of_scope", "place", "reply", "show_issues", "utility"]);
+  assert.equal(out.min_mw, null);
+  assert.equal(out.reply.length, 300);
+  assert.equal(out.utility, "national_grid_ny_pv");
+});

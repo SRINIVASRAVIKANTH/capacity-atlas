@@ -34,7 +34,7 @@ for mistakes.
 
 1. 📥 **Collects** the hosting capacity data from Central Hudson and National Grid
 2. ✅ **Checks** every record with 14 data quality rules
-3. 🔄 **Compares** this week with last week and reports what changed
+3. 🔄 **Compares** this week with last week and shows what changed on the map
 4. 🗺️ **Publishes** both utilities on one free, public map
 
 **Who it is for:** solar developers choosing land, landowners leasing it, and planners
@@ -82,6 +82,7 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 🗺️ | **One map, two utilities** | 758,915 line sections on one color scale, filtered by minimum capacity and by utility |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
+| 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
 | 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" and the map moves and filters itself |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support and a phone layout |
@@ -133,12 +134,19 @@ only the map tiles in view, straight from R2. Details are in
   different column names into one vocabulary, so checks and the map work the same way for
   every utility. Adding a utility is one entry plus a test.
 * 🛡️ **A failure in one utility never blocks the others.** Each source runs on its own, and
-  the map keeps the last good snapshot of any utility that fails.
+  the map keeps the last good snapshot of any utility that fails. A download that comes back
+  empty, or with under half of last week's lines, is treated as a failure, so a server glitch
+  never wipes a utility off the map.
+* 🧱 **Built to extend.** Collectors and quality checks are abstract base classes. A utility on
+  another platform gets its own `Collector` subclass, and a new check is one `QualityRule`
+  subclass; the pipeline, reports and map pick them up unchanged.
 * 💸 **Free to run.** GitHub, Cloudflare Pages and R2 free tiers, free basemaps and search.
   The only cost is the assistant, capped by prepaid credit.
-* 🔐 **Secrets stay server side.** The Claude key is an encrypted Cloudflare secret. The
-  function accepts only the site's own origin, limits question length and rate limits each
-  visitor.
+* 🔐 **Secure by default.** The Claude key is an encrypted Cloudflare secret. The function
+  accepts only the site's own origin, caps question and body size, times out slow calls and
+  rate limits each visitor. The site sends a strict Content Security Policy, and every value
+  from the utilities or the AI is shown as text, never as HTML. Details in
+  [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -152,7 +160,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing | pytest (56 tests), Node test runner, Playwright for visual checks |
+| 🧪 Testing and quality | pytest (72 tests), Node test runner for the assistant function, Ruff lint, all run on every push |
 
 ---
 
@@ -166,6 +174,7 @@ reports/              Weekly quality and change reports, written by the pipeline
 tests/                Python and JavaScript tests
 docs/                 Architecture, data quality and operations
 scripts/              Diagnostic tools used while adding a utility
+SECURITY.md           How the project is protected and how to report a problem
 ```
 
 ---

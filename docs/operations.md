@@ -13,7 +13,9 @@ What to check after a run:
 * The site's panel shows the new "Data as of" date.
 
 If a utility's server is down, that source shows `FAILED` in `LATEST.md`, the others still
-publish, and the map keeps that utility's previous snapshot.
+publish, and the map keeps that utility's previous snapshot. The same happens when a server
+answers with an empty layer or with fewer than half the line sections of the last good
+snapshot: the download is treated as broken and not published.
 
 ## Secrets
 
@@ -69,7 +71,8 @@ in `web/config.js`. The assistant only works when deployed, because it needs the
 ## Known limits
 
 * `pub-....r2.dev` is Cloudflare's development URL and is rate limited. A custom domain on the
-  bucket is the production setup (change `dataUrl` in `web/config.js`).
+  bucket is the production setup: change `dataUrl` in `web/config.js` and add the new domain to
+  `connect-src` in `web/_headers` (a test fails until both agree).
 * Photon and OpenFreeMap are free public services without a service level agreement.
 * The assistant's rate limit is kept in memory per Cloudflare instance, so it is best effort.
   Prepaid credit is the hard spending cap.

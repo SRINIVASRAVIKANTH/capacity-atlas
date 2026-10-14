@@ -202,3 +202,64 @@ def test_full_build_produces_a_pmtiles_file(tmp_path):
     features, _ = combine({"central_hudson_ny_pv": ch, "national_grid_ny_pv": ng})
     out = build_tiles(features, tmp_path / "tiles" / "atlas.pmtiles", find_tippecanoe())
     assert out.read_bytes()[:7] == b"PMTiles"
+
+
+def test_changes_since_last_week_are_marked_on_each_section():
+    old = central_hudson_like()
+    new = old.copy()
+    new.loc[0, "HCMin"] = 0.5          # S1: less capacity
+    new.loc[1, "HCMin"] = 0.3          # S2: more capacity
+    new.loc[2, "HCMin"] = 2.0          # S3: value published for the first time
+    new.loc[3] = new.loc[0]            # S4: a section that did not exist last week
+    new.loc[3, ["OBJECTID", "Name"]] = [4, "S4"]
+    new = gpd.GeoDataFrame(new, geometry="geometry", crs=old.crs)
+    old.loc[1, "OBJECTID"] = 99        # renumbered row: not a change
+
+    out, summary = map_features(SOURCES["central_hudson_ny_pv"], new, REFERENCE, old, "2026-10-01")
+    assert list(out["ch"]) == [2, 1, 3, 3]
+    assert out["hp"].iloc[0] == 1.23 and out["hp"].iloc[1] == 0.0
+    assert pd.isna(out["hp"].iloc[2])
+    assert summary.changes == {"since": "2026-10-01", "more": 1, "less": 1, "new": 2,
+                               "unpublished": 0, "removed": 0, "feeders": 1}
+
+
+def test_unchanged_week_marks_nothing_and_first_week_has_no_comparison():
+    same, summary = map_features(SOURCES["central_hudson_ny_pv"], central_hudson_like(), REFERENCE,
+                                 central_hudson_like(), "2026-10-01")
+    assert same["ch"].isna().all()
+    assert summary.changes["more"] == summary.changes["less"] == summary.changes["new"] == 0
+
+    first, summary = map_features(SOURCES["central_hudson_ny_pv"], central_hudson_like(), REFERENCE)
+    assert "ch" not in first.columns and summary.changes is None
+
+
+def test_removed_sections_and_withdrawn_values_are_counted():
+    old = central_hudson_like()
+    new = old.iloc[:2].copy()
+    new.loc[0, "HCMin"] = None
+    out, summary = map_features(SOURCES["central_hudson_ny_pv"], new, REFERENCE, old, "2026-10-01")
+    assert out["ch"].iloc[0] == 4 and out["hp"].iloc[0] == 1.23
+    assert summary.changes["removed"] == 1 and summary.changes["unpublished"] == 1
+
+
+def test_overview_counts_changed_sections_per_feeder(tmp_path):
+    old = central_hudson_like()
+    new = old.copy()
+    new.loc[0, "HCMin"] = 0.5
+    path_new, path_old = tmp_path / "2026-10-08.parquet", tmp_path / "2026-10-01.parquet"
+    new.to_parquet(path_new)
+    old.to_parquet(path_old)
+    features, summaries = combine({"central_hudson_ny_pv": path_new}, {"central_hudson_ny_pv": path_old})
+    overview = build_overview(features)
+    f1 = overview[overview["feeder"] == "F1"]
+    assert set(f1["fc"].dropna()) == {1}
+    assert overview[overview["feeder"].isna()]["fc"].isna().all()
+    assert json.loads(json.dumps(summaries[0].changes))["less"] == 1
+
+
+def test_a_damaged_previous_snapshot_only_skips_the_comparison(tmp_path):
+    path_new, broken = tmp_path / "2026-10-08.parquet", tmp_path / "2026-10-01.parquet"
+    central_hudson_like().to_parquet(path_new)
+    broken.write_bytes(b"not parquet")
+    features, summaries = combine({"central_hudson_ny_pv": path_new}, {"central_hudson_ny_pv": broken})
+    assert len(features) == 3 and summaries[0].changes is None

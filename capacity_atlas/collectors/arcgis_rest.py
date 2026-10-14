@@ -18,12 +18,14 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from capacity_atlas.collectors.base import Collector, CollectorError
+
 logger = logging.getLogger(__name__)
 
 WGS84 = "EPSG:4326"  # Standard latitude/longitude used by web maps.
 
 
-class ArcGISRestError(RuntimeError):
+class ArcGISRestError(CollectorError):
     """Raised when an ArcGIS server returns an error or an unexpected response."""
 
 
@@ -46,7 +48,7 @@ def _chunks(items: Sequence[int], size: int) -> Iterator[Sequence[int]]:
         yield items[start : start + size]
 
 
-class ArcGISRestCollector:
+class ArcGISRestCollector(Collector):
     """Collects all features of one ArcGIS REST layer into a GeoDataFrame."""
 
     def __init__(

@@ -43,13 +43,25 @@ jobs:
       - name: Run tests (stop here if anything is broken)
         run: pytest
 
-      - name: Download last week's snapshots (for comparison)
+      - name: Download the last good snapshot of every utility (for comparison)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Newest release first. A release can be missing a utility (for example a run stopped
+          # by its time limit), so keep looking in older releases until every utility is found.
           mkdir -p data/previous
-          gh release download --pattern "*.parquet" --dir data/previous \
-            || echo "No previous release yet; this run will be the first snapshot."
+          sources=$(python -c "from capacity_atlas.sources import SOURCES; print(' '.join(SOURCES))")
+          for tag in $(gh release list --limit 20 --json tagName --jq '.[].tagName'); do
+            missing=()
+            for s in $sources; do
+              compgen -G "data/previous/${s}_*.parquet" > /dev/null || missing+=("$s")
+            done
+            [ ${#missing[@]} -eq 0 ] && break
+            for s in "${missing[@]}"; do
+              gh release download "$tag" --pattern "${s}_*.parquet" --dir data/previous 2> /dev/null \
+                && echo "$s: previous snapshot from $tag"
+            done
+          done
           ls -la data/previous
 
       - name: Run pipeline for every source

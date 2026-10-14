@@ -75,3 +75,40 @@ def test_every_id_the_script_uses_exists_in_the_page():
     created_by_script = {"zoom-feeder", "copy-link"}  # built inside the detail card at runtime
     missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
     assert not missing, f"ids used in app.js but missing from index.html: {missing}"
+
+
+def _csp() -> dict[str, list[str]]:
+    text = (WEB / "_headers").read_text(encoding="utf-8")
+    policy = re.search(r"Content-Security-Policy:\s*(.+)", text).group(1)
+    return {d.split()[0]: d.split()[1:] for d in (p.strip() for p in policy.split(";")) if d}
+
+
+def test_page_has_no_inline_scripts_so_the_policy_can_forbid_them():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html)
+    assert not re.search(r"\son[a-z]+=", html), "inline event handler attribute"
+    assert _csp()["script-src"] == ["'self'"]
+
+
+def test_every_service_in_the_config_is_allowed_by_the_policy():
+    config = (WEB / "config.js").read_text(encoding="utf-8")
+    allowed = _csp()["connect-src"]
+    fetched = [line for line in config.splitlines() if "repoUrl" not in line]  # a link, never fetched
+    for url in re.findall(r'"(https://[^"/]+)', "\n".join(fetched)):
+        assert url in allowed, f"{url} is used in config.js but blocked by web/_headers"
+
+
+def test_policy_blocks_framing_plugins_and_foreign_forms():
+    csp = _csp()
+    assert csp["frame-ancestors"] == ["'none'"]
+    assert csp["object-src"] == ["'none'"]
+    assert csp["form-action"] == ["'self'"]
+    headers = (WEB / "_headers").read_text(encoding="utf-8")
+    for name in ("X-Content-Type-Options: nosniff", "Referrer-Policy", "Strict-Transport-Security"):
+        assert name in headers
+
+
+def test_test_overrides_only_work_on_a_local_copy():
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();' in js
+    assert js.count("window.location.search") == 1

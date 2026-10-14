@@ -1,0 +1,7 @@
+# Code style and bug checks, run by the Tests workflow on every push.
+line-length = 110
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "B", "UP", "SIM"]
+ignore = ["E501", "UP017"]  # long lines are wrapped by hand; timezone.utc reads clearer than UTC

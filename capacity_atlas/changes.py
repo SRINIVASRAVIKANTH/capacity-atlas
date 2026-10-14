@@ -128,7 +128,9 @@ def compare(
         refreshed = new_date.notna() & (old_date.isna() | (new_date > old_date))
         summary.feeders_refreshed = int(b.loc[refreshed, columns.feeder].nunique())
 
-    skip = {"geometry", key, columns.capacity_mw, columns.analysis_date}
+    # The record id (OBJECTID) is only a row number that utilities renumber when they
+    # republish a layer, so a new number is not a change to the line section.
+    skip = {"geometry", key, columns.record_id, columns.capacity_mw, columns.analysis_date}
     others = [c for c in a.columns if c in b.columns and c not in skip]
     changed_any = pd.Series(False, index=common)
     counts = {}

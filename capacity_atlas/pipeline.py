@@ -21,23 +21,47 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
+import pyarrow.parquet as pq
 
 from capacity_atlas.changes import compare, write_change_report
-from capacity_atlas.collectors import ArcGISRestCollector
+from capacity_atlas.collectors import ArcGISRestCollector, Collector
 from capacity_atlas.quality.rules import ERROR, INFO, WARNING
 from capacity_atlas.quality.runner import check_snapshot
-from capacity_atlas.snapshot import save_snapshot
+from capacity_atlas.snapshot import SnapshotStore, save_snapshot, snapshot_day
 from capacity_atlas.sources import SOURCES, Source, get_source
 
 logger = logging.getLogger(__name__)
 
-CollectorFactory = Callable[[Source], object]
+CollectorFactory = Callable[[Source], Collector]
+
+# A download with fewer rows than this share of the previous snapshot is treated as a failed
+# download (a server returning a partial or empty layer), not as real data. Publishing it
+# would wipe that utility off the map and fill next week's change report with false removals.
+MIN_ROWS_RATIO = 0.5
 
 
-def default_collector(source: Source) -> ArcGISRestCollector:
+class SuspiciousDownloadError(RuntimeError):
+    """Raised when a download looks broken, so it is not saved or published."""
+
+
+def default_collector(source: Source) -> Collector:
     return ArcGISRestCollector(
         source.layer_url, batch_size=source.batch_size, pause_seconds=source.pause_seconds
     )
+
+
+def check_download(gdf: gpd.GeoDataFrame, previous: Path | None, source_id: str) -> None:
+    """Refuse an empty download, or one far smaller than the last good snapshot."""
+    if len(gdf) == 0:
+        raise SuspiciousDownloadError(f"{source_id}: the server returned no line sections.")
+    if previous is None:
+        return
+    previous_rows = pq.read_metadata(previous).num_rows
+    if previous_rows and len(gdf) < MIN_ROWS_RATIO * previous_rows:
+        raise SuspiciousDownloadError(
+            f"{source_id}: downloaded {len(gdf):,} line sections, under {MIN_ROWS_RATIO:.0%} of the "
+            f"{previous_rows:,} in the previous snapshot ({previous.name}). Keeping the previous data."
+        )
 
 
 @dataclass
@@ -54,34 +78,15 @@ class SourceRun:
     changes: str = ""
 
 
-def find_previous(source_id: str, current: Path, data_root: Path, previous_dir: Path | None) -> Path | None:
-    """Latest snapshot of this source dated strictly before the current one.
-
-    Looks in the local snapshot folder and, if given, in a folder of files downloaded from
-    the last GitHub Release (named <source_id>_<YYYY-MM-DD>.parquet).
-    """
-    current_date = current.stem
-    candidates: dict[str, Path] = {}
-    for path in (data_root / source_id).glob("*.parquet"):
-        candidates[path.stem] = path
-    if previous_dir and previous_dir.exists():
-        prefix = f"{source_id}_"
-        for path in previous_dir.glob(f"{prefix}*.parquet"):
-            candidates.setdefault(path.stem[len(prefix):], path)
-    earlier = sorted(d for d in candidates if d < current_date)
-    return candidates[earlier[-1]] if earlier else None
-
-
-def describe_changes(source: Source, snapshot: Path, data_root: Path,
-                     previous_dir: Path | None, reports_root: Path) -> str:
+def describe_changes(source: Source, snapshot: Path, store: SnapshotStore, reports_root: Path) -> str:
     """Compare with the previous snapshot and write the change report. Never raises."""
     try:
-        previous = find_previous(source.source_id, snapshot, data_root, previous_dir)
+        previous = store.before(source.source_id, snapshot_day(snapshot))
         if previous is None:
             return "first snapshot"
         if source.columns is None or not source.columns.section_key:
             return "no section key"
-        old_name = f"{previous.stem.split('_')[-1]}.parquet"
+        old_name = f"{snapshot_day(previous)}.parquet"
         summary = compare(gpd.read_parquet(previous), gpd.read_parquet(snapshot), source.columns,
                           source.source_id, old_name, snapshot.name)
         write_change_report(summary, reports_root / source.source_id / "changes")
@@ -103,8 +108,10 @@ def run_source(
     make_collector: CollectorFactory = default_collector,
     previous_dir: Path | None = None,
 ) -> SourceRun:
+    store = SnapshotStore(data_root, previous_dir)
     try:
         gdf = make_collector(source).collect()
+        check_download(gdf, store.before(source.source_id, fetched_at.strftime("%Y-%m-%d")), source.source_id)
         snapshot = save_snapshot(gdf, source, data_root, fetched_at)
         quality = check_snapshot(source, snapshot)
 
@@ -119,7 +126,7 @@ def run_source(
         for r in quality.results:
             if r.status == "ran" and r.flagged:
                 counts[r.severity] += 1
-        changes = describe_changes(source, snapshot, data_root, previous_dir, reports_root)
+        changes = describe_changes(source, snapshot, store, reports_root)
         return SourceRun(source.source_id, source.utility, True, quality.rows, snapshot,
                          counts[ERROR], counts[WARNING], counts[INFO], "ok", changes)
     except Exception as exc:  # one utility failing must not stop the others

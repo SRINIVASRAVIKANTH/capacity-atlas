@@ -11,6 +11,8 @@
 
 const MODEL = "claude-haiku-5-5";
 const MAX_QUESTION = 300;           // characters
+const MAX_BODY_BYTES = 2000;        // a question plus JSON wrapping; anything bigger is refused unread
+const API_TIMEOUT_MS = 15000;       // give up on the Claude API after this long
 const LIMIT_PER_MINUTE = 6;         // per visitor IP, best effort (per Cloudflare instance)
 const LIMIT_PER_DAY = 60;
 
@@ -65,8 +67,24 @@ function allowed(ip, now) {
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
   });
+
+// True when the request comes from a page on this same site. Browsers always send Origin on
+// POST; a missing header means a non-browser client, which the rate limit and credit cap cover.
+function sameOrigin(request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === new URL(request.url).host;
+  } catch (err) {
+    return false; // "null" (sandboxed frames, local files) or a malformed header
+  }
+}
 
 // Clean what Claude returned, so the browser only ever receives known fields and values.
 export function sanitize(input) {
@@ -81,20 +99,36 @@ export function sanitize(input) {
   return out;
 }
 
-export async function onRequest({ request, env }) {
-  if (request.method !== "POST") return json({ error: `Use POST, not ${request.method}.` }, 405);
+export async function onRequest(context) {
+  try {
+    return await answer(context);
+  } catch (err) {
+    // Last line of defence: log the detail for the site owner, show the visitor a calm message.
+    console.log("Unexpected error in /api/ask", err && err.stack ? err.stack : err);
+    return json({ error: "AI search is unavailable right now." }, 500);
+  }
+}
+
+async function answer({ request, env }) {
+  if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!env.ANTHROPIC_API_KEY) return json({ error: "AI search is not configured." }, 503);
 
   // Only answer the map's own pages.
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== new URL(request.url).host) return json({ error: "Not allowed." }, 403);
+  if (!sameOrigin(request)) return json({ error: "Not allowed." }, 403);
+
+  const declared = Number(request.headers.get("content-length") || 0);
+  if (declared > MAX_BODY_BYTES) return json({ error: `Keep questions under ${MAX_QUESTION} characters.` }, 413);
 
   const ip = request.headers.get("cf-connecting-ip") || "unknown";
   if (!allowed(ip, Date.now())) return json({ error: "Too many questions. Please wait a minute and try again." }, 429);
 
   let question = "";
   try {
-    question = String((await request.json()).question || "").trim();
+    const text = await request.text();
+    if (text.length > MAX_BODY_BYTES) return json({ error: `Keep questions under ${MAX_QUESTION} characters.` }, 413);
+    const body = JSON.parse(text);
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new TypeError("not an object");
+    question = typeof body.question === "string" ? body.question.trim() : "";
   } catch (err) {
     return json({ error: "Send a JSON body with a question." }, 400);
   }
@@ -118,9 +152,11 @@ export async function onRequest({ request, env }) {
         tool_choice: { type: "tool", name: TOOL.name },
         messages: [{ role: "user", content: question }],
       }),
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
   } catch (err) {
-    return json({ error: "AI search is unavailable right now." }, 502);
+    console.log("Anthropic API not reached:", err && err.name);
+    return json({ error: "AI search is unavailable right now." }, err && err.name === "TimeoutError" ? 504 : 502);
   }
 
   if (!response.ok) {
@@ -129,8 +165,13 @@ export async function onRequest({ request, env }) {
     return json({ error: "AI search is unavailable right now." }, 502);
   }
 
-  const data = await response.json();
-  const call = (data.content || []).find((block) => block.type === "tool_use" && block.name === TOOL.name);
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    return json({ error: "AI search is unavailable right now." }, 502);
+  }
+  const call = (Array.isArray(data && data.content) ? data.content : []).find((block) => block.type === "tool_use" && block.name === TOOL.name);
   if (!call) return json({ error: "AI search could not read that question. Try rephrasing it." }, 502);
-  return json(sanitize(call.input || {}));
+  return json(sanitize(call.input && typeof call.input === "object" ? call.input : {}));
 }

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import geopandas as gpd
 
 from capacity_atlas.quality.rules import ERROR, INFO, WARNING, QualityRule
+
+logger = logging.getLogger(__name__)
 
 SEVERITY_ORDER = {ERROR: 0, WARNING: 1, INFO: 2}
 SEVERITY_ICON = {ERROR: "ERROR", WARNING: "WARNING", INFO: "INFO"}
@@ -20,7 +23,7 @@ class RuleResult:
     title: str
     severity: str
     explanation: str
-    status: str  # "ran" or "skipped"
+    status: str  # "ran", "skipped" (columns not published) or "failed" (the check itself broke)
     flagged: int
     total: int
     percent: float
@@ -55,9 +58,17 @@ class QualityChecker:
                                           f"Skipped: columns not found {missing}",
                                           "skipped", 0, total, 0.0, []))
                 continue
-            flags = rule.check(gdf)
-            if len(flags) != total:
-                raise ValueError(f"Rule {rule.rule_id} returned {len(flags)} values for {total} rows")
+            try:
+                flags = rule.check(gdf)
+                if len(flags) != total:
+                    raise ValueError(f"returned {len(flags)} values for {total} rows")
+                flags = flags.astype(bool)
+            except Exception as exc:  # one broken check must not hide the results of the others
+                logger.exception("Quality check %s failed", rule.rule_id)
+                results.append(RuleResult(rule.rule_id, rule.title, rule.severity,
+                                          f"Could not run: {type(exc).__name__}: {exc}",
+                                          "failed", 0, total, 0.0, []))
+                continue
             flagged = int(flags.sum())
             examples = []
             if flagged and self.record_id in gdf.columns:
@@ -88,8 +99,9 @@ def write_reports(results: list[RuleResult], snapshot_path: Path, source_id: str
              "| Severity | Check | Flagged rows | % of rows | Feeders affected | Example record IDs |",
              "|---|---|---:|---:|---:|---|"]
     for r in results:
-        if r.status == "skipped":
-            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | skipped | | | |")
+        if r.status in ("skipped", "failed"):
+            label = "skipped" if r.status == "skipped" else "could not run"
+            lines.append(f"| {SEVERITY_ICON[r.severity]} | {r.title} | {label} | | | |")
         else:
             ids = ", ".join(str(x) for x in r.example_ids) or "none"
             feeders = "" if r.feeders is None else f"{r.feeders:,}"

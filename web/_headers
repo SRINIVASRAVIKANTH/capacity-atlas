@@ -1,0 +1,12 @@
+# Security headers for every page Cloudflare Pages serves from web/.
+# The Content Security Policy lists the only places the site may load from:
+#   this site, the map data on Cloudflare R2, OpenFreeMap basemaps, and Photon place search.
+# If dataUrl in config.js moves to a custom domain, add that domain to connect-src
+# (tests/test_web.py fails until the two agree).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://pub-e6f6a3882d1748dea6eb7f7d9dcfd046.r2.dev https://tiles.openfreemap.org https://photon.komoot.io; worker-src 'self' blob:; child-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000

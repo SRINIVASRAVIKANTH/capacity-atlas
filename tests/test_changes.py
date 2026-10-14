@@ -73,7 +73,7 @@ def test_matching_uses_section_id_not_row_number():
     new["OBJECTID"] = [10, 11, 12]         # renumbered by a republish
     r = run(old, new)
     assert not r.added and not r.removed
-    assert r.most_changed_columns == {"OBJECTID": 3}
+    assert not r.anything_changed          # a new row number is not a change to the section
 
 
 def test_repeated_section_ids_are_kept_apart():

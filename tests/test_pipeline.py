@@ -3,15 +3,17 @@
 from datetime import datetime, timezone
 
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import LineString
 
+from capacity_atlas.collectors import Collector
 from capacity_atlas.pipeline import run_all
 from capacity_atlas.sources import SOURCES
 
 WHEN = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
 
 
-class FakeCollector:
+class FakeCollector(Collector):
     def __init__(self, gdf=None, fail=False):
         self.gdf = gdf
         self.fail = fail
@@ -86,3 +88,40 @@ def test_first_run_says_first_snapshot(tmp_path):
     runs = run_all([SOURCES["central_hudson_ny_pv"]], tmp_path / "data", tmp_path / "reports", WHEN,
                    make_collector=lambda s: FakeCollector(central_hudson_like()))
     assert runs[0].changes == "first snapshot"
+
+
+def test_empty_download_is_refused_and_previous_data_kept(tmp_path):
+    source = SOURCES["central_hudson_ny_pv"]
+    empty = central_hudson_like().iloc[0:0]
+    runs = run_all([source], tmp_path / "data", tmp_path / "reports", WHEN,
+                   make_collector=lambda s: FakeCollector(empty))
+    assert not runs[0].ok
+    assert "no line sections" in runs[0].message
+    assert not (tmp_path / "data" / "central_hudson_ny_pv" / "2026-10-05.parquet").exists()
+
+
+def test_download_far_smaller_than_last_week_is_refused(tmp_path):
+    source = SOURCES["central_hudson_ny_pv"]
+    previous = tmp_path / "previous"
+    previous.mkdir()
+    big = gpd.GeoDataFrame(pd.concat([central_hudson_like()] * 5, ignore_index=True), crs="EPSG:4326")
+    big.to_parquet(previous / "central_hudson_ny_pv_2026-09-28.parquet")   # 10 sections last week
+
+    runs = run_all([source], tmp_path / "data", tmp_path / "reports", WHEN,
+                   make_collector=lambda s: FakeCollector(central_hudson_like()), previous_dir=previous)
+    assert not runs[0].ok                                                    # 2 of 10 this week
+    assert "Keeping the previous data" in runs[0].message
+    assert not (tmp_path / "data" / "central_hudson_ny_pv").exists()
+
+
+def test_normal_week_to_week_shrink_is_accepted(tmp_path):
+    source = SOURCES["central_hudson_ny_pv"]
+    previous = tmp_path / "previous"
+    previous.mkdir()
+    three = gpd.GeoDataFrame(pd.concat([central_hudson_like(), central_hudson_like().iloc[:1]],
+                                       ignore_index=True), crs="EPSG:4326")
+    three["Name"] = ["S1", "S2", "S3"]
+    three.to_parquet(previous / "central_hudson_ny_pv_2026-09-28.parquet")
+    runs = run_all([source], tmp_path / "data", tmp_path / "reports", WHEN,
+                   make_collector=lambda s: FakeCollector(central_hudson_like()), previous_dir=previous)
+    assert runs[0].ok and "removed 1" in runs[0].changes

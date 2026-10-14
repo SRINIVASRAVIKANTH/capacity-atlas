@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Get the code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v7
@@ -72,7 +72,7 @@ jobs:
 
       - name: Restore tippecanoe (map tile tool) from cache
         id: tippecanoe-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/tippecanoe
           key: tippecanoe-${{ runner.os }}-${{ env.TIPPECANOE_COMMIT }}

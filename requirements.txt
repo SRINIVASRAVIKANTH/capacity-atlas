@@ -1,5 +1,5 @@
-requests>=2.31,<3
-geopandas>=1.0,<2
-shapely>=2.0,<3
-pyarrow>=15
-pytest>=8
+requests>=2.34.2,<3
+geopandas>=1.2.0,<2
+shapely>=2.2.0,<3
+pyarrow>=26.0.0
+pytest>=9.1.1

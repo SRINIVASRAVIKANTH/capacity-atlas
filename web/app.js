@@ -98,7 +98,7 @@
         theme: ["auto", "light", "dark"].includes(saved.theme) ? saved.theme : defaults.theme,
         palette: saved.palette in PALETTES ? saved.palette : defaults.palette,
       };
-    } catch (err) {
+    } catch {
       return defaults;
     }
   }
@@ -106,7 +106,7 @@
   function savePrefs() {
     try {
       window.localStorage.setItem(PREFS_KEY, JSON.stringify(state.prefs));
-    } catch (err) {
+    } catch {
       /* private windows can block storage; the choice still applies for this visit */
     }
   }
@@ -415,11 +415,11 @@
 
   const HINT_KEY = "capacity-atlas-hint-seen";
   function readFlag(key) {
-    try { return window.localStorage.getItem(key) === "1"; } catch (err) { return false; }
+    try { return window.localStorage.getItem(key) === "1"; } catch { return false; }
   }
   function dismissHint() {
     $("hint").hidden = true;
-    try { window.localStorage.setItem(HINT_KEY, "1"); } catch (err) { /* storage blocked: the tip just returns next visit */ }
+    try { window.localStorage.setItem(HINT_KEY, "1"); } catch { /* storage blocked: the tip just returns next visit */ }
   }
 
   // ---------- place search ----------
@@ -570,6 +570,12 @@
     return { zoomedIn, sections, miles: meters / 1609.34, feeders: feeders.size, top };
   }
 
+  // True when any utility line is loaded around the current view, whatever the filters are.
+  function hasGridData(map) {
+    const sourceLayer = map.getZoom() >= 11 ? LAYER : "overview";
+    return map.querySourceFeatures(SOURCE, { sourceLayer }).length > 0;
+  }
+
   // For data quality questions: count flagged lines in view, worst feeders first.
   function describeIssues(map) {
     const zoomedIn = map.getZoom() >= 11;
@@ -665,10 +671,10 @@
     const greeting = $("greeting");
     const hideGreeting = () => {
       greeting.hidden = true;
-      try { sessionStorage.setItem("volta-greeted", "1"); } catch (err) { /* ignore */ }
+      try { sessionStorage.setItem("volta-greeted", "1"); } catch { /* ignore */ }
     };
     let greeted = false;
-    try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch (err) { /* ignore */ }
+    try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch { /* ignore */ }
     if (!greeted) {
       setTimeout(() => { if (panel.hidden) greeting.hidden = false; }, 1500);
       // The greeting sits over the map's zoom buttons, so it steps aside on its own: after a
@@ -763,7 +769,10 @@
       setMinMW(map, plan.min_mw);
       setIssues(map, plan.show_issues);
       reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
-      if (plan.place) {
+      const coords = plan.place && plan.place.match(COORDS);
+      if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
+        state.flyToPlace(Number(coords[2]), Number(coords[1]), null, 12.5); // "42.65, -73.75" needs no lookup
+      } else if (plan.place) {
         try {
           const [place] = await geocode(plan.place, 1);
           if (place) {
@@ -779,7 +788,9 @@
       // Wait for the map to finish drawing, but never leave the answer hanging.
       await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
       reply.querySelector(".typing")?.remove();
-      reply.insertAdjacentHTML("beforeend", plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
+      reply.insertAdjacentHTML("beforeend", !hasGridData(map)
+        ? "<p>The map has no lines here: this area is served by a utility that is not on the map yet. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York).</p>"
+        : plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
       $("chat-log").scrollTop = $("chat-log").scrollHeight;
     } finally {
       asking = false;
@@ -988,7 +999,7 @@
       try {
         await navigator.clipboard.writeText(url);
         button.textContent = "Link copied";
-      } catch (err) {
+      } catch {
         window.prompt("Copy this link:", url);
       }
     });

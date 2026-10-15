@@ -16,11 +16,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from capacity_atlas.quality.rules import to_utc_datetime
+from capacity_atlas.quality.rules import TOLERANCE_MW, to_utc_datetime
 from capacity_atlas.schema import ColumnMap
-
-TOLERANCE_MW = 0.005  # published values are rounded to 2 decimals
-
 
 @dataclass
 class ChangeSummary:

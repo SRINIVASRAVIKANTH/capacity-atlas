@@ -1,0 +1,13 @@
+{
+  "name": "capacity-atlas-web",
+  "private": true,
+  "description": "Lint and test tools for the web map and the assistant function. The site itself has no build step.",
+  "scripts": {
+    "lint": "eslint web/app.js web/theme.js web/fold.js web/config.js functions tests/js",
+    "test": "node --test \"tests/js/**/*.test.mjs\""
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "globals": "^15.15.0"
+  }
+}

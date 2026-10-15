@@ -6,6 +6,18 @@
   <title>Capacity Atlas</title>
   <meta name="description" content="Where New York's distribution grid can take new solar, from utility hosting capacity data checked every week.">
   <meta name="theme-color" content="#171A21">
+  <link rel="canonical" href="https://capacity-atlas.pages.dev/">
+  <!-- Link previews on LinkedIn, Slack and other sites -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Capacity Atlas">
+  <meta property="og:title" content="Capacity Atlas: where New York's power lines have room for new solar">
+  <meta property="og:description" content="758,915 line sections from two utilities on one map, checked for data problems and compared every week. Ask the map a question in plain English.">
+  <meta property="og:url" content="https://capacity-atlas.pages.dev/">
+  <meta property="og:image" content="https://capacity-atlas.pages.dev/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Capacity Atlas map of hosting capacity across upstate New York">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A21'/%3E%3Cpath d='M6 22 L13 13 L19 18 L26 9' stroke='%23FDB52E' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <script src="theme.js"></script>
   <link rel="stylesheet" href="vendor/maplibre-gl.css">
@@ -113,6 +125,7 @@
       </footer>
     </div>
   </aside>
+  <script src="fold.js"></script>
 
   <div class="toolbar" id="toolbar">
     <button class="icon-button tool-button" id="help-toggle" type="button" aria-expanded="false" aria-controls="help" title="How to read this map">
@@ -235,9 +248,9 @@
 
   <div class="status" id="status" role="status" hidden></div>
 
-  <script src="config.js"></script>
-  <script src="vendor/maplibre-gl.js"></script>
-  <script src="vendor/pmtiles.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js" defer></script>
+  <script src="vendor/maplibre-gl.js" defer></script>
+  <script src="vendor/pmtiles.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

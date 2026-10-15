@@ -6,12 +6,13 @@ __pycache__/
 # Virtual environment
 .venv/
 
-# Secrets (API keys later)
+# Local secrets
 .env
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Downloaded snapshots (27 MB each). Storage plan comes later; keep them out of Git for now.
+# Downloaded snapshots and built tiles. History lives in GitHub Releases, not in Git.
 data/
+node_modules/

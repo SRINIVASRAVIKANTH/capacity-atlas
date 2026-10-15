@@ -23,6 +23,7 @@ const SYSTEM = `You turn questions about a solar hosting capacity map of New Yor
 The map shows distribution lines from two utilities:
 - Central Hudson Gas & Electric (id central_hudson_ny_pv): the Hudson Valley, for example Poughkeepsie, Kingston, Newburgh, New Paltz, Catskill, Middletown.
 - National Grid (id national_grid_ny_pv): upstate New York, for example Albany, Schenectady, Troy, Saratoga Springs, Syracuse, Utica, Buffalo, Niagara Falls, Glens Falls.
+Other parts of New York (for example New York City, Long Island, Westchester, Rochester, Ithaca, Binghamton) are served by utilities that are not on this map yet.
 
 Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades.
 
@@ -34,6 +35,8 @@ Always call the set_map_view tool. Rules:
 - reply: one short sentence saying what the map will show. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
 - General questions about solar, hosting capacity, interconnection or how to use this map that name no place and no size: answer in reply in one or two plain sentences, and leave place, min_mw and utility null and show_issues false.
 - Questions about one specific feeder or line: say in reply that they can click that line on the map to see its published value.
+- Several places or sizes in one question: set the first one, and say in reply that you show one place at a time.
+- Always write reply in English, whatever language the question uses, because the rest of the answer on the map is in English.
 - out_of_scope: true if the question is not about solar, the grid, hosting capacity or places on this map, or the place is outside New York. Then reply politely says what you can help with.`;
 
 const TOOL = {
@@ -83,7 +86,7 @@ function sameOrigin(request) {
   if (!origin) return true;
   try {
     return new URL(origin).host === new URL(request.url).host;
-  } catch (err) {
+  } catch {
     return false; // "null" (sandboxed frames, local files) or a malformed header
   }
 }
@@ -92,7 +95,7 @@ function sameOrigin(request) {
 export function sanitize(input) {
   const out = {
     place: typeof input.place === "string" && input.place.trim() ? input.place.trim().slice(0, 120) : null,
-    min_mw: Number.isFinite(input.min_mw) && input.min_mw > 0 && input.min_mw <= 100 ? Math.round(input.min_mw * 100) / 100 : null,
+    min_mw: Number.isFinite(input.min_mw) && input.min_mw > 0 && input.min_mw <= 10000 ? Math.round(input.min_mw * 100) / 100 : null,
     utility: UTILITIES.includes(input.utility) ? input.utility : null,
     show_issues: input.show_issues === true,
     reply: typeof input.reply === "string" ? input.reply.trim().slice(0, 300) : "",
@@ -131,7 +134,7 @@ async function answer({ request, env }) {
     const body = JSON.parse(text);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new TypeError("not an object");
     question = typeof body.question === "string" ? body.question.trim() : "";
-  } catch (err) {
+  } catch {
     return json({ error: "Send a JSON body with a question." }, 400);
   }
   if (!question) return json({ error: "Ask a question first." }, 400);
@@ -170,7 +173,7 @@ async function answer({ request, env }) {
   let data;
   try {
     data = await response.json();
-  } catch (err) {
+  } catch {
     return json({ error: "AI search is unavailable right now." }, 502);
   }
   const call = (Array.isArray(data && data.content) ? data.content : []).find((block) => block.type === "tool_use" && block.name === TOOL.name);

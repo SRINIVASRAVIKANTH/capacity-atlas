@@ -60,8 +60,8 @@ import numpy as np
 import pandas as pd
 import shapely
 
-from capacity_atlas.changes import TOLERANCE_MW, keyed
-from capacity_atlas.quality.rules import ERROR, WARNING, QualityRule, default_rules, to_utc_datetime
+from capacity_atlas.changes import keyed
+from capacity_atlas.quality.rules import ERROR, TOLERANCE_MW, WARNING, QualityRule, default_rules, to_utc_datetime
 from capacity_atlas.snapshot import SnapshotStore, snapshot_day
 from capacity_atlas.sources import SOURCES, Source
 

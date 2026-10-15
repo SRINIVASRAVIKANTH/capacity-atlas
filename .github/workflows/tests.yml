@@ -24,8 +24,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+          cache: npm
       - run: pip install -r requirements.txt ruff
-      - name: Lint (style and common bugs)
+      - run: npm ci
+      - name: Lint Python (style and common bugs)
         run: ruff check .
+      - name: Lint JavaScript
+        run: npm run lint
       - name: Tests
         run: pytest -q

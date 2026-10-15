@@ -114,3 +114,10 @@ test("whatever Claude returns, only known fields and values reach the browser", 
   assert.equal(out.reply.length, 300);
   assert.equal(out.utility, "national_grid_ny_pv");
 });
+
+test("large project sizes are kept, so the map can say honestly that no line fits", () => {
+  assert.equal(sanitize({ min_mw: 500 }).min_mw, 500);
+  assert.equal(sanitize({ min_mw: 1000 }).min_mw, 1000);
+  assert.equal(sanitize({ min_mw: 0 }).min_mw, null);
+  assert.equal(sanitize({ min_mw: -5 }).min_mw, null);
+});

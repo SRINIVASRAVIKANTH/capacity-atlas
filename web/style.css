@@ -17,6 +17,7 @@
   --muted: #9a9fad;
   --faint: #6b7080;
   --accent: #6e76f0;          /* selection and focus only */
+  --accent-fill: #5860e0;     /* filled buttons with white text: 5:1 contrast */
   --strong: #ffffff;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   --control-icon: invert(0.9);
@@ -318,7 +319,7 @@ a:hover { color: var(--strong); }
 }
 .hint[hidden] { display: none; }
 .hint-action {
-  border: 0; background: var(--accent); color: #fff; border-radius: 999px;
+  border: 0; background: var(--accent-fill); color: #fff; border-radius: 999px;
   padding: 6px 12px; font: 500 13px/1.2 var(--font-text); cursor: pointer;
 }
 .hint-action:hover { filter: brightness(1.1); }
@@ -366,7 +367,7 @@ a:hover { color: var(--strong); }
   background: var(--raised); color: var(--text); border: 1px solid var(--accent);
   font: 500 13px/1 var(--font-text); cursor: pointer;
 }
-.d-action:hover { background: var(--accent); color: #fff; }
+.d-action:hover { background: var(--accent-fill); color: #fff; }
 .d-share { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .d-link { border: 0; background: transparent; padding: 0; color: var(--text); font: 500 13px/1.4 var(--font-text); cursor: pointer; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 .d-link:hover { color: var(--strong); }
@@ -437,7 +438,7 @@ a:hover { color: var(--strong); }
 
 /* First-visit greeting above Volta */
 .greeting {
-  position: absolute; right: 0; bottom: 74px; width: 250px; z-index: 1;
+  position: absolute; right: 72px; bottom: -28px; width: 250px; z-index: 1;  /* beside Volta, below the zoom buttons and credits */
   background: var(--surface); backdrop-filter: blur(12px);
   border: 1px solid var(--accent); border-radius: 16px 16px 4px 16px; box-shadow: var(--shadow);
   animation: greet-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
@@ -446,7 +447,7 @@ a:hover { color: var(--strong); }
 .greeting-body { display: grid; gap: 3px; width: 100%; text-align: left; padding: 12px 30px 12px 14px; border: 0; background: transparent; color: var(--text); cursor: pointer; font: 400 13px/1.45 var(--font-text); }
 .greeting-body strong { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
 .greeting-body span { color: var(--muted); }
-.greeting-close { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.greeting-close { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
 .greeting-close:hover { background: var(--raised); color: var(--text); }
 @keyframes greet-in { from { opacity: 0; transform: translateY(10px) scale(0.92); } to { opacity: 1; transform: none; } }
 
@@ -471,7 +472,7 @@ a:hover { color: var(--strong); }
 .msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; }
 .msg p + p { margin-top: 6px; }
 .msg-bot { align-self: flex-start; background: var(--raised); border-bottom-left-radius: 4px; }
-.msg-user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg-user { align-self: flex-end; background: var(--accent-fill); color: #fff; border-bottom-right-radius: 4px; }
 .msg-sub { margin-top: 8px; color: var(--muted); font-size: 12.5px; }
 .msg-top { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
 .msg-top li { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
@@ -495,7 +496,7 @@ a:hover { color: var(--strong); }
   border: 1px solid var(--line); background: var(--raised); color: var(--text); font: 400 14px/1 var(--font-text);
 }
 .chat-form input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.chat-send { width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.chat-send { width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px; background: var(--accent-fill); color: #fff; display: grid; place-items: center; cursor: pointer; }
 .chat-send:disabled { opacity: 0.5; cursor: default; }
 .chat-note { padding: 0 12px 10px; color: var(--faint); font-size: 11.5px; }
 
@@ -555,7 +556,7 @@ body.assistant-open .detail { right: calc(var(--gap) + 396px); }
   .detail { top: auto; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; max-height: 60vh; }
   .maplibregl-ctrl-bottom-right { bottom: 270px; }
   .assistant { bottom: 204px; right: var(--gap); }
-  .greeting { width: 220px; bottom: 66px; }
+  .greeting { width: 220px; right: 62px; bottom: -36px; }
   .assistant-launcher { width: 52px; height: 52px; }
   .assistant-panel { position: fixed; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; height: min(560px, calc(100vh - 2 * var(--gap))); }
   body.assistant-open .detail { right: var(--gap); }

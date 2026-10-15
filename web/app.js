@@ -332,10 +332,7 @@
 
   // ---------- controls ----------
   function wireControls(map) {
-    $("min-mw").addEventListener("change", (e) => {
-      state.minMW = Number(e.target.value);
-      applyFilters(map);
-    });
+    $("min-mw").addEventListener("change", (e) => setMinMW(map, Number(e.target.value)));
     $("issues-toggle").addEventListener("change", (e) => setIssues(map, e.target.checked));
     $("changes-toggle").addEventListener("change", (e) => setChanges(map, e.target.checked));
     $("utility-toggles").addEventListener("change", (e) => {
@@ -385,6 +382,7 @@
       if (isOpen("display") || isOpen("help")) setPopover(null, false);
       else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
+      else if (state.closeAssistant && !$("assistant-panel").hidden) state.closeAssistant();
     });
 
     // The panel folds down to its title and color key, on any screen size.
@@ -497,7 +495,15 @@
   // computed here, from the utilities' data currently on the map.
   function setMinMW(map, value) {
     state.minMW = value || 0;
-    document.querySelectorAll("#min-mw input").forEach((r) => (r.checked = Number(r.value) === state.minMW));
+    let matched = false;
+    document.querySelectorAll("#min-mw input").forEach((r) => {
+      r.checked = Number(r.value) === state.minMW;
+      matched = matched || r.checked;
+    });
+    // Volta can ask for any size (1.5 MW, 3 MW); say so when no button matches it.
+    const note = $("min-custom");
+    note.hidden = matched;
+    if (!matched) note.innerHTML = `Minimum set by Volta: <strong>${fmtMW(state.minMW)} MW</strong>`;
     applyFilters(map);
   }
 
@@ -663,7 +669,15 @@
     };
     let greeted = false;
     try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch (err) { /* ignore */ }
-    if (!greeted) setTimeout(() => { if (panel.hidden) greeting.hidden = false; }, 1500);
+    if (!greeted) {
+      setTimeout(() => { if (panel.hidden) greeting.hidden = false; }, 1500);
+      // The greeting sits over the map's zoom buttons, so it steps aside on its own: after a
+      // short while, or as soon as the person starts using the map.
+      setTimeout(() => { if (!greeting.hidden) hideGreeting(); }, 12000);
+      for (const type of ["mousedown", "touchstart", "wheel"]) {
+        map.getCanvasContainer().addEventListener(type, () => { if (!greeting.hidden) hideGreeting(); }, { passive: true });
+      }
+    }
     $("greeting-close").addEventListener("click", hideGreeting);
     $("greeting-open").addEventListener("click", () => setOpen(true));
     const setOpen = (open) => {
@@ -676,28 +690,38 @@
     state.closeAssistant = () => setOpen(false);
     $("assistant-toggle").addEventListener("click", () => setOpen(panel.hidden));
     $("assistant-close").addEventListener("click", () => setOpen(false));
+    // "New chat": back to the first message with its example questions, and every filter cleared.
+    const welcome = $("chat-log").innerHTML;
     $("assistant-reset").addEventListener("click", () => {
+      if (asking) return;
       setMinMW(map, 0);
       setUtility(map, null);
       setIssues(map, false);
       setChanges(map, false);
       clearSelection(map);
-      addMessage("bot", "<p>Filters reset. The map shows every line again.</p>");
+      $("chat-log").innerHTML = welcome;
+      $("chat-input").value = "";
+      $("chat-input").focus();
     });
     $("chat-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const q = $("chat-input").value.trim();
-      if (!q) return;
+      if (!q || asking) return; // while Volta is answering, the typed question waits in the box
       $("chat-input").value = "";
       askAI(map, q);
     });
-    $("chat-chips").addEventListener("click", (e) => {
-      const b = e.target.closest("button");
-      if (b) askAI(map, b.textContent);
-    });
     $("chat-log").addEventListener("click", (e) => {
+      const chip = e.target.closest(".chips button");
+      if (chip) return askAI(map, chip.textContent);
       const b = e.target.closest("button[data-feeder]");
       if (b) highlightFeeder(map, b.dataset.src, b.dataset.feeder);
+    });
+    panel.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        $("assistant-toggle").focus();
+      }
     });
   }
 
@@ -727,6 +751,12 @@
       }
       if (plan.out_of_scope) {
         reply.innerHTML = `<p>${escapeHtml(plan.reply || "I can help with solar hosting capacity in this part of New York.")}</p>`;
+        return;
+      }
+      // A general question ("What does hosting capacity mean?") gets an answer in words and
+      // leaves the map and the person's filters exactly as they were.
+      if (!plan.place && !plan.min_mw && !plan.utility && !plan.show_issues) {
+        reply.innerHTML = `<p>${escapeHtml(plan.reply || "Ask me about a place and a project size, and I will set the map.")}</p>`;
         return;
       }
       setUtility(map, plan.utility);

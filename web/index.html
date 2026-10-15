@@ -60,6 +60,7 @@
           <label><input type="radio" name="min-mw" value="2"><span>2 MW</span></label>
           <label><input type="radio" name="min-mw" value="5"><span>5 MW</span></label>
         </fieldset>
+        <p class="note min-custom" id="min-custom" hidden></p>
         <p class="field-label" id="utilities-label">Utilities</p>
         <div class="toggles" id="utility-toggles" role="group" aria-labelledby="utilities-label"></div>
       </section>
@@ -196,9 +197,9 @@
           <h2 id="assistant-title">Volta</h2>
           <p>Grid assistant, answering from utility data</p>
         </div>
-        <button class="icon-button" id="assistant-reset" type="button" title="Reset map filters">
+        <button class="icon-button" id="assistant-reset" type="button" title="New chat (clears the conversation and the filters)">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="visually-hidden">Reset map filters</span>
+          <span class="visually-hidden">New chat</span>
         </button>
         <button class="icon-button" id="assistant-close" type="button" title="Close assistant">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>

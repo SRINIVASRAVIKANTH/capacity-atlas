@@ -218,6 +218,8 @@ a:hover { color: var(--strong); }
 .segmented label:first-of-type span { border-radius: var(--radius-control) 0 0 var(--radius-control); margin-left: 0; }
 .segmented label:last-of-type span { border-radius: 0 var(--radius-control) var(--radius-control) 0; }
 .segmented input:checked + span { background: var(--raised); color: var(--text); border-color: rgba(110, 118, 240, 0.55); position: relative; z-index: 1; }
+.min-custom { margin: -6px 0 14px; }
+.min-custom strong { color: var(--text); font-weight: 600; }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Utility toggles and switch */

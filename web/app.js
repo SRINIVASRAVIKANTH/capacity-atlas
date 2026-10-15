@@ -789,7 +789,7 @@
       await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
       reply.querySelector(".typing")?.remove();
       reply.insertAdjacentHTML("beforeend", !hasGridData(map)
-        ? "<p>The map has no lines here: this area is served by a utility that is not on the map yet. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York).</p>"
+        ? "<p>No utility lines in this view. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York) so far.</p>"
         : plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
       $("chat-log").scrollTop = $("chat-log").scrollHeight;
     } finally {

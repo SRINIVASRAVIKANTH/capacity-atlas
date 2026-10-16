@@ -55,6 +55,7 @@
   const state = {
     minMW: 0, hidden: new Set(), issuesOnly: false, changesOnly: false, summary: null, flagsByBit: new Map(),
     prefs: loadPrefs(), theme: null, selected: null, layersReady: false,
+    site: { picking: false, busy: false, data: null, marker: null }, lastPlace: null,
   };
 
   // ---------- helpers ----------
@@ -265,6 +266,13 @@
     map.addSource("click-point", { type: "geojson", data: EMPTY });
     map.addLayer({ id: "click-ring", type: "circle", source: "click-point",
       paint: { "circle-radius": 11, "circle-color": "rgba(0, 0, 0, 0)", "circle-stroke-width": 2.5, "circle-stroke-color": ACCENT } });
+
+    // Site check: a dashed link from the chosen spot to the nearest line that fits the project.
+    map.addSource("site", { type: "geojson", data: state.site.data || EMPTY });
+    map.addLayer({ id: "site-link", type: "line", source: "site", filter: ["==", ["geometry-type"], "LineString"],
+      layout: round, paint: { "line-color": t.selectedLine, "line-width": 2.5, "line-dasharray": [1.5, 1.5] } });
+    map.addLayer({ id: "site-target", type: "circle", source: "site", filter: ["==", ["geometry-type"], "Point"],
+      paint: { "circle-radius": 6, "circle-color": ACCENT, "circle-stroke-width": 2.5, "circle-stroke-color": "#ffffff" } });
   }
 
   function applyPalette(map) {
@@ -379,7 +387,8 @@
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      if (isOpen("display") || isOpen("help")) setPopover(null, false);
+      if (state.site.picking) stopPicking(map);
+      else if (isOpen("display") || isOpen("help")) setPopover(null, false);
       else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
       else if (state.closeAssistant && !$("assistant-panel").hidden) state.closeAssistant();
@@ -397,6 +406,7 @@
     for (const id of ["panel-toggle", "sheet-toggle"]) {
       $(id).addEventListener("click", () => setCollapsed(!$("panel").classList.contains("is-collapsed")));
     }
+    state.setCollapsed = setCollapsed;
     if (window.matchMedia("(max-width: 760px)").matches) setCollapsed(true);
 
     // First visit: offer the guide once.
@@ -408,6 +418,7 @@
     });
 
     wireSearch(map);
+    wireSite(map);
     wireAssistant(map);
 
     $("repo-link").href = cfg.repoUrl;
@@ -453,6 +464,8 @@
       const el = document.createElement("div");
       el.className = "search-pin";
       pin = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+      state.lastPlace = [lng, lat];
+      $("site-here").hidden = false;
       if (extent) map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 40, maxZoom: zoom, minZoom: 11 });
       else map.flyTo({ center: [lng, lat], zoom });
     };
@@ -601,6 +614,18 @@
     const top = [...feeders.values()].sort((a, b) => b.n - a.n).slice(0, 3).map((t) =>
       `<li><button type="button" data-src="${escapeHtml(t.src)}" data-feeder="${escapeHtml(t.feeder)}">Feeder <span class="code">${escapeHtml(t.feeder)}</span></button><span>${fmtInt(t.n)} flagged</span></li>`).join("");
     return `<p>${facts}</p>${top ? `<p class="msg-sub">Most flagged feeders in view</p><ul class="msg-top">${top}</ul>` : ""}`;
+  }
+
+  function describeSite(result, mw, from) {
+    const need = mw >= 0.1 ? `room for ${fmtMW(mw)} MW` : "published capacity";
+    if (!result) return "<p>The site check could not finish. Please try again.</p>";
+    if (result.none) {
+      return `<p>No line with ${need} within about ${escapeHtml(fmtMiles(result.searchedKm))} of ${escapeHtml(from)}. Try a smaller project size.</p>`;
+    }
+    const p = result.feature.properties;
+    const value = p.hc !== undefined ? `${fmtMW(p.hc)} MW at that section` : `up to ${fmtMW(p.fmax)} MW on that feeder`;
+    return `<p>The nearest line with ${need} is <strong>${escapeHtml(fmtMiles(result.km))}</strong> from ${escapeHtml(from)}, in a straight line: ` +
+      `${p.feeder ? `feeder <span class="code">${escapeHtml(p.feeder)}</span>, ` : ""}${value}.</p>`;
   }
 
   function describe(summary, minMW) {
@@ -769,14 +794,17 @@
       setMinMW(map, plan.min_mw);
       setIssues(map, plan.show_issues);
       reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
+      let spot = null;
       const coords = plan.place && plan.place.match(COORDS);
       if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
-        state.flyToPlace(Number(coords[2]), Number(coords[1]), null, 12.5); // "42.65, -73.75" needs no lookup
+        spot = [Number(coords[2]), Number(coords[1])];
+        state.flyToPlace(spot[0], spot[1], null, 12.5); // "42.65, -73.75" needs no lookup
       } else if (plan.place) {
         try {
           const [place] = await geocode(plan.place, 1);
           if (place) {
             const [lng, lat] = place.geometry.coordinates;
+            spot = [lng, lat];
             state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
           } else {
             reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
@@ -784,6 +812,16 @@
         } catch (err) {
           console.warn("Place lookup failed:", err);
         }
+      }
+      if (plan.nearest) {
+        const from = spot || map.getCenter().toArray();
+        const mw = plan.min_mw || 0.01;
+        if (plan.min_mw) $("site-mw").value = plan.min_mw;
+        const result = await checkSite(map, from, mw);
+        reply.querySelector(".typing")?.remove();
+        reply.insertAdjacentHTML("beforeend", describeSite(result, mw, spot ? plan.place.replace(/, New York$/, "") : "the map center"));
+        $("chat-log").scrollTop = $("chat-log").scrollHeight;
+        return;
       }
       // Wait for the map to finish drawing, but never leave the answer hanging.
       await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
@@ -1071,10 +1109,191 @@
   function clearSelection(map) {
     state.selected = null;
     $("detail").hidden = true;
+    clearSite(map);
     if (!state.layersReady) return;
     for (const id of ["selected-halo", "selected-line", ...ids("feeder-halo")]) map.setFilter(id, NOTHING);
     map.getSource("selected").setData(EMPTY);
     map.getSource("click-point").setData(EMPTY);
+  }
+
+  // ---------- site check: the nearest line that can take a project ----------
+  // The tiles are already in the browser, so the search runs here: first among the sections
+  // around the spot, then, if none fits, among whole feeders over a much wider area.
+  const SEARCH_ZOOM = 11.5;   // sections are in the tiles from zoom 11
+  const WIDE_ZOOM = 8;        // the overview layer: about 200 miles across on a laptop screen
+  const REFINE_ZOOM = 12.5;
+
+  const waitForMap = (map) => new Promise((resolve) => {
+    map.once("idle", resolve);
+    map.triggerRepaint();
+    setTimeout(resolve, 10000);
+  });
+
+  async function lookAt(map, center, zoom) {
+    map.jumpTo({ center, zoom });
+    await waitForMap(map);
+  }
+
+  // Radius around the spot that the loaded tiles fully cover: anything nearer is certainly found.
+  function coveredKm(map, spot) {
+    const b = map.getBounds();
+    const edges = [[b.getWest(), spot[1]], [b.getEast(), spot[1]], [spot[0], b.getSouth()], [spot[0], b.getNorth()]];
+    return Math.min(...edges.map((edge) => AtlasGeo.distanceKm(spot, edge)));
+  }
+
+  async function findNearestLine(map, spot, mw) {
+    const shown = (p) => !state.hidden.has(p.src);
+    const fits = (f) => shown(f.properties) && f.properties.hc >= mw;
+    const sections = () => map.querySourceFeatures(SOURCE, { sourceLayer: LAYER });
+
+    await lookAt(map, spot, SEARCH_ZOOM);
+    const near = AtlasGeo.nearestFeature(spot, sections(), fits);
+    if (near && near.km <= coveredKm(map, spot)) return near;
+
+    await lookAt(map, spot, WIDE_ZOOM);
+    const searchedKm = coveredKm(map, spot);
+    const feeder = AtlasGeo.nearestFeature(spot, map.querySourceFeatures(SOURCE, { sourceLayer: "overview" }),
+      (f) => shown(f.properties) && f.properties.fmax >= mw);
+    if (!feeder) return near || { none: true, searchedKm };
+
+    await lookAt(map, feeder.at, REFINE_ZOOM);
+    const exact = AtlasGeo.nearestFeature(spot, sections(), fits);
+    return [near, exact].filter(Boolean).sort((a, b) => a.km - b.km)[0] || { ...feeder, approximate: true };
+  }
+
+  const siteSize = () => {
+    const value = Number($("site-mw").value);
+    return Number.isFinite(value) && value > 0 ? Math.min(value, 10000) : 0.01;
+  };
+  const fmtMiles = (km) => {
+    const mi = km / AtlasGeo.KM_PER_MILE;
+    return mi < 0.1 ? `${fmtInt(Math.max(10, Math.round((km * 3280.84) / 10) * 10))} ft` : `${mi.toFixed(mi < 10 ? 1 : 0)} mi`;
+  };
+
+  function drawSite(map, spot, result) {
+    const features = [];
+    if (result && !result.none) {
+      features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [spot, result.at] }, properties: {} });
+      features.push({ type: "Feature", geometry: { type: "Point", coordinates: result.at }, properties: {} });
+    }
+    state.site.data = { type: "FeatureCollection", features };
+    if (state.layersReady) map.getSource("site").setData(state.site.data);
+    if (state.site.marker) state.site.marker.remove();
+    const el = document.createElement("div");
+    el.className = "site-pin";
+    state.site.marker = new maplibregl.Marker({ element: el }).setLngLat(spot).addTo(map);
+  }
+
+  function clearSite(map) {
+    state.site.data = null;
+    if (state.layersReady && map.getSource("site")) map.getSource("site").setData(EMPTY);
+    if (state.site.marker) state.site.marker.remove();
+    state.site.marker = null;
+  }
+
+  // The answer, in the same card as a line's details, so it works the same on a phone.
+  function renderSite(map, spot, mw, result) {
+    const need = `room for ${fmtMW(mw)} MW`;
+    if (!result || result.none) {
+      $("detail-body").innerHTML = `
+        <div class="d-utility">Site check</div>
+        <div class="d-capacity d-feeder">No line found</div>
+        <div class="d-caption">No line with ${need} within about ${fmtMiles(result ? result.searchedKm : 0)} of this spot${state.hidden.size ? " among the utilities shown" : ""}.</div>
+        <div class="d-key"><p>Try a smaller project size, or a spot closer to the colored lines. Areas without lines are served by utilities that are not on the map yet.</p></div>`;
+      $("detail").hidden = false;
+      return;
+    }
+    const p = result.feature.properties;
+    const facts = [
+      p.hc !== undefined ? ["Capacity there", `${fmtMW(p.hc)} MW`] : ["Feeder can take", `up to ${fmtMW(p.fmax)} MW`],
+      ["Feeder", p.feeder ? `<span class="code">${escapeHtml(p.feeder)}</span>` : "Not listed"],
+      ["Utility", escapeHtml(utilityName(p.src))],
+    ];
+    $("detail-body").innerHTML = `
+      <div class="d-utility">Site check</div>
+      <div class="d-capacity">${fmtMiles(result.km).replace(/ (mi|ft)$/, "<small>$1</small>")}</div>
+      <div class="d-caption">to the nearest line with ${need}${result.approximate ? " (approximate)" : ""}</div>
+      <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <div class="d-key">
+        <div><span class="key-site" aria-hidden="true"></span>Straight line from your spot</div>
+        <p>A real connection follows roads and rights of way, and the utility's interconnection study sets the final cost.</p>
+        ${result.feature.id !== undefined ? '<button class="d-action" id="site-line" type="button">Show this line\'s details</button>' : ""}
+      </div>`;
+    $("detail").hidden = false;
+    const button = $("site-line");
+    if (button) {
+      button.addEventListener("click", () => {
+        const feature = { id: result.feature.id, properties: { ...p }, geometry: result.feature.geometry, at: result.at };
+        select(map, feature);
+        renderDetail(feature.properties);
+      });
+    }
+  }
+
+  // Room around the spot and the line so neither ends up under the card: the card sits at
+  // the right on wide screens and at the bottom on phones.
+  function clearOfCard() {
+    const card = $("detail").getBoundingClientRect();
+    const pad = { top: 90, bottom: 60, left: 60, right: 60 };
+    if (window.matchMedia("(max-width: 760px)").matches) pad.bottom = Math.max(60, window.innerHeight - card.top + 30);
+    else pad.right = Math.max(60, window.innerWidth - card.left + 30);
+    return pad;
+  }
+
+  // Runs the search and shows the answer. Returns the result, for Volta's reply.
+  async function checkSite(map, spot, mw) {
+    if (state.site.busy) return null;
+    state.site.busy = true;
+    $("site-pick").disabled = true;
+    clearSelection(map);
+    showStatus("Looking for the nearest line with room for " + fmtMW(mw) + " MW");
+    try {
+      const result = await findNearestLine(map, spot, mw);
+      drawSite(map, spot, result);
+      renderSite(map, spot, mw, result);
+      if (result && !result.none) {
+        map.fitBounds([spot, result.at], { padding: clearOfCard(), maxZoom: 15, duration: 0 });
+      } else {
+        map.jumpTo({ center: spot, zoom: 10 });
+      }
+      return result;
+    } catch (err) {
+      console.error("Site check failed:", err);
+      showStatus("The site check could not finish. Please try again.", 5000);
+      return null;
+    } finally {
+      if (!showStatus.timer || $("status").textContent.startsWith("Looking")) $("status").hidden = true;
+      state.site.busy = false;
+      $("site-pick").disabled = false;
+    }
+  }
+
+  function stopPicking(map) {
+    state.site.picking = false;
+    $("site-pick").setAttribute("aria-pressed", "false");
+    $("site-pick").textContent = "Pick a spot on the map";
+    map.getCanvas().style.cursor = "";
+    $("status").hidden = true;
+  }
+
+  function wireSite(map) {
+    $("site-pick").addEventListener("click", () => {
+      if (state.site.picking) return stopPicking(map);
+      state.site.picking = true;
+      $("site-pick").setAttribute("aria-pressed", "true");
+      $("site-pick").textContent = "Cancel";
+      map.getCanvas().style.cursor = "crosshair";
+      if (window.matchMedia("(max-width: 760px)").matches) state.setCollapsed(true);
+      showStatus("Click the map where the project would go. Press Esc to cancel.");
+    });
+    $("site-here").addEventListener("click", () => {
+      if (state.lastPlace) checkSite(map, state.lastPlace, siteSize());
+    });
+    $("site-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (state.lastPlace) checkSite(map, state.lastPlace, siteSize());
+      else $("site-pick").click();
+    });
   }
 
   function wireClicks(map) {
@@ -1085,6 +1304,10 @@
       : []);
 
     map.on("click", (e) => {
+      if (state.site.picking) {
+        stopPicking(map);
+        return checkSite(map, [e.lngLat.lng, e.lngLat.lat], siteSize());
+      }
       const hits = hitsAt(e.point);
       if (!hits.length) return clearSelection(map);
       // Keep only what select() and renderDetail() need, so it survives a theme change.
@@ -1099,7 +1322,7 @@
       if (state.closeAssistant && window.matchMedia("(max-width: 760px)").matches) state.closeAssistant();
     });
     map.on("mousemove", (e) => {
-      map.getCanvas().style.cursor = hitsAt(e.point).length ? "pointer" : "";
+      map.getCanvas().style.cursor = state.site.picking ? "crosshair" : hitsAt(e.point).length ? "pointer" : "";
     });
   }
 

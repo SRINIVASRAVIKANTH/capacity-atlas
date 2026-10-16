@@ -32,6 +32,7 @@ Always call the set_map_view tool. Rules:
 - min_mw: the project size or minimum capacity they need, in MW. Convert kW to MW (500 kW = 0.5). null if they give none.
 - utility: only if they name the utility itself ("National Grid", "Central Hudson"). Never infer it from the place. Otherwise null.
 - show_issues: true only if they ask about data quality, errors, problems or reliability of the data.
+- nearest: true if they ask for the nearest or closest line, how far a line is, or where to connect from a specific address or spot. The map then measures the distance from that place to the nearest line with room for min_mw.
 - reply: one short sentence saying what the map will show. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
 - General questions about solar, hosting capacity, interconnection or how to use this map that name no place and no size: answer in reply in one or two plain sentences, and leave place, min_mw and utility null and show_issues false.
 - Questions about one specific feeder or line: say in reply that they can click that line on the map to see its published value.
@@ -49,10 +50,11 @@ const TOOL = {
       min_mw: { type: ["number", "null"], description: "Minimum hosting capacity in MW." },
       utility: { type: ["string", "null"], enum: [...UTILITIES, null] },
       show_issues: { type: "boolean" },
+      nearest: { type: "boolean", description: "Find the nearest line with room for min_mw from the place." },
       reply: { type: "string", description: "One short sentence, no numbers about capacity." },
       out_of_scope: { type: "boolean" },
     },
-    required: ["place", "min_mw", "utility", "show_issues", "reply", "out_of_scope"],
+    required: ["place", "min_mw", "utility", "show_issues", "nearest", "reply", "out_of_scope"],
   },
 };
 
@@ -98,6 +100,7 @@ export function sanitize(input) {
     min_mw: Number.isFinite(input.min_mw) && input.min_mw > 0 && input.min_mw <= 10000 ? Math.round(input.min_mw * 100) / 100 : null,
     utility: UTILITIES.includes(input.utility) ? input.utility : null,
     show_issues: input.show_issues === true,
+    nearest: input.nearest === true,
     reply: typeof input.reply === "string" ? input.reply.trim().slice(0, 300) : "",
     out_of_scope: input.out_of_scope === true,
   };

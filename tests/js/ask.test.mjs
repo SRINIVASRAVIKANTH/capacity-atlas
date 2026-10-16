@@ -28,7 +28,7 @@ test("turns a question into clean map settings and sends the key only to Anthrop
   const calls = fakeClaude({ place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, reply: "Lines near Albany with at least 2 MW.", out_of_scope: false });
   const res = await onRequest({ request: request({ question: "Where near Albany can I connect 2 MW?" }), env: ENV });
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, reply: "Lines near Albany with at least 2 MW.", out_of_scope: false });
+  assert.deepEqual(await res.json(), { place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, nearest: false, reply: "Lines near Albany with at least 2 MW.", out_of_scope: false });
   assert.equal(calls[0].url, "https://api.anthropic.com/v1/messages");
   assert.equal(calls[0].init.headers["x-api-key"], "test-key");
   assert.equal(calls[0].init.body.tool_choice.name, "set_map_view");
@@ -36,7 +36,7 @@ test("turns a question into clean map settings and sends the key only to Anthrop
 
 test("sanitize drops unknown utilities and impossible sizes", () => {
   const out = sanitize({ place: "  ", min_mw: -3, utility: "con_ed", show_issues: "yes", reply: 5, extra: "x" });
-  assert.deepEqual(out, { place: null, min_mw: null, utility: null, show_issues: false, reply: "", out_of_scope: false });
+  assert.deepEqual(out, { place: null, min_mw: null, utility: null, show_issues: false, nearest: false, reply: "", out_of_scope: false });
 });
 
 test("refuses other websites, other methods, empty and long questions", async () => {
@@ -109,7 +109,7 @@ test("every response is JSON that browsers will not sniff as something else", as
 
 test("whatever Claude returns, only known fields and values reach the browser", () => {
   const out = sanitize({ place: "<img src=x onerror=alert(1)>", min_mw: 1e9, utility: "national_grid_ny_pv", show_issues: true, reply: "x".repeat(1000), out_of_scope: false, html: "<script>" });
-  assert.deepEqual(Object.keys(out).sort(), ["min_mw", "out_of_scope", "place", "reply", "show_issues", "utility"]);
+  assert.deepEqual(Object.keys(out).sort(), ["min_mw", "nearest", "out_of_scope", "place", "reply", "show_issues", "utility"]);
   assert.equal(out.min_mw, null);
   assert.equal(out.reply.length, 300);
   assert.equal(out.utility, "national_grid_ny_pv");
@@ -120,4 +120,10 @@ test("large project sizes are kept, so the map can say honestly that no line fit
   assert.equal(sanitize({ min_mw: 1000 }).min_mw, 1000);
   assert.equal(sanitize({ min_mw: 0 }).min_mw, null);
   assert.equal(sanitize({ min_mw: -5 }).min_mw, null);
+});
+
+test("a request for the nearest line is passed on only as true or false", () => {
+  assert.equal(sanitize({ nearest: true }).nearest, true);
+  assert.equal(sanitize({ nearest: "yes" }).nearest, false);
+  assert.equal(sanitize({}).nearest, false);
 });

@@ -97,6 +97,12 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   from the site itself, and data only from R2, OpenFreeMap and Photon.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
+* Site check (`findNearestLine` in `app.js`, distance math in `geo.js`): the nearest line with
+  room for a project. It first searches the sections in the tiles around the spot; a result
+  nearer than the edge of the loaded area is certainly the nearest. Otherwise it searches the
+  overview layer over a much wider area, where each merged line knows its feeder's highest
+  value, then zooms in on the best feeder to find the exact section. Distances are straight
+  lines on a local flat projection, within 0.5% of the great-circle distance up to 100 km.
 
 ## Assistant (Volta)
 
@@ -104,7 +110,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
 1. The browser sends the question.
 2. The function calls Claude with one forced tool, `set_map_view`, so the reply is always
-   structured: place, minimum MW, utility, whether to show data issues, and one sentence.
+   structured: place, minimum MW, utility, whether to show data issues, whether to run the
+   site check, and one sentence.
 3. The function cleans the result to known fields and values and returns it.
 4. The browser applies the settings, flies to the place, waits for the map to render,
    then counts sections, miles and feeders from the data on screen.

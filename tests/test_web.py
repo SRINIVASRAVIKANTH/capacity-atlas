@@ -72,7 +72,7 @@ def test_every_id_the_script_uses_exists_in_the_page():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
     ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
-    created_by_script = {"zoom-feeder", "copy-link"}  # built inside the detail card at runtime
+    created_by_script = {"zoom-feeder", "copy-link", "site-line"}  # built inside the detail card at runtime
     missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
     assert not missing, f"ids used in app.js but missing from index.html: {missing}"
 

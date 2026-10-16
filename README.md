@@ -80,11 +80,12 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | | Feature | What it does |
 |---|---|---|
 | 🗺️ | **One map, two utilities** | 758,915 line sections on one color scale, filtered by minimum capacity and by utility |
+| 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
-| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" and the map moves and filters itself |
+| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support and a phone layout |
 
 <p align="center">

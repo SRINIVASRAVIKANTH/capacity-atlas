@@ -419,6 +419,7 @@
 
     wireSearch(map);
     wireSite(map);
+    wireDownload(map);
     wireAssistant(map);
 
     $("repo-link").href = cfg.repoUrl;
@@ -1029,18 +1030,22 @@
   function wireShare() {
     const button = $("copy-link");
     if (!button) return;
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const map = window.atlasMap;
       const at = state.selected && state.selected.at ? state.selected.at : map.getCenter().toArray();
       const zoom = Math.max(map.getZoom(), 13).toFixed(2);
-      const url = `${location.origin}${location.pathname}${location.search}#${zoom}/${at[1].toFixed(5)}/${at[0].toFixed(5)}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        button.textContent = "Link copied";
-      } catch {
-        window.prompt("Copy this link:", url);
-      }
+      copyLink(button, `${location.origin}${location.pathname}#${zoom}/${at[1].toFixed(5)}/${at[0].toFixed(5)}`);
     });
+  }
+
+  // Copies a link and says so on the button; where the clipboard is blocked, shows the link.
+  async function copyLink(button, url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      button.textContent = "Link copied";
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
   }
 
   function renderDetail(props) {
@@ -1185,10 +1190,29 @@
   }
 
   function clearSite(map) {
+    forgetSiteLink();
     state.site.data = null;
     if (state.layersReady && map.getSource("site")) map.getSource("site").setData(EMPTY);
     if (state.site.marker) state.site.marker.remove();
     state.site.marker = null;
+  }
+
+  // A shared link (?site=...&mw=...) re-runs its site check once; afterwards the address
+  // bar no longer carries it, so a reload or a new search starts clean.
+  function forgetSiteLink() {
+    const query = new URLSearchParams(location.search);
+    if (!query.has("site") && !query.has("mw")) return;
+    query.delete("site");
+    query.delete("mw");
+    const rest = query.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+  }
+
+  function openSharedSite(map) {
+    const shared = AtlasExport.parseSiteLink(location.search, NY_BBOX);
+    if (!shared) return forgetSiteLink(); // a broken or edited link: open the map normally
+    $("site-mw").value = shared.mw;
+    map.once("idle", () => checkSite(map, shared.spot, shared.mw));
   }
 
   // The answer, in the same card as a line's details, so it works the same on a phone.
@@ -1218,8 +1242,10 @@
         <div><span class="key-site" aria-hidden="true"></span>Straight line from your spot</div>
         <p>A real connection follows roads and rights of way, and the utility's interconnection study sets the final cost.</p>
         ${result.feature.id !== undefined ? '<button class="d-action" id="site-line" type="button">Show this line\'s details</button>' : ""}
-      </div>`;
+      </div>
+      <div class="d-share"><button class="d-link" id="site-share" type="button">Copy link to this site check</button></div>`;
     $("detail").hidden = false;
+    $("site-share").addEventListener("click", () => copyLink($("site-share"), AtlasExport.siteLink(location.origin + location.pathname, spot, mw)));
     const button = $("site-line");
     if (button) {
       button.addEventListener("click", () => {
@@ -1326,6 +1352,118 @@
     });
   }
 
+  // ---------- download the lines in view ----------
+  // Built in the browser from the map tiles already loaded, so nothing new is fetched and the
+  // file holds only what the map shows anyone: the published values and the check results,
+  // in plain words. Internal codes (section numbers, flag bits) stay out.
+  const DETAIL_ZOOM = 11;         // sections are in the tiles from this zoom (tiles.py DETAIL_MIN_ZOOM)
+  const DOWNLOAD_MAX = 25000;     // sections per file, so a big download never freezes the page
+  const CHANGE_WORDS = { 1: "More capacity", 2: "Less capacity", 3: "New", 4: "Value withdrawn" };
+  const DOWNLOAD_COLUMNS = [
+    ["utility", "Utility"], ["feeder", "Feeder"], ["substation", "Substation"],
+    ["hosting_capacity_mw", "Hosting capacity (MW)"], ["section_length_ft", "Section length (ft)"],
+    ["voltage_kv", "Voltage (kV)"], ["phases", "Phases"], ["analysis_date", "Analysis date"],
+    ["data_issues", "Data quality issues"], ["change_since_last_week", "Change since last week"],
+    ["previous_capacity_mw", "Previous capacity (MW)"], ["data_as_of", "Data as of"],
+  ];
+  const DOWNLOAD_NOTE = "Hosting capacity values are utility estimates for early screening and do not replace "
+    + "an interconnection study. Shapes come from the map tiles and are simplified for display.";
+
+  const known = (v) => v !== undefined && v !== null && v !== "";
+  function downloadRow(p) {
+    const source = state.summary && state.summary.sources.find((x) => x.source_id === p.src);
+    return {
+      utility: utilityName(p.src),
+      feeder: known(p.feeder) ? String(p.feeder) : null,
+      substation: known(p.sub) ? String(p.sub) : null,
+      hosting_capacity_mw: known(p.hc) ? Number(p.hc) : null,
+      section_length_ft: known(p.m) ? Math.round(p.m * 3.28084) : null,
+      voltage_kv: known(p.kv) ? Number(p.kv) : null,
+      phases: known(p.ph) ? String(p.ph) : null,
+      analysis_date: known(p.ad) ? String(p.ad) : null,
+      data_issues: issuesFor(p.q || 0).map((f) => f.title).join("; ") || null,
+      change_since_last_week: CHANGE_WORDS[p.ch] || null,
+      previous_capacity_mw: known(p.hp) ? Number(p.hp) : null,
+      data_as_of: source ? source.snapshot_date : null,
+    };
+  }
+
+  // The sections the map is showing: in view, from the utilities switched on, and at or above
+  // the minimum capacity (lines without a value only when no minimum is set, as on the map).
+  function sectionsInView(map) {
+    const b = map.getBounds();
+    const box = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    const shown = (p) => !state.hidden.has(p.src)
+      && (known(p.hc) ? p.hc >= state.minMW : state.minMW === 0);
+    const pieces = map.querySourceFeatures(SOURCE, { sourceLayer: LAYER }).filter((f) => shown(f.properties));
+    return AtlasExport.mergeSections(pieces).filter((s) => AtlasExport.touchesBox(s.lines, box));
+  }
+
+  function saveFile(name, type, text) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  function setDownloadNote(text) {
+    $("download-note").textContent = text;
+  }
+
+  // Runs straight from the click, with no waiting, because browsers only let a page save a
+  // file while the click that asked for it is fresh.
+  function downloadView(map, format) {
+    if (map.getZoom() < DETAIL_ZOOM) {
+      return setDownloadNote("Zoom in closer first. Single sections are on the map from town level.");
+    }
+    // Every tile in view must be in, or the file would quietly miss lines.
+    if (!state.layersReady || !map.loaded()) return setDownloadNote("The map is still loading lines. Try again in a moment.");
+    try {
+      const sections = sectionsInView(map);
+      if (!sections.length) return setDownloadNote("No lines in view with the current filters.");
+      if (sections.length > DOWNLOAD_MAX) {
+        return setDownloadNote(`${fmtInt(sections.length)} sections in view. Zoom in to fewer than ${fmtInt(DOWNLOAD_MAX)} to download.`);
+      }
+      const rows = sections.map((s) => downloadRow(s.properties));
+      const day = new Date().toISOString().slice(0, 10);
+      const name = `capacity-atlas-lines-${day}.${format === "csv" ? "csv" : "geojson"}`;
+      if (format === "csv") {
+        // The byte order mark tells Excel the file is UTF-8, so names with accents read correctly.
+        saveFile(name, "text/csv;charset=utf-8", "﻿" + AtlasExport.toCsv(rows, DOWNLOAD_COLUMNS));
+      } else {
+        const metadata = {
+          source: "Capacity Atlas, https://capacity-atlas.pages.dev",
+          note: DOWNLOAD_NOTE,
+          exported: new Date().toISOString(),
+          minimum_capacity_mw: state.minMW,
+          utilities: (state.summary ? state.summary.sources : []).filter((x) => !state.hidden.has(x.source_id)).map((x) => x.utility),
+          sections: sections.length,
+        };
+        saveFile(name, "application/geo+json", AtlasExport.toGeoJson(sections, rows, metadata));
+      }
+      setDownloadNote(`Saved ${fmtInt(sections.length)} line sections.`);
+    } catch (err) {
+      console.error("Download failed:", err);
+      setDownloadNote("The file could not be made. Please try again.");
+    }
+  }
+
+  function wireDownload(map) {
+    $("download-csv").addEventListener("click", () => downloadView(map, "csv"));
+    $("download-geojson").addEventListener("click", () => downloadView(map, "geojson"));
+    // Say up front whether a download is possible from here, and clear old results on a move.
+    const update = () => setDownloadNote(map.getZoom() < DETAIL_ZOOM
+      ? "Zoom in to town level to download."
+      : "Lines in view, with the filters above.");
+    map.on("moveend", update);
+    for (const id of ["min-mw", "utility-toggles"]) $(id).addEventListener("change", update);
+    update();
+  }
+
   // ---------- start ----------
   async function start() {
     const protocol = new pmtiles.Protocol();
@@ -1361,6 +1499,7 @@
     });
     wireClicks(map);
     wireControls(map);
+    openSharedSite(map);
     window.atlasMap = map; // handy for debugging in the browser console
   }
 

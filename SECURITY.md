@@ -15,5 +15,7 @@ then **Report a vulnerability**. Please do not open a public issue for a securit
 | Website | Content Security Policy in `web/_headers`: scripts only from the site itself, data only from the listed services, no framing by other sites. |
 | Map data on Cloudflare R2 | The bucket's CORS policy allows only `https://capacity-atlas.pages.dev`, so other websites cannot load the data from it. |
 | Data from utilities | Treated as untrusted: every value is escaped before it is shown. |
+| Shared site check links | A link holds only a spot and a project size. It is read strictly (two plain numbers inside New York, a size from 0.1 to 10,000 MW) and anything else is ignored, so a link cannot run code or change the page. It needs no expiry: there is nothing private in it. |
+| Downloads | Made in the browser from the map data anyone can already see. Files carry the published values in words, never internal codes, keys or service addresses. Text that a spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) is written as plain text. |
 | Test-only URL options | `?data=` and `?basemap=` work only on a local copy, so nobody can link to the live site showing other data. |
 | Weekly automation | Secrets are passed only to the step that needs them. The tests workflow has read-only access. Dependabot proposes dependency updates monthly. |

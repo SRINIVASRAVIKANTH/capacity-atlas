@@ -83,7 +83,7 @@
         <form class="site-form" id="site-form" autocomplete="off">
           <label class="site-size" for="site-mw">
             <span>Project size</span>
-            <input id="site-mw" type="number" min="0.1" max="100" step="0.1" value="2" inputmode="decimal">
+            <input id="site-mw" type="number" min="0.1" max="10000" step="0.1" value="2" inputmode="decimal">
             <span class="unit">MW</span>
           </label>
           <div class="site-actions">
@@ -135,6 +135,16 @@
         </div>
       </section>
 
+      <section class="block" aria-labelledby="download-title">
+        <h2 id="download-title">Download</h2>
+        <p class="note">Save the line sections in view, with their published values and data quality results, as a spreadsheet (CSV) or a map file (GeoJSON).</p>
+        <div class="site-actions download-actions">
+          <button class="d-action" id="download-csv" type="button">Download CSV</button>
+          <button class="d-action" id="download-geojson" type="button">Download GeoJSON</button>
+        </div>
+        <p class="note download-note" id="download-note" aria-live="polite"></p>
+      </section>
+
       <footer class="panel-foot">
         <p>Hosting capacity values are utility estimates and do not replace an interconnection study.</p>
         <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a></p>
@@ -182,6 +192,7 @@
       <li><strong>Read the colors.</strong> Each colored line is a real distribution line. Its color shows the hosting capacity: how many megawatts of new solar can connect there without upgrades. Yellow has the most room, dark purple the least.</li>
       <li><strong>Filter by project size.</strong> Set a minimum hosting capacity to hide lines too small for your project.</li>
       <li><strong>Check a site.</strong> Enter your project size, then pick a spot on the map or search an address. The map finds the nearest line with enough room and shows how far it is.</li>
+      <li><strong>Share or save.</strong> A site check's card copies a link that reopens the same check. Zoomed in, the Download section saves the lines in view as a spreadsheet or a map file.</li>
       <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value.</li>
       <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
       <li><strong>See what changed.</strong> Each week is compared with the one before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
@@ -270,6 +281,7 @@
   <script src="vendor/maplibre-gl.js" defer></script>
   <script src="vendor/pmtiles.js" defer></script>
   <script src="geo.js" defer></script>
+  <script src="export.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

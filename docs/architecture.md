@@ -103,6 +103,18 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   overview layer over a much wider area, where each merged line knows its feeder's highest
   value, then zooms in on the best feeder to find the exact section. Distances are straight
   lines on a local flat projection, within 0.5% of the great-circle distance up to 100 km.
+* Shared site checks (`parseSiteLink` and `siteLink` in `export.js`): the result card copies a
+  link such as `?site=-73.78461,43.08311&mw=3`. Opening it reruns the check once, then the
+  address bar drops it so a reload starts clean. The link is read strictly: two plain numbers
+  inside New York and a size from 0.1 to 10,000 MW, or it is ignored. It carries nothing else,
+  so it needs no server and does not expire.
+* Download (`downloadView` in `app.js`, file helpers in `export.js`): the line sections in view,
+  with the filters applied, as CSV or GeoJSON. Built in the browser from the tiles already
+  loaded, so it costs no server work. Pieces of a section split by tile edges are joined by
+  section id, sections outside the view are dropped, and the file is capped at 25,000 sections.
+  Columns are the values shown on the map, in words: data quality issues by title, changes as
+  "More capacity" and so on. Internal codes (section numbers, flag bits) are left out. Shapes
+  are the simplified tile shapes, which the GeoJSON metadata says.
 
 ## Assistant (Volta)
 

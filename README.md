@@ -94,13 +94,23 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 </p>
 
 <p align="center">
+  <img src="docs/images/site-check.png" alt="Site check from the panel: a 3 MW project in Saratoga Springs is 0.1 miles from a line with room for it" width="900">
+  <br><b>Figure 5.</b> Site check from the panel. A 3 MW project in Saratoga Springs is 0.1 mi from a line that can take it, shown by the dashed link.
+</p>
+
+<p align="center">
   <img src="docs/images/assistant.png" alt="Volta answering Where near Albany can I connect 2 MW by filtering and moving the map" width="900">
-  <br><b>Figure 5.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
+  <br><b>Figure 6.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
+</p>
+
+<p align="center">
+  <img src="docs/images/site-check-volta.png" alt="Volta answering Nearest line for 3 MW from Kingston with the distance and the line on the map" width="900">
+  <br><b>Figure 7.</b> Volta runs the same site check from a plain question. The nearest line with room for 3 MW is 0.2 mi from Kingston, on a Central Hudson feeder.
 </p>
 
 <p align="center">
   <img src="docs/images/dark-mobile.png" alt="Capacity Atlas in the dark theme on a phone" width="300">
-  <br><b>Figure 6.</b> Dark theme on a phone.
+  <br><b>Figure 8.</b> Dark theme on a phone.
 </p>
 
 ---

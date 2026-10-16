@@ -75,6 +75,9 @@ in `web/config.js`. The assistant only works when deployed, because it needs the
 * `pub-....r2.dev` is Cloudflare's development URL and is rate limited. A custom domain on the
   bucket is the production setup: change `dataUrl` in `web/config.js` and add the new domain to
   `connect-src` in `web/_headers` (a test fails until both agree).
+* The R2 bucket's CORS policy allows only `https://capacity-atlas.pages.dev`. A new site
+  address, or previewing `web/` locally against the live data, needs that origin added in
+  the bucket's settings (R2, the bucket, Settings, CORS Policy).
 * Photon and OpenFreeMap are free public services without a service level agreement.
 * The assistant's rate limit is kept in memory per Cloudflare instance, so it is best effort.
   Prepaid credit is the hard spending cap.

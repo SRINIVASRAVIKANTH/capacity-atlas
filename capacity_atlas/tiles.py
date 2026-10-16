@@ -202,6 +202,38 @@ def section_changes(
     return ch, hp, counts
 
 
+def run_checks(
+    source: Source, gdf: gpd.GeoDataFrame, reference: datetime, feeder: pd.Series | None
+) -> tuple[np.ndarray, np.ndarray, list[dict]]:
+    """Run every quality check once, for both the per-line flags and the panel totals.
+
+    Returns the flag bits per line, the worst level per line (0 none or info, 1 warning,
+    2 error) and one summary entry per check that ran.
+    """
+    flags = np.zeros(len(gdf), dtype=np.int64)
+    level = np.zeros(len(gdf), dtype=np.int8)
+    checks = []
+    for rule in default_rules(source.columns, reference):
+        if not _ready(rule, gdf):
+            continue
+        try:
+            hit = rule.check(gdf).to_numpy(dtype=bool)
+        except Exception:  # a broken check is left off the map; the others still publish
+            logger.exception("Quality check %s failed for %s", rule.rule_id, source.source_id)
+            continue
+        if rule.rule_id in FLAG_BIT:
+            flags[hit] |= FLAG_BIT[rule.rule_id]
+            level[hit] = np.maximum(level[hit], {ERROR: 2, WARNING: 1}.get(rule.severity, 0))
+        checks.append({
+            "id": rule.rule_id,
+            "title": rule.title,
+            "severity": rule.severity,
+            "flagged": int(hit.sum()),
+            "feeders": int(feeder[hit].nunique()) if feeder is not None else None,
+        })
+    return flags, level, checks
+
+
 def map_features(
     source: Source,
     gdf: gpd.GeoDataFrame,
@@ -219,29 +251,7 @@ def map_features(
     hc = capacity.round(2) if capacity is not None else pd.Series(np.nan, index=gdf.index)
     feeder = _optional(gdf, c.feeder)
 
-    # Run every quality check once: it gives both the per-line flag bits and the panel totals.
-    flags = np.zeros(len(gdf), dtype=np.int64)
-    level = np.zeros(len(gdf), dtype=np.int8)
-    checks = []
-    for rule in default_rules(c, reference):
-        if not _ready(rule, gdf):
-            continue
-        try:
-            hit = rule.check(gdf).to_numpy(dtype=bool)
-        except Exception:  # a broken check is left off the map; the others still publish
-            logger.exception("Quality check %s failed for %s", rule.rule_id, source.source_id)
-            continue
-        if rule.rule_id in FLAG_BIT:
-            flags[hit] |= FLAG_BIT[rule.rule_id]
-            severity = {ERROR: 2, WARNING: 1}.get(rule.severity, 0)
-            level[hit] = np.maximum(level[hit], severity)
-        checks.append({
-            "id": rule.rule_id,
-            "title": rule.title,
-            "severity": rule.severity,
-            "flagged": int(hit.sum()),
-            "feeders": int(feeder[hit].nunique()) if feeder is not None else None,
-        })
+    flags, level, checks = run_checks(source, gdf, reference, feeder)
 
     columns = {
         "src": source.source_id,

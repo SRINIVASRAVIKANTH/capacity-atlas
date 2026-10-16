@@ -16,3 +16,7 @@ Thumbs.db
 # Downloaded snapshots and built tiles. History lives in GitHub Releases, not in Git.
 data/
 node_modules/
+
+# Test coverage data
+.coverage
+htmlcov/

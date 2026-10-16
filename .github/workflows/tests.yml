@@ -25,11 +25,11 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: pip install -r requirements.txt ruff
+      - run: pip install -r requirements.txt ruff pytest-cov
       - run: npm ci
       - name: Lint Python (style and common bugs)
         run: ruff check .
       - name: Lint JavaScript
         run: npm run lint
-      - name: Tests
-        run: pytest -q
+      - name: Tests (fails if coverage of the Python package drops below 85%)
+        run: pytest -q --cov=capacity_atlas --cov-report=term --cov-fail-under=85

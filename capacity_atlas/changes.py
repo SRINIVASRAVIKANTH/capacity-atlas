@@ -85,62 +85,78 @@ def compare(
     summary.examples["removed"] = _examples(removed)
 
     a, b = a.loc[common], b.loc[common]
-
     geom_changed = a.geometry.to_wkb(hex=True) != b.geometry.to_wkb(hex=True)
     summary.geometry_changed = int(geom_changed.sum())
     summary.examples["geometry_changed"] = _examples(common[geom_changed.to_numpy()])
 
     if columns.capacity_mw:
-        old_cap, new_cap = a[columns.capacity_mw], b[columns.capacity_mw]
-        both = old_cap.notna() & new_cap.notna()
-        delta = (new_cap - old_cap).where(both)
-        up = both & (delta > TOLERANCE_MW)
-        down = both & (delta < -TOLERANCE_MW)
-        newly = old_cap.isna() & new_cap.notna()
-        gone = old_cap.notna() & new_cap.isna()
-        summary.capacity_increased, summary.capacity_decreased = int(up.sum()), int(down.sum())
-        summary.newly_analyzed, summary.analysis_removed = int(newly.sum()), int(gone.sum())
-        summary.examples["capacity_increased"] = _examples(common[up.to_numpy()])
-        summary.examples["capacity_decreased"] = _examples(common[down.to_numpy()])
-
-        if down.any() and columns.feeder in b.columns:
-            per_feeder = (
-                pd.DataFrame({"feeder": b.loc[down, columns.feeder], "delta": delta[down]})
-                .groupby("feeder")["delta"]
-                .agg(sections="size", largest_drop_mw="min", median_change_mw="median")
-                .sort_values(["sections", "largest_drop_mw"], ascending=[False, True])
-                .head(top_feeders)
-                .reset_index()
-            )
-            summary.feeders_losing_capacity = [
-                {k: (round(float(v), 3) if isinstance(v, (float, np.floating)) else
-                     int(v) if isinstance(v, (int, np.integer)) else str(v))
-                 for k, v in row.items()}
-                for row in per_feeder.to_dict("records")
-            ]
-
+        _count_capacity_changes(summary, a, b, columns, top_feeders)
     if columns.analysis_date and columns.feeder in b.columns:
         old_date = to_utc_datetime(a[columns.analysis_date])
         new_date = to_utc_datetime(b[columns.analysis_date])
         refreshed = new_date.notna() & (old_date.isna() | (new_date > old_date))
         summary.feeders_refreshed = int(b.loc[refreshed, columns.feeder].nunique())
+    _count_other_changes(summary, a, b, columns)
+    return summary
 
+
+def _count_capacity_changes(summary: ChangeSummary, a: pd.DataFrame, b: pd.DataFrame,
+                            columns: ColumnMap, top_feeders: int) -> None:
+    """Sections whose published capacity went up, down, appeared or disappeared."""
+    common = a.index
+    old_cap, new_cap = a[columns.capacity_mw], b[columns.capacity_mw]
+    both = old_cap.notna() & new_cap.notna()
+    delta = (new_cap - old_cap).where(both)
+    up = both & (delta > TOLERANCE_MW)
+    down = both & (delta < -TOLERANCE_MW)
+    summary.capacity_increased, summary.capacity_decreased = int(up.sum()), int(down.sum())
+    summary.newly_analyzed = int((old_cap.isna() & new_cap.notna()).sum())
+    summary.analysis_removed = int((old_cap.notna() & new_cap.isna()).sum())
+    summary.examples["capacity_increased"] = _examples(common[up.to_numpy()])
+    summary.examples["capacity_decreased"] = _examples(common[down.to_numpy()])
+    if down.any() and columns.feeder in b.columns:
+        summary.feeders_losing_capacity = _feeders_losing_capacity(
+            b.loc[down, columns.feeder], delta[down], top_feeders)
+
+
+def _feeders_losing_capacity(feeders: pd.Series, drops: pd.Series, top: int) -> list[dict]:
+    """The feeders with the most sections that lost capacity, as plain JSON-ready values."""
+    table = (
+        pd.DataFrame({"feeder": feeders, "delta": drops})
+        .groupby("feeder")["delta"]
+        .agg(sections="size", largest_drop_mw="min", median_change_mw="median")
+        .sort_values(["sections", "largest_drop_mw"], ascending=[False, True])
+        .head(top)
+        .reset_index()
+    )
+
+    def plain(value):
+        if isinstance(value, (float, np.floating)):
+            return round(float(value), 3)
+        if isinstance(value, (int, np.integer)):
+            return int(value)
+        return str(value)
+
+    return [{k: plain(v) for k, v in row.items()} for row in table.to_dict("records")]
+
+
+def _count_other_changes(summary: ChangeSummary, a: pd.DataFrame, b: pd.DataFrame,
+                         columns: ColumnMap) -> None:
+    """Sections where any other published column changed, and which columns changed most."""
     # The record id (OBJECTID) is only a row number that utilities renumber when they
     # republish a layer, so a new number is not a change to the line section.
-    skip = {"geometry", key, columns.record_id, columns.capacity_mw, columns.analysis_date}
-    others = [c for c in a.columns if c in b.columns and c not in skip]
-    changed_any = pd.Series(False, index=common)
+    skip = {"geometry", columns.section_key, columns.record_id, columns.capacity_mw,
+            columns.analysis_date}
+    changed_any = pd.Series(False, index=a.index)
     counts = {}
-    for c in others:
+    for c in (c for c in a.columns if c in b.columns and c not in skip):
         x, y = a[c], b[c]
-        diff = ~((x == y) | (x.isna() & y.isna()))
-        diff = diff.fillna(True).astype(bool)
+        diff = (~((x == y) | (x.isna() & y.isna()))).fillna(True).astype(bool)
         if diff.any():
             counts[c] = int(diff.sum())
             changed_any |= diff
     summary.other_attributes_changed = int(changed_any.sum())
     summary.most_changed_columns = dict(sorted(counts.items(), key=lambda kv: -kv[1])[:10])
-    return summary
 
 
 def write_change_report(summary: ChangeSummary, out_dir: Path) -> tuple[Path, Path]:

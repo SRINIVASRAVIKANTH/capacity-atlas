@@ -160,7 +160,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (72 tests), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (76 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
 
 ---
 

@@ -1,9 +1,10 @@
 /* AI search for Capacity Atlas: a Cloudflare Pages Function at /api/ask.
  *
  * The browser sends a plain-English question. This function asks Claude to turn it into map
- * settings (a place, a minimum hosting capacity, a utility, whether to show data issues).
- * Claude never states capacity numbers: the map computes every number from the utilities'
- * own data after it applies these settings.
+ * settings (a place, a minimum hosting capacity, a utility, whether to show data issues,
+ * whether to find the nearest line with room). Claude never states capacity numbers or
+ * distances: the map computes every number from the utilities' own data after it applies
+ * these settings.
  *
  * The API key lives only in Cloudflare (Pages project > Settings > Variables and Secrets,
  * name ANTHROPIC_API_KEY, type Secret). It is never sent to the browser.

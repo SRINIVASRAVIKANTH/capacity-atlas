@@ -504,8 +504,8 @@
   }
 
   // ---------- grid assistant (AI) ----------
-  // Claude only turns the question into map settings. Every number in a reply is
-  // computed here, from the utilities' data currently on the map.
+  // Claude only turns the question into map settings. Every number in a reply, counts and
+  // distances alike, is computed here from the utilities' data on the map.
   function setMinMW(map, value) {
     state.minMW = value || 0;
     let matched = false;

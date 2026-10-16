@@ -114,7 +114,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
    site check, and one sentence.
 3. The function cleans the result to known fields and values and returns it.
 4. The browser applies the settings, flies to the place, waits for the map to render,
-   then counts sections, miles and feeders from the data on screen.
+   then counts sections, miles and feeders from the data on screen, or, for a site check,
+   measures the distance to the nearest line with room.
 
 The model never states capacity values. That keeps answers grounded in the published data
 and keeps each call small and cheap.

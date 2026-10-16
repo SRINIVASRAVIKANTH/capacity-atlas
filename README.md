@@ -129,8 +129,9 @@ only the map tiles in view, straight from R2. Details are in
 ## 🧠 Design decisions
 
 * 🎯 **The AI never states numbers.** Claude is called with one forced tool that returns a
-  place, a minimum size, a utility and a short sentence. The browser computes every count
-  from the data, so answers stay grounded and each question costs a fraction of a cent.
+  place, a minimum size, a utility, whether to run the site check and a short sentence. The
+  browser computes every count and distance from the data, so answers stay grounded and each
+  question costs a fraction of a cent.
 * 🧩 **Each utility's schema is mapped, not assumed.** A `ColumnMap` per source translates
   different column names into one vocabulary, so checks and the map work the same way for
   every utility. Adding a utility is one entry plus a test.

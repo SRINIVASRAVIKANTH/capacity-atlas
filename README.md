@@ -83,10 +83,11 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
 | 🔗 | **Share and download** | Copy a link that reopens a site check for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues |
+| 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
-| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself |
+| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support and a phone layout |
 
 <p align="center">
@@ -173,7 +174,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (76 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (84 tests, 90% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
 
 ---
 

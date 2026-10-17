@@ -76,6 +76,9 @@ SOURCES: dict[str, Source] = {
                 "primary_hc_anti_islanding",
                 "primary_hc_flicker",
             ),
+            limit_kinds=("over_voltage", "voltage_deviation", "regulator_deviation",
+                         "thermal", "anti_islanding", "flicker"),
+            limit_ceiling_mw=10.0,  # every published criterion and total stops at 10 MW
             map_color="color",
             # Legend read from the layer's renderer on National Grid's ArcGIS server.
             color_bands=(

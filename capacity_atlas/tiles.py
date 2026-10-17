@@ -25,6 +25,8 @@ utilities with one rule. The lines layer carries:
             1 more capacity, 2 less capacity, 3 new section or newly published value,
             4 value no longer published
     hp      the previous week's capacity in MW (on ch 1, 2 and 4)
+    lf      what limits the capacity, one bit per criterion (see capacity_atlas.limits), only
+            where the utility publishes each criterion's value and the lowest one sets the total
     (id)    the tile feature id is a section number, unique within one weekly build, so
             the map can highlight a whole section even when it crosses tile edges
 
@@ -35,7 +37,8 @@ facts for the zoomed-out detail card: fn (sections), fkm (length in km), fmin an
 of sections on the feeder that changed since the previous snapshot, only when above 0).
 
 summary.json carries what the side panel shows: per-utility totals, check results,
-what changed since the previous snapshot, and the meaning of every flag bit.
+what changed since the previous snapshot, the meaning of every flag bit, and the words for
+every limiting-criterion bit.
 
 The tiles themselves are cut by tippecanoe, the standard open-source tiler.
 
@@ -61,6 +64,7 @@ import pandas as pd
 import shapely
 
 from capacity_atlas.changes import keyed
+from capacity_atlas.limits import limit_legend, limiting_factors
 from capacity_atlas.quality.rules import ERROR, TOLERANCE_MW, WARNING, QualityRule, default_rules, to_utc_datetime
 from capacity_atlas.snapshot import SnapshotStore, snapshot_day
 from capacity_atlas.sources import SOURCES, Source
@@ -269,6 +273,8 @@ def map_features(
     analysis = _optional(gdf, c.analysis_date)
     if analysis is not None:
         columns["ad"] = to_utc_datetime(analysis).dt.strftime("%Y-%m-%d")
+    if c.capacity_mw and c.limit_kinds:
+        columns["lf"] = limiting_factors(gdf, c.capacity_mw, c.limit_columns, c.limit_kinds, c.limit_ceiling_mw)
     changes = section_changes(source, gdf, previous, previous_date)
     if changes is not None:
         columns["ch"], columns["hp"], _ = changes
@@ -386,6 +392,7 @@ def write_summary(summaries: list[SourceSummary], out: Path, generated: datetime
     payload = {
         "generated_utc": (generated or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "flags": flag_legend(),
+        "limits": limit_legend(),
         "sources": [s.__dict__ for s in summaries],
     }
     out.parent.mkdir(parents=True, exist_ok=True)

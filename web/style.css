@@ -375,6 +375,9 @@ a:hover { color: var(--strong); }
 .d-issues .dot { margin-top: 6px; }
 .d-issues strong { font-weight: 500; display: block; }
 .d-issues span { color: var(--muted); font-size: 12.5px; }
+.d-limits li { grid-template-columns: 4px 1fr; }
+.limit-mark { display: block; width: 4px; border-radius: 2px; background: var(--accent); }
+.d-limits .note { margin: 10px 0 0; font-size: 12px; }
 .d-capacity.d-feeder { font-size: 22px; line-height: 1.25; margin-top: 8px; }
 .d-capacity.d-feeder .code { font-family: var(--font-code); font-size: 19px; font-weight: 500; }
 .d-caption strong { color: var(--text); font-weight: 600; }

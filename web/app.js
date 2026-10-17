@@ -53,7 +53,7 @@
   const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 };
 
   const state = {
-    minMW: 0, hidden: new Set(), issuesOnly: false, changesOnly: false, summary: null, flagsByBit: new Map(),
+    minMW: 0, hidden: new Set(), issuesOnly: false, changesOnly: false, summary: null, flagsByBit: new Map(), limitsByBit: new Map(),
     prefs: loadPrefs(), theme: null, selected: null, layersReady: false,
     site: { picking: false, busy: false, data: null, marker: null }, lastPlace: null,
   };
@@ -732,6 +732,7 @@
       setChanges(map, false);
       clearSelection(map);
       $("chat-log").innerHTML = welcome;
+      chat.length = 0; // a new chat starts without memory of the old one
       $("chat-input").value = "";
       $("chat-input").focus();
     });
@@ -758,6 +759,16 @@
   }
 
   let asking = false;
+  // Volta remembers the last few questions of this chat and the settings it chose, so a
+  // follow-up like "and for 5 MW?" keeps the place. Kept only in this page, never stored.
+  const CHAT_MEMORY = 3;
+  const chat = [];
+  function remember(question, plan) {
+    const { place, min_mw, utility, show_issues, nearest } = plan;
+    chat.push({ question, plan: { place, min_mw, utility, show_issues, nearest } });
+    if (chat.length > CHAT_MEMORY) chat.shift();
+  }
+
   async function askAI(map, question) {
     if (asking) return;
     asking = true;
@@ -770,7 +781,7 @@
         const response = await fetch(cfg.askUrl, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question, history: chat }),
           signal: withTimeout(25000),
         });
         plan = await response.json();
@@ -781,6 +792,7 @@
         reply.innerHTML = `<p>${escapeHtml(message)} You can still use place search and the filters.</p>`;
         return;
       }
+      if (!plan.out_of_scope) remember(question, plan);
       if (plan.out_of_scope) {
         reply.innerHTML = `<p>${escapeHtml(plan.reply || "I can help with solar hosting capacity in this part of New York.")}</p>`;
         return;
@@ -882,6 +894,7 @@
       return;
     }
     for (const flag of summary.flags) state.flagsByBit.set(flag.bit, flag);
+    for (const limit of summary.limits || []) state.limitsByBit.set(limit.bit, limit); // older summaries have none
     $("rule-count").textContent = new Set(summary.sources.flatMap((x) => x.checks.map((c) => c.id))).size;
 
     toggles.innerHTML = summary.sources.map((s) => `
@@ -994,6 +1007,20 @@
     return found.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
   }
 
+  // The criteria that set a section's capacity (lf bit mask), in the order the summary lists them.
+  function limitsFor(lf) {
+    return lf ? [...state.limitsByBit].filter(([bit]) => lf & bit).map(([, limit]) => limit) : [];
+  }
+
+  function limitHtml(props) {
+    const limits = limitsFor(props.lf);
+    if (!limits.length) return "";
+    return `<div class="d-issues d-limits"><h3>What limits this line</h3><ul>${limits.map((l) => `
+      <li><span class="limit-mark" aria-hidden="true"></span>
+        <div><strong>${escapeHtml(l.title)}</strong><span>${escapeHtml(l.explanation)}</span></div></li>`).join("")}</ul>
+      <p class="note">${limits.length > 1 ? "These criteria all stop at the same value. " : ""}From the separate values the utility publishes for each criterion.</p></div>`;
+  }
+
   // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
   function renderFeeder(props) {
     const range = props.fmax === undefined || props.fmax === null
@@ -1086,6 +1113,7 @@
       ${capacityHtml}
       ${changeHtml(props)}
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      ${limitHtml(props)}
       ${keyHtml}
       ${issuesHtml}
       ${shareHtml()}`;
@@ -1363,7 +1391,7 @@
     ["utility", "Utility"], ["feeder", "Feeder"], ["substation", "Substation"],
     ["hosting_capacity_mw", "Hosting capacity (MW)"], ["section_length_ft", "Section length (ft)"],
     ["voltage_kv", "Voltage (kV)"], ["phases", "Phases"], ["analysis_date", "Analysis date"],
-    ["data_issues", "Data quality issues"], ["change_since_last_week", "Change since last week"],
+    ["limited_by", "Limited by"], ["data_issues", "Data quality issues"], ["change_since_last_week", "Change since last week"],
     ["previous_capacity_mw", "Previous capacity (MW)"], ["data_as_of", "Data as of"],
   ];
   const DOWNLOAD_NOTE = "Hosting capacity values are utility estimates for early screening and do not replace "
@@ -1381,6 +1409,7 @@
       voltage_kv: known(p.kv) ? Number(p.kv) : null,
       phases: known(p.ph) ? String(p.ph) : null,
       analysis_date: known(p.ad) ? String(p.ad) : null,
+      limited_by: limitsFor(p.lf).map((l) => l.title).join("; ") || null,
       data_issues: issuesFor(p.q || 0).map((f) => f.title).join("; ") || null,
       change_since_last_week: CHANGE_WORDS[p.ch] || null,
       previous_capacity_mw: known(p.hp) ? Number(p.hp) : null,

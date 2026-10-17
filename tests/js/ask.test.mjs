@@ -1,7 +1,7 @@
 // Tests for functions/api/ask.js with a fake Anthropic API. Run: node --test tests/js/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { onRequest, sanitize } from "../../functions/api/ask.js";
+import { onRequest, sanitize, cleanHistory, buildMessages } from "../../functions/api/ask.js";
 
 const ENV = { ANTHROPIC_API_KEY: "test-key" };
 let ipCounter = 0;
@@ -126,4 +126,38 @@ test("a request for the nearest line is passed on only as true or false", () => 
   assert.equal(sanitize({ nearest: true }).nearest, true);
   assert.equal(sanitize({ nearest: "yes" }).nearest, false);
   assert.equal(sanitize({}).nearest, false);
+});
+
+test("follow-ups: earlier turns reach Claude as its own earlier settings, in order", async () => {
+  const calls = fakeClaude({ place: "Albany, New York", min_mw: 5, utility: null, show_issues: false, reply: "Now 5 MW.", out_of_scope: false });
+  const history = [{ question: "Where near Albany can I connect 2 MW?", plan: { place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, nearest: false } }];
+  const res = await onRequest({ request: request({ question: "and for 5 MW?", history }), env: ENV });
+  assert.equal(res.status, 200);
+  const messages = calls[0].init.body.messages;
+  assert.equal(messages.length, 3);
+  assert.equal(messages[0].content, "Where near Albany can I connect 2 MW?");
+  assert.equal(messages[1].content[0].type, "tool_use");
+  assert.equal(messages[1].content[0].input.min_mw, 2);
+  assert.deepEqual(messages[2].content.map((b) => b.type), ["tool_result", "text"]);
+  assert.equal(messages[2].content[0].tool_use_id, messages[1].content[0].id);
+  assert.equal(messages[2].content[1].text, "and for 5 MW?");
+});
+
+test("history from the browser is checked like a question; bad turns are dropped, not trusted", () => {
+  const good = { question: "Troy 2 MW", plan: { place: "Troy, New York", min_mw: 2 } };
+  assert.deepEqual(cleanHistory("nope"), []);
+  assert.deepEqual(cleanHistory([null, 5, { question: 7 }, { question: "x".repeat(301), plan: {} }, { question: "no plan" }]), []);
+  const cleaned = cleanHistory([good, good, good, good, { question: " Kingston ", plan: { utility: "con_ed", min_mw: -1, reply: "<b>", extra: 1 } }]);
+  assert.equal(cleaned.length, 3); // only the last three turns
+  assert.deepEqual(cleaned[2], { question: "Kingston", settings: { place: null, min_mw: null, utility: null, show_issues: false, nearest: false } });
+  assert.equal(buildMessages([], "hi").length, 1); // no history: a single question, as before
+});
+
+test("a long history still fits; a padded body is refused unread", async () => {
+  fakeClaude({ place: null, min_mw: null, utility: null, show_issues: false, reply: "ok", out_of_scope: false });
+  const turn = { question: "q".repeat(300), plan: { place: "p".repeat(120), min_mw: 9999.99, utility: "national_grid_ny_pv", show_issues: true, nearest: true } };
+  const ok = await onRequest({ request: request({ question: "x".repeat(300), history: [turn, turn, turn] }), env: ENV });
+  assert.equal(ok.status, 200);
+  const big = await onRequest({ request: request({ question: "x", history: Array(20).fill(turn) }), env: ENV });
+  assert.equal(big.status, 413);
 });

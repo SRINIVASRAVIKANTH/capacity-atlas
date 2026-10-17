@@ -21,6 +21,14 @@ class ColumnMap:
     der_added_since_analysis_mw: str | None = None
     # Individual limits whose minimum should bound the total (e.g. thermal, voltage, flicker)
     limit_columns: tuple[str, ...] = ()
+    # What each limit column measures, in the same order, from capacity_atlas.limits.LIMIT_KINDS
+    limit_kinds: tuple[str, ...] = ()
+    # Largest size the utility studies; a limit at this value means "at least", not a limit
+    limit_ceiling_mw: float | None = None
     # Map color column and the utility's legend: ((lowest MW of band, color name), ...)
     map_color: str | None = None
     color_bands: tuple[tuple[float, str], ...] = ()
+
+    def __post_init__(self):
+        if self.limit_kinds and len(self.limit_kinds) != len(self.limit_columns):
+            raise ValueError("limit_kinds must name one kind for each of the limit_columns.")

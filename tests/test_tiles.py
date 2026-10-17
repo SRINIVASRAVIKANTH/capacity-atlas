@@ -94,6 +94,12 @@ def test_national_grid_is_reprojected_and_has_no_central_hudson_fields():
     assert out["kv"].iloc[0] == 13.2
     assert out["q"].iloc[0] == 0  # colors and limits are consistent in this row
     assert out["qs"].iloc[0] == 0
+    assert out["lf"].iloc[0] == 1  # over voltage (0.5) is the lowest criterion and sets the total
+
+
+def test_central_hudson_has_no_limit_field():
+    out, _ = map_features(SOURCES["central_hudson_ny_pv"], central_hudson_like(), REFERENCE)
+    assert "lf" not in out.columns
 
 
 def test_section_length_in_meters_for_both_projections():
@@ -151,6 +157,7 @@ def test_combine_and_summary_file(tmp_path):
     assert data["generated_utc"] == "2026-10-08T00:00:00Z"
     assert [s["source_id"] for s in data["sources"]] == ["central_hudson_ny_pv", "national_grid_ny_pv"]
     assert {f["id"] for f in data["flags"]} == set(FLAG_IDS)
+    assert [entry["bit"] for entry in data["limits"]] == [1, 2, 4, 8, 16, 32]
 
 
 def test_overview_merges_touching_sections_of_one_feeder_and_band():

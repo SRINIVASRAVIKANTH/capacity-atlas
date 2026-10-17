@@ -1,6 +1,7 @@
 /* AI search for Capacity Atlas: a Cloudflare Pages Function at /api/ask.
  *
- * The browser sends a plain-English question. This function asks Claude to turn it into map
+ * The browser sends a plain-English question, plus up to the last three questions of the
+ * same chat with the settings chosen for each, so follow-ups such as "and for 5 MW?" work. This function asks Claude to turn it into map
  * settings (a place, a minimum hosting capacity, a utility, whether to show data issues,
  * whether to find the nearest line with room). Claude never states capacity numbers or
  * distances: the map computes every number from the utilities' own data after it applies
@@ -12,7 +13,8 @@
 
 const MODEL = "claude-haiku-5-5";
 const MAX_QUESTION = 300;           // characters
-const MAX_BODY_BYTES = 2000;        // a question plus JSON wrapping; anything bigger is refused unread
+const MAX_HISTORY = 3;              // earlier questions of the same chat sent back as context
+const MAX_BODY_BYTES = 4000;        // a question, the short history and JSON wrapping; bigger is refused unread
 const API_TIMEOUT_MS = 15000;       // give up on the Claude API after this long
 const LIMIT_PER_MINUTE = 6;         // per visitor IP, best effort (per Cloudflare instance)
 const LIMIT_PER_DAY = 60;
@@ -39,6 +41,7 @@ Always call the set_map_view tool. Rules:
 - Questions about one specific feeder or line: say in reply that they can click that line on the map to see its published value.
 - Several places or sizes in one question: set the first one, and say in reply that you show one place at a time.
 - Always write reply in English, whatever language the question uses, because the rest of the answer on the map is in English.
+- Earlier questions of this chat and the settings you chose for them may come first. Use them only to understand a follow-up: "what about 5 MW?" keeps the earlier place, "and Troy?" keeps the earlier size and utility. A question that names its own place and size stands on its own.
 - out_of_scope: true if the question is not about solar, the grid, hosting capacity or places on this map, or the place is outside New York. Then reply politely says what you can help with.`;
 
 const TOOL = {
@@ -108,6 +111,38 @@ export function sanitize(input) {
   return out;
 }
 
+// The chat so far, as the browser remembers it. It comes from the visitor, so it gets the same
+// checks as a question: at most the last few turns, each question capped, each set of settings
+// cleaned to known fields. Anything malformed is dropped rather than refused.
+export function cleanHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history.slice(-MAX_HISTORY).flatMap((turn) => {
+    if (!turn || typeof turn !== "object" || typeof turn.question !== "string") return [];
+    const question = turn.question.trim();
+    if (!question || question.length > MAX_QUESTION || !turn.plan || typeof turn.plan !== "object") return [];
+    const clean = sanitize(turn.plan);
+    const settings = { place: clean.place, min_mw: clean.min_mw, utility: clean.utility,
+      show_issues: clean.show_issues, nearest: clean.nearest };
+    return [{ question, settings }];
+  });
+}
+
+// Earlier turns become real tool calls in the conversation, so the model sees exactly what it
+// decided before. Each needs a tool result before the next question.
+export function buildMessages(history, question) {
+  const messages = [];
+  let pending = null;
+  for (const [i, turn] of history.entries()) {
+    const id = `turn_${i + 1}`;
+    messages.push({ role: "user", content: pending ? [pending, { type: "text", text: turn.question }] : turn.question });
+    messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: TOOL.name,
+      input: { ...turn.settings, reply: "", out_of_scope: false } }] });
+    pending = { type: "tool_result", tool_use_id: id, content: "The map was updated." };
+  }
+  messages.push({ role: "user", content: pending ? [pending, { type: "text", text: question }] : question });
+  return messages;
+}
+
 export async function onRequest(context) {
   try {
     return await answer(context);
@@ -132,12 +167,14 @@ async function answer({ request, env }) {
   if (!allowed(ip, Date.now())) return json({ error: "Too many questions. Please wait a minute and try again." }, 429);
 
   let question = "";
+  let history = [];
   try {
     const text = await request.text();
     if (text.length > MAX_BODY_BYTES) return json({ error: `Keep questions under ${MAX_QUESTION} characters.` }, 413);
     const body = JSON.parse(text);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new TypeError("not an object");
     question = typeof body.question === "string" ? body.question.trim() : "";
+    history = cleanHistory(body.history);
   } catch {
     return json({ error: "Send a JSON body with a question." }, 400);
   }
@@ -159,7 +196,7 @@ async function answer({ request, env }) {
         system: SYSTEM,
         tools: [TOOL],
         tool_choice: { type: "tool", name: TOOL.name },
-        messages: [{ role: "user", content: question }],
+        messages: buildMessages(history, question),
       }),
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });

@@ -76,11 +76,20 @@ Adding a utility means adding one `Source` entry (see [operations.md](operations
 
 | Layer | Zooms | Content |
 |---|---|---|
-| `lines` | 11 and closer | Every section with capacity (`hc`), quality flags (`q`, `qs`), feeder, substation, voltage, phases, analysis date and length, plus the change since the previous snapshot (`ch`: more, less, new or withdrawn) and the previous value (`hp`). The tile feature id is a section number, so a selected section is highlighted whole across tile edges. |
+| `lines` | 11 and closer | Every section with capacity (`hc`), quality flags (`q`, `qs`), feeder, substation, voltage, phases, analysis date and length, plus the change since the previous snapshot (`ch`: more, less, new or withdrawn), the previous value (`hp`), and what limits the capacity (`lf`, see below). The tile feature id is a section number, so a selected section is highlighted whole across tile edges. |
 | `overview` | 5 to 10 | Touching sections of one feeder in the same capacity band merged into continuous lines, plus feeder totals for the zoomed out card, including how many of its sections changed (`fc`). |
 
 Quality flags are stored as a bit mask, one bit per check, in a fixed order (`FLAG_IDS`).
 New checks are only ever added at the end so older files keep their meaning.
+
+What limits a section (`capacity_atlas/limits.py`): National Grid publishes, next to the total,
+the value each engineering criterion allows (voltage rise, voltage swings, regulator swings,
+overload, islanding risk, flicker). The total is the lowest of them, so the lowest one is what
+limits the line. `lf` is a bit mask of the criteria at that lowest value (ties are common). It is
+left out where the total is below every criterion, because then an unpublished constraint sets
+it (a quality check reports that), and where the lowest value is the 10 MW study ceiling, which
+means "at least 10 MW", not a limit. The words for each bit are in `summary.json` under `limits`.
+A utility that does not publish its criteria, such as Central Hudson, simply has no `lf`.
 
 PMTiles is a single file read with HTTP range requests, so the browser downloads only the
 tiles in view. It is served from Cloudflare R2 because R2 allows cross-origin range requests
@@ -129,9 +138,15 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
    then counts sections, miles and feeders from the data on screen, or, for a site check,
    measures the distance to the nearest line with room.
 
+Follow-ups: the browser keeps the last three questions of the chat and the settings chosen
+for each, only in the open page, and sends them with the next question. The function checks
+them like a question (length caps, settings cleaned to known fields, malformed turns dropped)
+and passes them to Claude as its own earlier tool calls, so "and for 5 MW?" keeps the place.
+The AI's earlier replies are never sent back. "New chat" clears the memory.
+
 The model never states capacity values. That keeps answers grounded in the published data
 and keeps each call small and cheap.
 
 Safeguards: the API key exists only as an encrypted Cloudflare secret; only the site's own
-origin may call the function; questions are capped at 300 characters; each visitor is limited
+origin may call the function; questions are capped at 300 characters and the whole request at 4 KB; each visitor is limited
 to 6 questions a minute and 60 a day; prepaid API credit with auto reload off caps spending.

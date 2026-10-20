@@ -343,8 +343,10 @@ a:hover { color: var(--strong); }
 .hint-close:hover { background: var(--raised); color: var(--text); }
 
 /* ---------- Detail card ---------- */
+/* It sits left of the right-hand column of map buttons (zoom, home, Volta's button), so it
+   never covers them, however tall it grows. On phones it becomes a bottom sheet instead. */
 .detail {
-  position: fixed; top: calc(var(--gap) + 52px); right: var(--gap);
+  position: fixed; top: calc(var(--gap) + 52px); right: calc(var(--gap) + 72px);
   width: 320px; max-height: calc(100% - 2 * var(--gap) - 52px); overflow-y: auto;
   background: var(--surface); backdrop-filter: blur(10px);
   border: 1px solid var(--line); border-radius: var(--radius-panel);

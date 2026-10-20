@@ -114,7 +114,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * Motion is short and only on arrival: cards slide in, popovers drop in, Volta's chat grows
   out of its button, and the data credits glow once on load and fold away after 30 seconds.
   People who ask their system for reduced motion get none of it.
-* With the chat open, the detail card sits beside it with a 12px gap; on screens from 1020 to
+* The detail card always stays left of the column of map buttons (zoom, home, Volta), so it
+  never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1020 to
   1139px both get narrower, and below 1020px they stack on the right.
 * The map is always flat and north up: tilting and turning are switched off for the mouse,
   touch and keyboard, and an old link that asks for a tilted view opens flat at its own place.

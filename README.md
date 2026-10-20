@@ -91,8 +91,8 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
 <p align="center">
-  <img src="docs/images/detail.png" alt="A selected section with its feeder highlighted and the details card" width="900">
-  <br><b>Figure 4.</b> One selected section. Its whole feeder is outlined, and the card shows the published values and any data issues.
+  <img src="docs/images/detail.png" alt="A selected National Grid section with its feeder outlined, and the card naming voltage rise and overload as what limits the line" width="900">
+  <br><b>Figure 4.</b> One selected section. Its whole feeder is outlined, and the card shows the published values, what limits the line and any data issues.
 </p>
 
 <p align="center">

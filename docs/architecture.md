@@ -112,7 +112,7 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
 * The map is always flat and north up: tilting and turning are switched off for the mouse,
-  touch and keyboard, and an old link that asks for a tilted view opens flat.
+  touch and keyboard, and an old link that asks for a tilted view opens flat at its own place.
 * Site check (`findNearestLine` in `app.js`, distance math in `geo.js`): the nearest line with
   room for a project. It first searches the sections in the tiles around the spot; a result
   nearer than the edge of the loaded area is certainly the nearest. Otherwise it searches the

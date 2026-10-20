@@ -1529,6 +1529,12 @@
     state.summary = summary;
     renderSummary(summary);
 
+    // A link saved while the map could still be tilted ends in /bearing/pitch, and MapLibre
+    // ignores such a link entirely now that tilting is off, opening the start view instead.
+    // Keep its zoom and place, and drop the rest, so it opens where it should, flat.
+    const view = location.hash.slice(1).split("/");
+    if (view.length > 3) history.replaceState(null, "", location.pathname + location.search + "#" + view.slice(0, 3).join("/"));
+
     const map = new maplibregl.Map({
       container: "map",
       style,
@@ -1548,7 +1554,6 @@
     });
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
-    if (map.getBearing() !== 0) map.setBearing(0); // an old shared link may carry a turned view
     padForPanel(map);
     window.addEventListener("resize", () => padForPanel(map));
     map.addControl(new HomeControl(), "bottom-right");

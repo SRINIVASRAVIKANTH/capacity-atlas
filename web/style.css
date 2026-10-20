@@ -242,7 +242,7 @@ a:hover { color: var(--strong); }
 /* Utility toggles and switch */
 .toggles { display: grid; gap: 8px; margin-bottom: 14px; }
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+.check input { width: 16px; height: 16px; flex: none; accent-color: var(--accent); margin: 0; } /* flex: none keeps every box the same size when a long name wraps */
 .check .count { margin-left: auto; color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 12px; font-weight: 500; }
 .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }

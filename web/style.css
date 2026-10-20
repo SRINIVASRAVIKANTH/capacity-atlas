@@ -472,14 +472,14 @@ a:hover { color: var(--strong); }
 
 .assistant-panel {
   position: absolute; right: 0; bottom: 72px; width: 400px;
-  height: min(600px, calc(100vh - 130px));
+  height: min(600px, calc(100vh - 184px)); /* never under the top-right buttons */
   display: flex; flex-direction: column;
   background: var(--surface); backdrop-filter: blur(12px);
   border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: var(--shadow);
-  overflow: hidden; transform-origin: bottom right; animation: panel-in 0.18s ease-out;
+  overflow: hidden; transform-origin: calc(100% - 30px) calc(100% + 42px); animation: bubble-in 0.32s cubic-bezier(0.2, 1.25, 0.4, 1);
 }
 .assistant-panel[hidden] { display: none; }
-@keyframes panel-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes bubble-in { from { opacity: 0; transform: scale(0.4); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
 .assistant-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; border-bottom: 1px solid var(--line); }
 .assistant-head > div { flex: 1; min-width: 0; }
 .assistant-head h2 { margin: 0; font-size: 15px; }
@@ -519,9 +519,20 @@ a:hover { color: var(--strong); }
 .chat-send:disabled { opacity: 0.5; cursor: default; }
 .chat-note { padding: 0 12px 10px; color: var(--faint); font-size: 11.5px; }
 
-/* Map controls sit above the launcher; the detail card moves left while the chat is open. */
+/* Map controls sit above the launcher. While the chat is open the detail card moves left of
+   it with a clear 12px gap. The side panel, card and chat need 1140px in one row; from 1020px
+   the card and chat get narrower to still fit side by side, and below that the two stack on
+   the right: the card on top, the chat below it, each half the height. */
 .maplibregl-ctrl-bottom-right { bottom: 110px; }
-body.assistant-open .detail { right: calc(var(--gap) + 396px); }
+body.assistant-open .detail { right: calc(var(--gap) + 400px + 12px); }
+@media (min-width: 1020px) and (max-width: 1139px) {
+  .assistant-panel { width: 300px; }
+  body.assistant-open .detail { width: 296px; right: calc(var(--gap) + 300px + 12px); }
+}
+@media (min-width: 761px) and (max-width: 1019px) {
+  body.assistant-open .detail { right: var(--gap); max-height: calc(50vh - 122px); }
+  body.assistant-open:has(.detail:not([hidden])) .assistant-panel { height: calc(50vh - 70px); min-height: 260px; }
+}
 
 /* ---------- Status message ---------- */
 .status {
@@ -579,6 +590,35 @@ body.assistant-open .detail { right: calc(var(--gap) + 396px); }
   .assistant-launcher { width: 52px; height: 52px; }
   .assistant-panel { position: fixed; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; height: min(560px, calc(100vh - 2 * var(--gap))); }
   body.assistant-open .detail { right: var(--gap); }
+}
+
+/* ---------- Motion: everything that appears slides and fades in, briefly ---------- */
+/* Uses the separate translate and scale properties, so it never fights an element's own
+   transform (the tip and the status message are centered with one). */
+.detail { animation: card-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.popover:not([hidden]) { animation: drop-in 0.18s ease-out; }
+.hint { animation: drop-in 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
+.status { animation: rise-in 0.2s ease-out; }
+.search-results { animation: drop-in 0.15s ease-out; }
+.issues-details { animation: fade-in 0.2s ease-out; }
+.panel:not(.is-collapsed) .panel-body { animation: fade-in 0.2s ease-out; }
+.msg { animation: msg-in 0.22s ease-out; }
+.msg-user { transform-origin: bottom right; }
+.msg-bot { transform-origin: bottom left; }
+@keyframes card-in { from { opacity: 0; translate: 24px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes drop-in { from { opacity: 0; translate: 0 -6px; } to { opacity: 1; translate: 0 0; } }
+@keyframes rise-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes msg-in { from { opacity: 0; scale: 0.94; } to { opacity: 1; scale: 1; } }
+@media (max-width: 760px) {
+  @keyframes card-in { from { opacity: 0; translate: 0 24px; } to { opacity: 1; translate: 0 0; } }
+}
+
+/* The data credits glow softly when the page opens, so people see where the data comes from. */
+.maplibregl-ctrl-attrib.credits-intro { animation: credits-glow 2.4s ease-in-out 3; border-radius: 12px; }
+@keyframes credits-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(110, 118, 240, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(110, 118, 240, 0.35), 0 0 16px 2px rgba(110, 118, 240, 0.35); }
 }
 
 @media (prefers-reduced-motion: reduce) {

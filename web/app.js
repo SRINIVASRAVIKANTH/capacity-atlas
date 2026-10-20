@@ -901,7 +901,7 @@
       <label class="check">
         <input type="checkbox" value="${escapeHtml(s.source_id)}" checked>
         <span>${escapeHtml(s.utility)}</span>
-        <span class="count">${fmtInt(s.sections)} lines</span>
+        <span class="count">${fmtInt(s.sections)} sections</span>
       </label>`).join("");
 
     // One line per utility, always visible: the overall result of this week's check.
@@ -948,9 +948,9 @@
       let text;
       let changed = false;
       if (!("changes" in s)) {
-        text = "Shown after the next weekly update";      // map data built before this feature
+        text = "Changes appear after the next weekly update"; // map data built before this feature
       } else if (!c || !c.since) {
-        text = "First snapshot, nothing to compare yet";
+        text = "Changes appear after the second weekly update"; // the first week has nothing to compare with
       } else {
         const shown = (c.less || 0) + (c.more || 0) + (c.new || 0) + (c.unpublished || 0);
         const parts = [
@@ -965,7 +965,7 @@
         const removed = c.removed ? ` ${fmtInt(c.removed)} ${c.removed === 1 ? "section was" : "sections were"} removed.` : "";
         text = changed
           ? (shown ? `Since ${fmtDate(c.since)}, ${fmtInt(shown)} sections${where} changed: ${parts.join(", ")}.` : `Since ${fmtDate(c.since)}:`) + removed
-          : `No changes since ${fmtDate(c.since)}`;
+          : `No changes since ${fmtDate(c.since)}.`;
       }
       return `<div class="cs-row"><span class="dot ${changed ? "chg-yes" : "chg-none"}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-detail">${escapeHtml(text)}</span></div>`;
     }).join("");
@@ -1021,7 +1021,7 @@
     if (!state.limitsByBit.size || !publishesLimits(p.src) || p.hc === undefined || p.hc === null) return null;
     if (p.lf) {
       const limits = [...state.limitsByBit].filter(([bit]) => p.lf & bit).map(([, limit]) => limit);
-      return { limits, note: `${limits.length > 1 ? "These criteria all stop at the same value. " : ""}From the separate values the utility publishes for each criterion.` };
+      return { limits, note: `${limits.length > 1 ? "These criteria all stop at the same value. " : ""}Worked out from the value the utility publishes for each criterion.` };
     }
     if ((p.q || 0) & flagBit("capacity_below_all_limits")) {
       return { limits: [{ title: "A limit the utility does not publish",
@@ -1117,7 +1117,7 @@
       ? `<div class="d-issues"><h3>Data quality</h3><ul>${issues.map((f) => `
           <li><span class="dot sev-${f.severity}" aria-hidden="true"></span>
             <div><strong>${escapeHtml(f.title)}</strong><span>${escapeHtml(f.explanation)}</span></div></li>`).join("")}</ul></div>`
-      : analyzed ? '<p class="d-clean">No warnings or errors in the latest validation.</p>' : "";
+      : analyzed ? '<p class="d-clean">No warnings or errors in this week\'s checks.</p>' : "";
 
     const capacityHtml = analyzed
       ? `<div class="d-capacity">${fmtMW(hc)}<small>MW</small></div>
@@ -1517,6 +1517,24 @@
     update();
   }
 
+  // The data credits (the "i" box) open when the page loads. They glow softly for a moment
+  // so people notice where the data comes from, then fold away after 30 seconds, unless the
+  // person has opened or closed them in the meantime. Dragging the map folds them sooner.
+  const CREDITS_OPEN_MS = 30000;
+  function introduceCredits(map) {
+    const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
+    if (!box) return; // wide screens without the compact box show the credits as plain text
+    box.classList.add("credits-intro");
+    let touched = false;
+    box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
+    setTimeout(() => {
+      box.classList.remove("credits-intro");
+      if (touched || !box.classList.contains("maplibregl-compact-show")) return;
+      box.classList.remove("maplibregl-compact-show");
+      box.removeAttribute("open");
+    }, CREDITS_OPEN_MS);
+  }
+
   // ---------- start ----------
   async function start() {
     const protocol = new pmtiles.Protocol();
@@ -1560,6 +1578,7 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 
+    map.once("load", () => introduceCredits(map)); // the credits box takes its compact form on load
     map.on("style.load", () => onStyleLoad(map));
     if (map.isStyleLoaded()) onStyleLoad(map); // in case the first basemap finished before the listener
     map.on("error", (e) => {

@@ -21,7 +21,7 @@ Levels:
 | Feeder listed but phase missing | Warning | Phase determines which projects can connect |
 | Feeder listed but capacity value missing | Warning | Line analyzed in part only |
 | Same line section published more than once | Warning | Duplicated records |
-| Analysis older than 6 months with 0.5+ MW of new DER since | Warning | New solar connected after the analysis may have used up the published capacity |
+| Analysis over 6 months old, with new solar connected since | Warning | New solar connected after the analysis may have used up the published capacity |
 | Line section has no hosting capacity analysis | Info | Mapped but not analyzed |
 | Published capacity is exactly 0 MW | Info | Full line, or a placeholder value |
 | Total capacity is below every published limit | Info | An unpublished constraint is reducing the value |

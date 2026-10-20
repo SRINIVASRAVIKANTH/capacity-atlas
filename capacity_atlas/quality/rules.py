@@ -60,7 +60,7 @@ class MissingAnalysisRule(QualityRule):
     rule_id = "no_analysis_published"
     title = "Line section has no hosting capacity analysis"
     severity = INFO
-    explanation = "Shown as 'no data' on the map. Coverage information, not an error."
+    explanation = "Shown as a dashed gray line on the map. This is about coverage, not an error."
 
     def __init__(self, feeder: str):
         self.feeder = feeder
@@ -78,7 +78,7 @@ class DuplicateShapeRule(QualityRule):
     rule_id = "duplicate_shape"
     title = "Same line section published more than once"
     severity = WARNING
-    explanation = "Identical geometry appears in several rows."
+    explanation = "The same stretch of line appears more than once in the utility's data."
 
     def __init__(self, feeder: str):
         self.feeder = feeder
@@ -126,7 +126,7 @@ class MinAboveMaxRule(QualityRule):
     rule_id = "capacity_min_above_max"
     title = "Minimum capacity is greater than maximum capacity"
     severity = ERROR
-    explanation = "Logically impossible."
+    explanation = "The lower value is higher than the upper value, which cannot be right."
 
     def __init__(self, cap_min: str, cap_max: str):
         self.cap_min = cap_min
@@ -173,9 +173,9 @@ class StaleAnalysisRule(QualityRule):
     """
 
     rule_id = "stale_analysis_with_new_der"
-    title = "Analysis older than 6 months with 0.5+ MW of new DER since"
+    title = "Analysis over 6 months old, with new solar connected since"
     severity = WARNING
-    explanation = "The published capacity may no longer reflect the circuit."
+    explanation = "At least 0.5 MW of new solar or other generation joined this feeder after the analysis, so the value may now be too high."
 
     def __init__(
         self,
@@ -212,7 +212,7 @@ class ColorBandMismatchRule(QualityRule):
     rule_id = "map_color_mismatch"
     title = "Map color does not match the capacity value"
     severity = ERROR
-    explanation = "People reading the official map would see the wrong capacity band."
+    explanation = "On the utility's own map this line shows a color that does not match its value."
 
     def __init__(self, capacity: str, color: str, bands: tuple[tuple[float, str], ...]):
         self.capacity = capacity
@@ -256,7 +256,7 @@ class TotalAboveLimitRule(_LimitRule):
     rule_id = "capacity_above_limit"
     title = "Total capacity is above one of its own published limits"
     severity = ERROR
-    explanation = "The total should never exceed the weakest limit; this overstates capacity."
+    explanation = "The total can never be higher than its lowest limit, so this value is too high."
 
     def check(self, gdf):
         return (self.difference(gdf) > TOLERANCE_MW).fillna(False).astype(bool)
@@ -266,7 +266,7 @@ class TotalBelowLimitsRule(_LimitRule):
     rule_id = "capacity_below_all_limits"
     title = "Total capacity is below every published limit"
     severity = INFO
-    explanation = "An unpublished constraint is reducing the value; users cannot see why."
+    explanation = "Something the utility does not publish lowers the value, so nobody can see why."
 
     def check(self, gdf):
         return (self.difference(gdf) < -TOLERANCE_MW).fillna(False).astype(bool)
@@ -276,7 +276,7 @@ class ZeroCapacityRule(QualityRule):
     rule_id = "capacity_exactly_zero"
     title = "Published capacity is exactly 0 MW"
     severity = INFO
-    explanation = "May mean 'no room' or 'not analyzed'; the data does not say which."
+    explanation = "This can mean there is no room, or that the line was not analyzed. The data does not say which."
 
     def __init__(self, capacity: str):
         self.capacity = capacity
@@ -296,19 +296,19 @@ def default_rules(columns: ColumnMap, reference_date: datetime) -> list[QualityR
     if c.substation:
         rules.append(MissingWhenPresentRule(
             "feeder_without_substation", "Feeder listed but substation missing", WARNING,
-            "Every feeder is served by a substation.", present=c.feeder, missing=c.substation))
+            "Every feeder starts at a substation, but the utility does not name it here.", present=c.feeder, missing=c.substation))
         rules.append(MissingWhenPresentRule(
             "substation_without_feeder", "Substation listed but feeder missing", WARNING,
-            "A substation value without a feeder is inconsistent.",
+            "A line that names its substation should also name its feeder.",
             present=c.substation, missing=c.feeder))
     if c.phases:
         rules.append(MissingWhenPresentRule(
             "feeder_without_phase", "Feeder listed but phase missing", WARNING,
-            "Every energized line section has a phase.", present=c.feeder, missing=c.phases))
+            "Every working line has a phase, which decides what kind of project can connect.", present=c.feeder, missing=c.phases))
     if c.capacity_mw:
         rules.append(MissingWhenPresentRule(
             "feeder_without_capacity", "Feeder listed but capacity value missing", WARNING,
-            "An analyzed feeder should have a result.",
+            "The line belongs to a named feeder, but the utility published no value for it.",
             present=c.feeder, missing=c.capacity_mw))
         rules.append(ConflictingDuplicateRule(c.feeder, c.capacity_mw))
         negative_cols = [x for x in (c.capacity_mw, c.capacity_max_mw) if x]

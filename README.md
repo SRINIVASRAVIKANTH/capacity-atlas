@@ -88,7 +88,7 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
 | 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place |
-| ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support and a phone layout |
+| ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
 <p align="center">
   <img src="docs/images/detail.png" alt="A selected section with its feeder highlighted and the details card" width="900">

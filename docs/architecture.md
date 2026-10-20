@@ -111,6 +111,11 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   from the site itself, and data only from R2, OpenFreeMap and Photon.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
+* Motion is short and only on arrival: cards slide in, popovers drop in, Volta's chat grows
+  out of its button, and the data credits glow once on load and fold away after 30 seconds.
+  People who ask their system for reduced motion get none of it.
+* With the chat open, the detail card sits beside it with a 12px gap; on screens from 1020 to
+  1139px both get narrower, and below 1020px they stack on the right.
 * The map is always flat and north up: tilting and turning are switched off for the mouse,
   touch and keyboard, and an old link that asks for a tilted view opens flat at its own place.
 * Site check (`findNearestLine` in `app.js`, distance math in `geo.js`): the nearest line with

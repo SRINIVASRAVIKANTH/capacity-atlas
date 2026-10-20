@@ -40,7 +40,7 @@
           <span class="visually-hidden" id="panel-toggle-label">Collapse panel</span>
         </button>
       </div>
-      <p class="lede">Solar hosting capacity on New York's distribution grid, from published utility data, validated weekly.</p>
+      <p class="lede">Solar hosting capacity on New York's distribution grid, from published utility data, checked every week.</p>
       <p class="updated" id="updated"></p>
 
       <form class="search" id="search" role="search" autocomplete="off">
@@ -95,7 +95,7 @@
 
       <section class="block" aria-labelledby="quality-title">
         <h2 id="quality-title">Data quality</h2>
-        <p class="note">Each utility's published data is validated weekly against <span id="rule-count">14</span> checks for missing, outdated and contradictory values.</p>
+        <p class="note">Every week, each utility's data goes through <span id="rule-count">14</span> checks for missing, outdated and contradictory values.</p>
         <div class="check-summary" id="check-summary" aria-live="polite"></div>
         <label class="switch">
           <input type="checkbox" id="issues-toggle" aria-controls="issues-details">
@@ -117,7 +117,7 @@
 
       <section class="block" aria-labelledby="changes-title">
         <h2 id="changes-title">Changes since last week</h2>
-        <p class="note">Every weekly snapshot is compared with the one before, section by section.</p>
+        <p class="note">Each week's data is compared with the week before, line by line.</p>
         <div class="check-summary" id="change-summary" aria-live="polite"></div>
         <label class="switch" id="changes-switch" hidden>
           <input type="checkbox" id="changes-toggle" aria-controls="changes-details">
@@ -137,7 +137,7 @@
 
       <section class="block" aria-labelledby="download-title">
         <h2 id="download-title">Download</h2>
-        <p class="note">Save the line sections in view, with their published values and data quality results, as a spreadsheet (CSV) or a map file (GeoJSON).</p>
+        <p class="note">Save the lines in view, with their published values and data quality results, as a spreadsheet (CSV) or a map file (GeoJSON).</p>
         <div class="site-actions download-actions">
           <button class="d-action" id="download-csv" type="button">Download CSV</button>
           <button class="d-action" id="download-geojson" type="button">Download GeoJSON</button>
@@ -175,7 +175,7 @@
           <label><input type="radio" name="palette" value="plasma"><span>Standard</span></label>
           <label><input type="radio" name="palette" value="cividis"><span>Color-blind safe</span></label>
         </fieldset>
-        <p class="note">Color-blind safe is tuned for red-green color vision deficiency and stays readable in grayscale.</p>
+        <p class="note">The color-blind safe scale is designed for red-green color blindness and also reads well in black and white.</p>
       </div>
     </div>
   </div>
@@ -195,7 +195,7 @@
       <li><strong>Share or save.</strong> A site check's card copies a link that reopens the same check. Zoomed in, the Download section saves the lines in view as a spreadsheet or a map file.</li>
       <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value, and for National Grid lines, what limits it.</li>
       <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
-      <li><strong>See what changed.</strong> Each week is compared with the one before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
+      <li><strong>See what changed.</strong> Each week's data is compared with the week before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
     </ol>
     <h3>Terms</h3>
     <dl class="glossary">
@@ -224,7 +224,7 @@
     </button>
     <div class="greeting" id="greeting" hidden role="status">
       <button class="greeting-body" id="greeting-open" type="button">
-        <strong>Hi, I am Volta.</strong>
+        <strong>Hi, I'm Volta.</strong>
         <span>Looking for room on the grid? Ask me where new solar can connect.</span>
       </button>
       <button class="greeting-close" id="greeting-close" type="button" aria-label="Dismiss">
@@ -248,7 +248,7 @@
         </button>
       </header>
       <div class="chat-log" id="chat-log" aria-live="polite">
-        <div class="msg msg-bot"><p>Hi, I am Volta. Ask me where new solar can connect, and I will set the map for you.</p>
+        <div class="msg msg-bot"><p>Hi, I'm Volta. Ask me where new solar can connect, and I'll set the map for you.</p>
           <div class="chips" id="chat-chips">
             <button type="button">Where near Albany can I connect 2 MW?</button>
             <button type="button">Lines with room for 5 MW near Syracuse</button>

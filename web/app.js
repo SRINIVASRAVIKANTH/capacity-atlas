@@ -1007,18 +1007,42 @@
     return found.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
   }
 
-  // The criteria that set a section's capacity (lf bit mask), in the order the summary lists them.
-  function limitsFor(lf) {
-    return lf ? [...state.limitsByBit].filter(([bit]) => lf & bit).map(([, limit]) => limit) : [];
+  // What limits a section, for utilities that publish a value for each engineering criterion
+  // (National Grid). The tiles store the criteria at the lowest value as a bit mask (lf); where
+  // none sets the total, the quality flags and the value tell which other case it is, so every
+  // such line gets an answer. Returns null for utilities that publish no criteria.
+  const flagBit = (id) => [...state.flagsByBit].find(([, flag]) => flag.id === id)?.[0] || 0;
+  function publishesLimits(sourceId) {
+    const s = state.summary && state.summary.sources.find((x) => x.source_id === sourceId);
+    return !!s && s.checks.some((c) => c.id === "capacity_below_all_limits");
+  }
+
+  function limitAnswer(p) {
+    if (!state.limitsByBit.size || !publishesLimits(p.src) || p.hc === undefined || p.hc === null) return null;
+    if (p.lf) {
+      const limits = [...state.limitsByBit].filter(([bit]) => p.lf & bit).map(([, limit]) => limit);
+      return { limits, note: `${limits.length > 1 ? "These criteria all stop at the same value. " : ""}From the separate values the utility publishes for each criterion.` };
+    }
+    if ((p.q || 0) & flagBit("capacity_below_all_limits")) {
+      return { limits: [{ title: "A limit the utility does not publish",
+        explanation: "The value is lower than every criterion the utility publishes, so something else it studied holds this line back." }] };
+    }
+    if ((p.q || 0) & flagBit("capacity_above_limit")) {
+      return { limits: [{ title: "Unclear",
+        explanation: "The value is higher than one of the utility's own criteria, which should not happen. See the data quality note below." }] };
+    }
+    // The only case left: every criterion reaches the largest size the utility studies.
+    return { limits: [{ title: `Nothing up to ${fmtMW(p.hc)} MW`,
+      explanation: "This is the largest project size the utility studies, and the line passed every criterion at it." }] };
   }
 
   function limitHtml(props) {
-    const limits = limitsFor(props.lf);
-    if (!limits.length) return "";
-    return `<div class="d-issues d-limits"><h3>What limits this line</h3><ul>${limits.map((l) => `
+    const answer = limitAnswer(props);
+    if (!answer) return "";
+    return `<div class="d-issues d-limits"><h3>What limits this line</h3><ul>${answer.limits.map((l) => `
       <li><span class="limit-mark" aria-hidden="true"></span>
         <div><strong>${escapeHtml(l.title)}</strong><span>${escapeHtml(l.explanation)}</span></div></li>`).join("")}</ul>
-      <p class="note">${limits.length > 1 ? "These criteria all stop at the same value. " : ""}From the separate values the utility publishes for each criterion.</p></div>`;
+      ${answer.note ? `<p class="note">${answer.note}</p>` : ""}</div>`;
   }
 
   // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
@@ -1409,7 +1433,7 @@
       voltage_kv: known(p.kv) ? Number(p.kv) : null,
       phases: known(p.ph) ? String(p.ph) : null,
       analysis_date: known(p.ad) ? String(p.ad) : null,
-      limited_by: limitsFor(p.lf).map((l) => l.title).join("; ") || null,
+      limited_by: (limitAnswer(p) || { limits: [] }).limits.map((l) => l.title).join("; ") || null,
       data_issues: issuesFor(p.q || 0).map((f) => f.title).join("; ") || null,
       change_since_last_week: CHANGE_WORDS[p.ch] || null,
       previous_capacity_mw: known(p.hp) ? Number(p.hp) : null,
@@ -1514,7 +1538,17 @@
       maxZoom: 18,
       hash: true,
       attributionControl: { compact: true },
+      // Always a flat, north-up map: a tilted or turned view distorts the lines and is hard to
+      // undo, and nothing here needs 3D. This blocks right-drag, Ctrl-drag, two-finger tilt and
+      // twist, and the keyboard shortcuts; maxPitch 0 also flattens any old link that asks for tilt.
+      maxPitch: 0,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
     });
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
+    if (map.getBearing() !== 0) map.setBearing(0); // an old shared link may carry a turned view
     padForPanel(map);
     window.addEventListener("resize", () => padForPanel(map));
     map.addControl(new HomeControl(), "bottom-right");

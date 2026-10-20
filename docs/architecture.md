@@ -91,6 +91,11 @@ it (a quality check reports that), and where the lowest value is the 10 MW study
 means "at least 10 MW", not a limit. The words for each bit are in `summary.json` under `limits`.
 A utility that does not publish its criteria, such as Central Hudson, simply has no `lf`.
 
+The card gives every National Grid line with a value an answer: the criteria named by `lf`;
+"a limit the utility does not publish" where the quality flag says the total is below every
+criterion; or "nothing up to 10 MW" at the study ceiling. The CSV's "Limited by" column uses
+the same words.
+
 PMTiles is a single file read with HTTP range requests, so the browser downloads only the
 tiles in view. It is served from Cloudflare R2 because R2 allows cross-origin range requests
 and charges nothing for downloads.
@@ -106,6 +111,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   from the site itself, and data only from R2, OpenFreeMap and Photon.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
+* The map is always flat and north up: tilting and turning are switched off for the mouse,
+  touch and keyboard, and an old link that asks for a tilted view opens flat.
 * Site check (`findNearestLine` in `app.js`, distance math in `geo.js`): the nearest line with
   room for a project. It first searches the sections in the tiles around the spot; a result
   nearer than the edge of the loaded area is certainly the nearest. Otherwise it searches the

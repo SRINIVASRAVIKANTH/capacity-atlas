@@ -83,7 +83,7 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
 | 🔗 | **Share and download** | Copy a link that reopens a site check for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues |
-| 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes |
+| 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes, and says so when the cap is something the utility does not publish |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |

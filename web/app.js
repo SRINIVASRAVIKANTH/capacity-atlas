@@ -66,6 +66,7 @@
     const feet = m * 3.28084;
     return feet < 1000 ? `${fmtInt(Math.max(1, Math.round(feet / 10) * 10))} ft` : `${(feet / 5280).toFixed(feet < 52800 ? 1 : 0)} mi`;
   };
+  const fmtDay = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const fmtDate = (iso) => new Date(iso + (iso.length === 10 ? "T12:00:00Z" : "")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const colors = () => PALETTES[state.prefs.palette] || PALETTES.plasma;
@@ -884,7 +885,11 @@
       this.container = document.createElement("div");
       this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
       this.container.innerHTML = '<button type="button" title="Reset view" aria-label="Reset view"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg></button>';
-      this.container.querySelector("button").addEventListener("click", () => map.flyTo({ center: cfg.startView.center, zoom: cfg.startView.zoom }));
+      // Home is a fresh start: the selected line, its card and any site check are cleared too.
+      this.container.querySelector("button").addEventListener("click", () => {
+        clearSelection(map);
+        map.flyTo({ center: cfg.startView.center, zoom: cfg.startView.zoom });
+      });
       return this.container;
     }
     onRemove() { this.container.remove(); }
@@ -1230,15 +1235,21 @@
     fillHistory(props, "section-facts", (list, series, t) => {
       if (list.dataset.trend) return; // already added by an earlier, slower answer
       list.dataset.trend = "1";
-      list.insertAdjacentHTML("beforeend", `<dt>Feeder trend</dt><dd>
-        <button class="d-link h-toggle h-dir${t.direction}" id="trend-toggle" type="button" aria-expanded="false" aria-controls="section-history">${escapeHtml(t.short)}</button></dd>`);
-      list.insertAdjacentHTML("afterend", '<div class="d-history" id="section-history" hidden></div>');
+      const brief = AtlasHistory.trend(series, fmtDay, fmtMW); // "since Oct 2": fits on one line
+      list.insertAdjacentHTML("afterend", `
+        <button class="trend-row" id="trend-toggle" type="button" aria-expanded="false" aria-controls="section-history">
+          <span class="trend-spark" aria-hidden="true">${AtlasHistory.sparkline(series, 36, 20, { dots: false })}</span>
+          <span class="trend-text"><strong>Feeder history</strong><span class="h-dir${brief.direction}">${escapeHtml(brief.short)}</span></span>
+          <span class="trend-action">Show</span>
+        </button>
+        <div class="d-history d-history-inline" id="section-history" hidden></div>`);
       $("trend-toggle").addEventListener("click", (e) => {
         const slot = $("section-history");
         const open = slot.hidden;
         if (open && !slot.dataset.trend) feederHistoryHtml(slot, series, t);
         slot.hidden = !open;
         e.currentTarget.setAttribute("aria-expanded", String(open));
+        e.currentTarget.querySelector(".trend-action").textContent = open ? "Hide" : "Show";
       });
     });
   }
@@ -1686,6 +1697,11 @@
     // A link saved while the map could still be tilted ends in /bearing/pitch, and MapLibre
     // ignores such a link entirely now that tilting is off, opening the start view instead.
     // Keep its zoom and place, and drop the rest, so it opens where it should, flat.
+    // A refresh starts clean at the start view, the same as pressing Home. A link someone opened
+    // (shared, bookmarked, or typed) still goes to the place in it, and so does going back.
+    const nav = performance.getEntriesByType ? performance.getEntriesByType("navigation")[0] : null;
+    if (nav && nav.type === "reload" && location.hash) history.replaceState(null, "", location.pathname + location.search);
+
     const view = location.hash.slice(1).split("/");
     if (view.length > 3) history.replaceState(null, "", location.pathname + location.search + "#" + view.slice(0, 3).join("/"));
 

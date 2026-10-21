@@ -54,7 +54,9 @@
   }
 
   // A small line chart as SVG markup. Only numbers go into it, so it is safe as HTML.
-  function sparkline(series, width, height) {
+  // options.dots: false draws the line alone, for the tiny preview in a line's card.
+  function sparkline(series, width, height, options) {
+    const showDots = !options || options.dots !== false;
     const pad = 6;
     const times = series.map((p) => Date.parse(p.date + "T12:00:00Z"));
     const t0 = times[0], t1 = times[times.length - 1];
@@ -65,7 +67,7 @@
     const y = (v) => pad + (1 - (v - lo) / (hi - lo)) * (height - 2 * pad);
     const xy = series.map((p, i) => [x(times[i]).toFixed(1), y(p.value).toFixed(1)]);
     const path = xy.map(([px, py], i) => `${i ? "L" : "M"}${px} ${py}`).join(" ");
-    const dots = xy.map(([px, py], i) =>
+    const dots = !showDots ? "" : xy.map(([px, py], i) =>
       `<circle class="${i === xy.length - 1 ? "h-dot h-last" : "h-dot"}" cx="${px}" cy="${py}" r="${i === xy.length - 1 ? 3.5 : 2.5}"/>`).join("");
     return `<svg class="h-chart" viewBox="0 0 ${width} ${height}" width="100%" aria-hidden="true">` +
       `<path class="h-line" d="${path}" pathLength="1"/>${dots}</svg>`;

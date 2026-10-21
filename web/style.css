@@ -452,9 +452,26 @@ a:hover { color: var(--strong); }
 .h-last { fill: var(--accent); }
 .h-dates { display: flex; justify-content: space-between; margin: 4px 0 0 44px; color: var(--faint); font-size: 11px; }
 .h-text { margin-top: 8px; font-size: 13px; }
-.h-toggle { text-align: right; font-size: 13px; }
-.h-toggle::after { content: "›"; display: inline-block; margin-left: 5px; transition: transform 0.15s; }
-.h-toggle[aria-expanded="true"]::after { transform: rotate(90deg); }
+/* In a line's card: one full-width row that previews the feeder's trend and opens its chart */
+.trend-row {
+  width: 100%; margin-top: 14px; display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--raised);
+  color: var(--text); font: 400 13px/1.35 var(--font-text); text-align: left; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.trend-row:hover, .trend-row[aria-expanded="true"] { border-color: var(--accent); }
+.trend-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.trend-spark .h-chart { width: 36px; height: 20px; }
+.trend-spark .h-line { stroke-width: 2.5; }
+.trend-text { display: flex; flex-direction: column; min-width: 0; }
+.trend-text strong { font-weight: 500; }
+.trend-text span { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trend-text .h-dir-1 { color: var(--chg-less); }
+.trend-text .h-dir1 { color: var(--chg-more); }
+.trend-action { color: var(--accent); font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+.trend-action::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 0.15s; }
+.trend-row[aria-expanded="true"] .trend-action::after { transform: rotate(-135deg) translate(-2px, -1px); }
+.d-history-inline { border-top: 0; margin-top: 10px; padding-top: 0; }
 .h-dir-1 { color: var(--chg-less); }
 .h-dir1 { color: var(--chg-more); }
 @keyframes h-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }

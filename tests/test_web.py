@@ -72,7 +72,7 @@ def test_every_id_the_script_uses_exists_in_the_page():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
     ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
-    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history"}  # built inside the detail card at runtime
+    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history", "show-disclaimer"}  # built inside the detail card at runtime
     missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
     assert not missing, f"ids used in app.js but missing from index.html: {missing}"
 
@@ -112,3 +112,33 @@ def test_test_overrides_only_work_on_a_local_copy():
     js = (WEB / "app.js").read_text(encoding="utf-8")
     assert 'const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();' in js
     assert js.count("window.location.search") == 1
+
+
+# National Grid's REST API terms require this exact text on any map that shows its hosting
+# capacity layers, so the test holds it word for word and fails if anyone edits it.
+NATIONAL_GRID_DISCLAIMER = (
+    "The maps and Hosting Capacity information provided by National Grid and contained herein are for "
+    "general informational purposes only and are subject to change without notice. Nothing herein shall be "
+    "construed as conferring any intellectual property or other proprietary rights to you in any content "
+    "contained herein or otherwise. The content contained herein is provided on an \"as is\" and "
+    "\"as available\" basis without warranty, representation, endorsement, or guarantee. By using the "
+    "National Grid NY Hosting Capacity REST service URL you assume all risks regarding availability, quality, "
+    "condition, completeness, accuracy, reliability, and use related to the maps, information, and any data "
+    "derived therefrom."
+)
+
+
+def test_national_grid_disclaimer_is_on_the_page_word_for_word():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    block = re.search(r'<blockquote class="disclaimer">(.*?)</blockquote>', html, re.S)
+    assert block, "the disclaimer block is missing"
+    assert " ".join(block.group(1).split()) == NATIONAL_GRID_DISCLAIMER
+
+
+def test_every_source_has_a_note_in_data_sources():
+    """A new utility needs its own credit in the panel; the card's disclaimer line looks for it."""
+    from capacity_atlas.sources import SOURCES
+
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    missing = [s for s in SOURCES if f'id="source-{s}"' not in html]
+    assert not missing, f"add a Data sources note in index.html for: {missing}"

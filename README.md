@@ -175,7 +175,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (91 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (93 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
 
 ---
 
@@ -213,7 +213,8 @@ Secrets, costs, adding a utility and known limits are covered in
 
 Hosting capacity values are estimates published by each utility for early screening. They
 do not replace a utility interconnection study. Data sources: Central Hudson Gas & Electric
-and National Grid public hosting capacity services. Basemap by OpenFreeMap with
+and National Grid public hosting capacity services, credited on the map and in the panel's
+"Data sources" section, which also shows National Grid's disclaimer in its own words. Basemap by OpenFreeMap with
 OpenMapTiles and OpenStreetMap data; place search by Photon.
 
 ## 📄 License

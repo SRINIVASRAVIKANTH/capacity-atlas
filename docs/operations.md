@@ -53,10 +53,23 @@ push), confirm the feature works, then delete the old key.
    full batch, and reports what fails.
 4. Run `python -m capacity_atlas.pipeline --source <id>` locally, then
    `python scripts/inspect_snapshot.py` on the result.
-5. Add a test with a few rows shaped like the new source, then push.
+5. Add the utility's note to "Data sources" in `web/index.html` (a `<div class="source-note"
+   id="source-<id>">`), with its disclaimer word for word in a `<blockquote class="disclaimer">`
+   if its terms ask for one. Cards for that utility then link to it, and a test fails until
+   the note is there.
+6. Read the utility's terms of use before publishing anything: some ask for a form, a
+   disclaimer or written consent (see "Data use terms" below).
+7. Add a test with a few rows shaped like the new source, then push.
 
 Utilities checked and not used (with the reason) are listed in the docstring of
 `capacity_atlas/sources.py`.
+
+## Data use terms
+
+| Utility | What its terms ask | Status |
+| --- | --- | --- |
+| National Grid NY | The REST API Access Form; its disclaimer on any map showing the layers; a list of map users on request. Its portal terms also ask for written consent before its content is displayed for other purposes or its portal is linked to. | Disclaimer shown in "Data sources" and linked from every National Grid card. No links to its portal yet. Asked National Grid on 2026-10-21 whether a public map with no sign-in, the downloads and the GitHub snapshot archive are acceptable. Form not submitted until they reply, since we cannot keep a user list. |
+| Central Hudson | To be checked. | Credited by name in "Data sources" and the map credits. |
 
 ## Running locally
 

@@ -415,6 +415,17 @@ a:hover { color: var(--strong); }
 .d-share { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .d-link { border: 0; background: transparent; padding: 0; color: var(--text); font: 500 13px/1.4 var(--font-text); cursor: pointer; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 .d-link:hover { color: var(--strong); }
+.d-source { margin-top: 8px; color: var(--muted); font-size: 12.5px; }
+.d-source .d-link { font-size: 12.5px; }
+
+/* Data sources: each utility's credit, and National Grid's disclaimer in its own words */
+.source-note { padding: 8px 10px; margin: 0 -10px; border-radius: var(--radius-control); scroll-margin-top: 12px; }
+.source-note + .source-note { margin-top: 6px; }
+.source-note:focus { outline: none; }
+.source-note h3 { font-family: var(--font-display); font-weight: 500; font-size: 14px; margin: 0 0 4px; }
+.disclaimer { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.source-note.is-pointed { animation: point-out 2.4s ease-out; }
+@keyframes point-out { 0%, 40% { background: var(--raised); box-shadow: inset 0 0 0 1px var(--accent); } 100% { background: transparent; box-shadow: inset 0 0 0 1px transparent; } }
 .issues-key { margin-bottom: 4px; }
 .issues-key .dash { display: inline-block; width: 22px; height: 0; margin: 0 6px 0 0; vertical-align: middle; border-top: 3px dashed; }
 .issues-key .dash-error { margin-left: 12px; }

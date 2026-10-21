@@ -233,6 +233,12 @@
     return ["step", HC, c.c0, 0.0001, c.c1, 0.5, c.c2, 1, c.c3, 2, c.c4, 5, c.c5];
   }
 
+  // The credit in the map's "i" box names each utility, so the source is on the map itself.
+  function creditLine() {
+    const names = state.summary ? state.summary.sources.map((s) => escapeHtml(s.utility)) : [];
+    return "Grid data: " + (names.length ? names.join(", ") : "utility hosting capacity maps");
+  }
+
   function addLayers(map) {
     const t = look();
     const before = firstLabelLayer(map);
@@ -242,7 +248,7 @@
     map.addSource(SOURCE, {
       type: "vector",
       url: "pmtiles://" + DATA_URL + "/atlas.pmtiles",
-      attribution: "Grid data: utility hosting capacity maps",
+      attribution: creditLine(),
     });
 
     // Light theme: a thin dark edge so pale yellow lines stay visible on a pale map.
@@ -1152,7 +1158,7 @@
         <p>A feeder is one circuit leaving a substation. Zoom in and select a line to see the value for a single section.</p>
         ${props.fx0 !== undefined ? '<button class="d-action" id="zoom-feeder" type="button">Zoom to this feeder</button>' : ""}
       </div>
-      ${shareHtml()}`;
+      ${shareHtml(props.src)}`;
     showSoftly($("detail"));
     wireShare();
     fillHistory(props, "feeder-history", feederHistoryHtml);
@@ -1164,9 +1170,38 @@
     }
   }
 
+  // A utility whose note in "Data sources" carries a disclaimer gets a line in each of its cards
+  // that leads to it. The notes are plain page markup, so this works even without summary.json.
+  const sourceNote = (sourceId) => document.getElementById("source-" + sourceId);
+  function sourceNoteHtml(sourceId) {
+    const note = sourceNote(sourceId);
+    if (!note || !note.querySelector(".disclaimer")) return "";
+    return `<p class="d-source">Data from ${escapeHtml(utilityName(sourceId))}. ` +
+      `<button class="d-link" id="show-disclaimer" type="button" data-source="${escapeHtml(sourceId)}">Read their disclaimer</button></p>`;
+  }
+  function wireSourceNote() {
+    const button = $("show-disclaimer");
+    if (!button) return;
+    button.addEventListener("click", () => {
+      const note = sourceNote(button.dataset.source);
+      if (!note) return;
+      if (state.setCollapsed) state.setCollapsed(false);
+      // On phones the card sits over the panel, so it gives way to the note.
+      if (window.matchMedia("(max-width: 760px)").matches) clearSelection(window.atlasMap);
+      note.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+      note.focus({ preventScroll: true });
+      note.classList.remove("is-pointed");
+      void note.offsetWidth; // restart the highlight if the button is pressed twice
+      note.classList.add("is-pointed");
+    });
+  }
+
   // A link that opens the map at the selected spot, for sharing with a colleague.
-  const shareHtml = () => '<div class="d-share"><button class="d-link" id="copy-link" type="button">Copy link to this location</button></div>';
+  // The card's last row: the link, and below it the utility's disclaimer line where it has one.
+  const shareHtml = (sourceId) => '<div class="d-share"><button class="d-link" id="copy-link" type="button">Copy link to this location</button>' +
+    `${sourceNoteHtml(sourceId)}</div>`;
   function wireShare() {
+    wireSourceNote();
     const button = $("copy-link");
     if (!button) return;
     button.addEventListener("click", () => {
@@ -1188,6 +1223,9 @@
   }
 
   function renderDetail(props) {
+    // The card covers the open credits box at the lower right, so the credits fold first,
+    // as they do for Volta, rather than leave their text cut off behind the card.
+    if (state.foldCredits) state.foldCredits();
     if (props.fn !== undefined) return renderFeeder(props);
     const hc = props.hc;
     const analyzed = hc !== undefined && hc !== null;
@@ -1228,7 +1266,7 @@
       ${limitHtml(props)}
       ${keyHtml}
       ${issuesHtml}
-      ${shareHtml()}`;
+      ${shareHtml(props.src)}`;
     showSoftly($("detail"));
     wireShare();
     // One line in the facts; clicking it opens the same chart as the feeder card, right here.
@@ -1679,7 +1717,7 @@
       setTimeout(close, 650);
     };
     setTimeout(fold, CREDITS_OPEN_MS);
-    state.foldCredits = fold; // Volta's chat folds them at once, so its edge never cuts the text
+    state.foldCredits = fold; // Volta and the line card fold them at once, so neither cuts the text off
   }
 
   // ---------- start ----------

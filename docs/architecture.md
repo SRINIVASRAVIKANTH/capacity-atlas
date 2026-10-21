@@ -136,8 +136,15 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   out of its button, and the data credits glow once on load and fold away after 30 seconds.
   People who ask their system for reduced motion get none of it.
 * The detail card always stays left of the column of map buttons (zoom, home, Volta), so it
-  never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1020 to
-  1139px both get narrower, and below 1020px they stack on the right.
+  never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
+  1199px both get narrower, and below 1090px they stack on the right.
+* The panel ends with "Data sources": each utility's credit, and National Grid's disclaimer
+  word for word, as its REST API terms require. It is page markup, not data, so it shows even
+  when `summary.json` does not load, and a test holds the disclaimer text exactly. Cards for a
+  utility with a disclaimer end with "Data from National Grid. Read their disclaimer", which
+  opens the panel at the note (on phones the card closes first, since it covers the panel).
+  The map credits name each utility from `summary.json`, and opening a card folds them, as
+  Volta does, so their text is never cut off behind the card.
 * The panel's coverage line ("Coverage: ... , New York.") is written from the utilities in
   `summary.json`, so adding a utility or a state updates it without touching the page.
 * Volta's chat sits left of the map buttons, so it never covers zoom or home. A faint light

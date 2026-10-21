@@ -152,6 +152,23 @@
         <p class="note download-note" id="download-note" aria-live="polite"></p>
       </section>
 
+      <!-- Kept in the page itself, not loaded with the data, so it shows even when the data does
+           not load. A line's card links here when its utility has a note (see sourceNoteHtml). -->
+      <section class="block data-sources" id="data-sources" aria-labelledby="sources-title">
+        <h2 id="sources-title">Data sources</h2>
+        <div class="source-note" id="source-national_grid_ny_pv" tabindex="-1">
+          <h3>National Grid</h3>
+          <p class="note">From the National Grid New York System Data Portal, read weekly. National Grid's disclaimer:</p>
+          <!-- National Grid's own wording, which its REST API terms require on any map that shows
+               its hosting capacity layers. Do not shorten or reword it. -->
+          <blockquote class="disclaimer">The maps and Hosting Capacity information provided by National Grid and contained herein are for general informational purposes only and are subject to change without notice. Nothing herein shall be construed as conferring any intellectual property or other proprietary rights to you in any content contained herein or otherwise. The content contained herein is provided on an "as is" and "as available" basis without warranty, representation, endorsement, or guarantee. By using the National Grid NY Hosting Capacity REST service URL you assume all risks regarding availability, quality, condition, completeness, accuracy, reliability, and use related to the maps, information, and any data derived therefrom.</blockquote>
+        </div>
+        <div class="source-note" id="source-central_hudson_ny_pv" tabindex="-1">
+          <h3>Central Hudson Gas &amp; Electric</h3>
+          <p class="note">From Central Hudson's published hosting capacity map, read weekly.</p>
+        </div>
+      </section>
+
       <footer class="panel-foot">
         <p>Hosting capacity values are utility estimates and do not replace an interconnection study.</p>
         <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a></p>

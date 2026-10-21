@@ -117,8 +117,8 @@ the best spot a project could find on it.
   and a damaged file or snapshot costs one point, never the run.
 * Two years of dates are kept.
 * The site loads the file once, after the map has drawn. The feeder card (zoomed out) draws
-  the trend as a small chart, and the section card adds one "Feeder trend" line. Both appear
-  only from 4 dates on, because fewer is not a trend. The browser checks the file's shape and
+  the trend as a small chart, and the section card adds one "Feeder trend" line that opens the
+  same chart when clicked. Both appear only from 4 dates on, because fewer is not a trend. The browser checks the file's shape and
   shows nothing if anything is off (`web/history.js`).
 
 ## Web map
@@ -140,7 +140,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   1139px both get narrower, and below 1020px they stack on the right.
 * The panel's coverage line ("Coverage: ... , New York.") is written from the utilities in
   `summary.json`, so adding a utility or a state updates it without touching the page.
-* Volta's chat has a faint light that circles its edge slowly (one lap every 14 seconds) for as
+* Volta's chat sits left of the map buttons, so it never covers zoom or home. A faint light
+  fades in and circles its edge slowly (one lap every 14 seconds, from the start) for as
   long as it is open.
 * The map is always flat and north up: tilting and turning are switched off for the mouse,
   touch and keyboard, and an old link that asks for a tilted view opens flat at its own place.

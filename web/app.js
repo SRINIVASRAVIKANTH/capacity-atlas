@@ -740,6 +740,7 @@
     $("greeting-open").addEventListener("click", () => setOpen(true));
     const setOpen = (open) => {
       if (open) hideGreeting();
+      if (open && state.foldCredits) state.foldCredits();
       if (open) showSoftly(panel);
       else hideSoftly(panel);
       $("assistant-toggle").setAttribute("aria-expanded", String(open));
@@ -1225,10 +1226,20 @@
       ${shareHtml()}`;
     showSoftly($("detail"));
     wireShare();
+    // One line in the facts; clicking it opens the same chart as the feeder card, right here.
     fillHistory(props, "section-facts", (list, series, t) => {
       if (list.dataset.trend) return; // already added by an earlier, slower answer
       list.dataset.trend = "1";
-      list.insertAdjacentHTML("beforeend", `<dt>Feeder trend</dt><dd class="h-dir${t.direction}" title="${escapeHtml(t.long)}">${escapeHtml(t.short)}</dd>`);
+      list.insertAdjacentHTML("beforeend", `<dt>Feeder trend</dt><dd>
+        <button class="d-link h-toggle h-dir${t.direction}" id="trend-toggle" type="button" aria-expanded="false" aria-controls="section-history">${escapeHtml(t.short)}</button></dd>`);
+      list.insertAdjacentHTML("afterend", '<div class="d-history" id="section-history" hidden></div>');
+      $("trend-toggle").addEventListener("click", (e) => {
+        const slot = $("section-history");
+        const open = slot.hidden;
+        if (open && !slot.dataset.trend) feederHistoryHtml(slot, series, t);
+        slot.hidden = !open;
+        e.currentTarget.setAttribute("aria-expanded", String(open));
+      });
     });
   }
 
@@ -1636,24 +1647,28 @@
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
     if (!box) return; // wide screens without the compact box show the credits as plain text
     box.classList.add("credits-intro");
-    let touched = false;
+    let touched = false, folded = false;
     box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
-    setTimeout(() => {
+    const fold = () => {
+      if (folded) return;
+      folded = true;
       box.classList.remove("credits-intro");
       if (touched || !box.classList.contains("maplibregl-compact-show")) return;
+      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
       const close = () => {
-        inner.style.maxWidth = "";
+        if (inner) inner.style.maxWidth = "";
         box.classList.remove("credits-folding", "maplibregl-compact-show");
         box.removeAttribute("open");
       };
-      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
       if (!inner || reduceMotion()) return close();
       // Fold: the text slides shut into the "i" instead of disappearing at once.
       inner.style.maxWidth = inner.scrollWidth + "px";
       box.classList.add("credits-folding");
       requestAnimationFrame(() => requestAnimationFrame(() => { inner.style.maxWidth = "0px"; }));
       setTimeout(close, 650);
-    }, CREDITS_OPEN_MS);
+    };
+    setTimeout(fold, CREDITS_OPEN_MS);
+    state.foldCredits = fold; // Volta's chat folds them at once, so its edge never cuts the text
   }
 
   // ---------- start ----------

@@ -452,6 +452,9 @@ a:hover { color: var(--strong); }
 .h-last { fill: var(--accent); }
 .h-dates { display: flex; justify-content: space-between; margin: 4px 0 0 44px; color: var(--faint); font-size: 11px; }
 .h-text { margin-top: 8px; font-size: 13px; }
+.h-toggle { text-align: right; font-size: 13px; }
+.h-toggle::after { content: "›"; display: inline-block; margin-left: 5px; transition: transform 0.15s; }
+.h-toggle[aria-expanded="true"]::after { transform: rotate(90deg); }
 .h-dir-1 { color: var(--chg-less); }
 .h-dir1 { color: var(--chg-more); }
 @keyframes h-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -512,12 +515,14 @@ a:hover { color: var(--strong); }
 @keyframes greet-in { from { opacity: 0; transform: translateY(10px) scale(0.92); } to { opacity: 1; transform: none; } }
 
 .assistant-panel {
-  position: absolute; right: 0; bottom: 72px; width: 400px;
-  height: min(600px, calc(100vh - 184px)); /* never under the top-right buttons */
+  /* Left of the column of map buttons (zoom, home, Volta's button), so it never covers them,
+     and level with Volta's button at the bottom. */
+  position: absolute; right: 72px; bottom: 0; width: 400px;
+  height: min(600px, calc(100vh - 112px)); /* never under the top-right buttons */
   display: flex; flex-direction: column;
   background: var(--surface); backdrop-filter: blur(12px);
   border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: var(--shadow);
-  overflow: hidden; transform-origin: calc(100% - 30px) calc(100% + 42px); animation: bubble-in 0.32s cubic-bezier(0.2, 1.25, 0.4, 1);
+  overflow: hidden; transform-origin: calc(100% + 42px) calc(100% - 30px); animation: bubble-in 0.32s cubic-bezier(0.2, 1.25, 0.4, 1);
 }
 .assistant-panel[hidden] { display: none; }
 @keyframes bubble-in { from { opacity: 0; transform: scale(0.4); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
@@ -560,19 +565,19 @@ a:hover { color: var(--strong); }
 .chat-send:disabled { opacity: 0.5; cursor: default; }
 .chat-note { padding: 0 12px 10px; color: var(--faint); font-size: 11.5px; }
 
-/* Map controls sit above the launcher. While the chat is open the detail card moves left of
-   it with a clear 12px gap. The side panel, card and chat need 1140px in one row; from 1020px
-   the card and chat get narrower to still fit side by side, and below that the two stack on
-   the right: the card on top, the chat below it, each half the height. */
+/* Map controls sit above the launcher, in the right-hand column that cards and the chat keep
+   clear. While the chat is open the detail card moves left of it with a clear 12px gap. The
+   side panel, card and chat need 1200px in one row; from 1090px the card and chat get
+   narrower to still fit, and below that the two stack: the card on top, the chat below it. */
 .maplibregl-ctrl-bottom-right { bottom: 110px; }
-body.assistant-open .detail { right: calc(var(--gap) + 400px + 12px); }
-@media (min-width: 1020px) and (max-width: 1139px) {
+body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
+@media (min-width: 1090px) and (max-width: 1199px) {
   .assistant-panel { width: 300px; }
-  body.assistant-open .detail { width: 296px; right: calc(var(--gap) + 300px + 12px); }
+  body.assistant-open .detail { width: 296px; right: calc(var(--gap) + 72px + 300px + 12px); }
 }
-@media (min-width: 761px) and (max-width: 1019px) {
-  body.assistant-open .detail { right: var(--gap); max-height: calc(50vh - 122px); }
-  body.assistant-open:has(.detail:not([hidden])) .assistant-panel { height: calc(50vh - 70px); min-height: 260px; }
+@media (min-width: 761px) and (max-width: 1089px) {
+  body.assistant-open .detail { right: calc(var(--gap) + 72px); max-height: calc(50vh - 80px); }
+  body.assistant-open:has(.detail:not([hidden])) .assistant-panel { height: calc(50vh - 40px); min-height: 240px; }
 }
 
 /* ---------- Status message ---------- */
@@ -678,8 +683,9 @@ body.assistant-open .detail { right: calc(var(--gap) + 400px + 12px); }
   -webkit-mask-composite: xor; mask-composite: exclude;
 }
 .detail::after { animation: ring-lap 1.1s ease-out forwards; }
-/* Volta's chat: one quick lap as it opens, then a slow, faint light that keeps circling while it is open */
-.assistant-panel::after { opacity: 0.9; padding: 2px; animation: ring-lap 1.1s ease-out, ring-spin 14s linear 1.1s infinite; }
+/* Volta's chat: a slow, faint light that fades in and keeps circling, at the same speed, while it is open */
+.assistant-panel::after { opacity: 0.9; padding: 2px; animation: ring-in 1.5s ease-out, ring-spin 14s linear infinite; }
+@keyframes ring-in { from { opacity: 0; } to { opacity: 0.9; } }
 .hint::after { animation: ring-spin 2s linear 2 forwards, ring-fade 4s linear forwards; }
 .maplibregl-ctrl-attrib.credits-intro::before { animation: ring-spin 3s linear infinite; padding: 2px; }
 .detail.is-leaving::after, .assistant-panel.is-leaving::after { display: none; }

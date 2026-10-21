@@ -934,13 +934,20 @@
     // One line per utility, always visible: the overall result of this week's check.
     $("check-summary").innerHTML = summary.sources.map((s) => {
       const has = (severity) => s.checks.some((c) => c.severity === severity && c.flagged > 0);
-      const [cls, text] = has("error") ? ["sev-error", "Errors found"]
-        : has("warning") ? ["sev-warning", "Warnings, no errors"]
-        : ["sev-ok", "No warnings or errors"];
-      return `<div><span class="dot ${cls}" aria-hidden="true"></span><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-status">${text}</span></div>`;
+      // A labeled badge, so the result reads as a status, not as something drawn on the map.
+      const [cls, text] = has("error") ? ["badge-error", "Errors found"]
+        : has("warning") ? ["badge-warning", "Warnings only"]
+        : ["badge-ok", "All checks passed"];
+      return `<div class="cs-result"><span class="cs-name">${escapeHtml(s.utility)}</span><span class="cs-badge ${cls}">${text}</span></div>`;
     }).join("");
 
     renderChanges(summary);
+
+    // Coverage comes from the data, so adding a utility or a state updates it by itself.
+    const STATE_NAMES = { NY: "New York", NJ: "New Jersey", MA: "Massachusetts", CT: "Connecticut", PA: "Pennsylvania" };
+    const inWords = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
+    const states = [...new Set(summary.sources.map((s) => STATE_NAMES[s.state] || s.state))];
+    if (summary.sources.length) $("coverage").textContent = `Coverage: ${inWords(summary.sources.map((s) => s.utility))}, ${inWords(states)}.`;
 
     const newest = summary.sources.map((s) => s.snapshot_date).sort().pop();
     if (newest) $("updated").textContent = `Data as of ${fmtDate(newest)}. Updated every Monday.`;

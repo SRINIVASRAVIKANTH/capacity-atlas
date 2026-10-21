@@ -138,6 +138,10 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * The detail card always stays left of the column of map buttons (zoom, home, Volta), so it
   never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1020 to
   1139px both get narrower, and below 1020px they stack on the right.
+* The panel's coverage line ("Coverage: ... , New York.") is written from the utilities in
+  `summary.json`, so adding a utility or a state updates it without touching the page.
+* Volta's chat has a faint light that circles its edge slowly (one lap every 14 seconds) for as
+  long as it is open.
 * The map is always flat and north up: tilting and turning are switched off for the mouse,
   touch and keyboard, and an old link that asks for a tilted view opens flat at its own place.
 * Site check (`findNearestLine` in `app.js`, distance math in `geo.js`): the nearest line with

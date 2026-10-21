@@ -40,7 +40,8 @@
           <span class="visually-hidden" id="panel-toggle-label">Collapse panel</span>
         </button>
       </div>
-      <p class="lede">Solar hosting capacity on New York's distribution grid, from published utility data, checked every week.</p>
+      <p class="lede">Capacity Atlas maps where power lines can accept new solar, using published utility hosting capacity data that is validated every week.</p>
+      <p class="coverage" id="coverage">Coverage: Central Hudson Gas &amp; Electric and National Grid, New York.</p>
       <p class="updated" id="updated"></p>
 
       <form class="search" id="search" role="search" autocomplete="off">
@@ -52,12 +53,12 @@
 
       <section class="key" aria-labelledby="legend-title">
         <h2 id="legend-title">Hosting capacity</h2>
-        <p class="key-sub">New solar a line can take without upgrades</p>
+        <p class="key-sub">How much new solar, in megawatts (MW), each line can accept without grid upgrades</p>
         <div class="ramp" id="ramp" role="img" aria-label="Color scale from 0 to 5 megawatts or more"></div>
         <div class="ramp-labels" aria-hidden="true">
           <span style="left:0">0</span><span style="left:25%">0.5</span><span style="left:44%">1</span><span style="left:63%">2</span><span style="left:82%">5+</span><span>MW</span>
         </div>
-        <p class="note key-none"><span class="swatch-none" aria-hidden="true"></span>Not published by the utility</p>
+        <p class="note key-none"><span class="swatch-none" aria-hidden="true"></span>No value published by the utility</p>
       </section>
     </header>
 
@@ -79,7 +80,7 @@
 
       <section class="block" aria-labelledby="site-title">
         <h2 id="site-title">Check a site</h2>
-        <p class="note">Find the nearest line that can take your project, and how far it is.</p>
+        <p class="note">Find the nearest line with room for your project, and how far away it is.</p>
         <form class="site-form" id="site-form" autocomplete="off">
           <label class="site-size" for="site-mw">
             <span>Project size</span>
@@ -95,23 +96,28 @@
 
       <section class="block" aria-labelledby="quality-title">
         <h2 id="quality-title">Data quality</h2>
-        <p class="note">Every week, each utility's data goes through <span id="rule-count">14</span> checks for missing, outdated and contradictory values.</p>
+        <p class="note">Every week, each utility's data is run through <span id="rule-count">14</span> checks for missing, outdated and contradictory values.</p>
+        <p class="field-label">This week's result</p>
         <div class="check-summary" id="check-summary" aria-live="polite"></div>
         <label class="switch">
           <input type="checkbox" id="issues-toggle" aria-controls="issues-details">
           <span class="switch-track" aria-hidden="true"></span>
-          <span>Highlight data quality issues</span>
+          <span>Show data quality issues on the map</span>
         </label>
         <div class="issues-details" id="issues-details" hidden>
-          <p class="note issues-key">
-            <span class="dash dash-warning" aria-hidden="true"></span>Warning
-            <span class="dash dash-error" aria-hidden="true"></span>Error
-            <span class="issues-key-rest">Lines without warnings or errors are shown in gray.</span>
-          </p>
+          <p class="field-label">On the map</p>
+          <ul class="map-key">
+            <li><span class="dash dash-error" aria-hidden="true"></span><span><strong>Error:</strong> the values contradict each other</span></li>
+            <li><span class="dash dash-warning" aria-hidden="true"></span><span><strong>Warning:</strong> a value is missing or may be out of date</span></li>
+            <li><span class="dash dash-clean" aria-hidden="true"></span><span>No issues: shown in gray</span></li>
+          </ul>
+          <p class="field-label">What the checks found</p>
           <div id="quality"><p class="note">Loading the latest results.</p></div>
-          <p class="note legend-shapes"><span class="dot sev-error" aria-hidden="true"></span> Error: values contradict each other.
-            <span class="dot sev-warning" aria-hidden="true"></span> Warning: values missing or possibly out of date.
-            <span class="dot sev-info" aria-hidden="true"></span> Info: worth knowing, not an error. Not highlighted on the map.</p>
+          <ul class="map-key sev-key">
+            <li><span class="dot sev-error" aria-hidden="true"></span><span><strong>Error:</strong> values contradict each other</span></li>
+            <li><span class="dot sev-warning" aria-hidden="true"></span><span><strong>Warning:</strong> missing or possibly out-of-date values</span></li>
+            <li><span class="dot sev-info" aria-hidden="true"></span><span><strong>Info:</strong> worth knowing, not an error, and not shown on the map</span></li>
+          </ul>
         </div>
       </section>
 
@@ -122,16 +128,17 @@
         <label class="switch" id="changes-switch" hidden>
           <input type="checkbox" id="changes-toggle" aria-controls="changes-details">
           <span class="switch-track" aria-hidden="true"></span>
-          <span>Highlight changed lines</span>
+          <span>Show changed lines on the map</span>
         </label>
         <div class="issues-details" id="changes-details" hidden>
-          <p class="note issues-key changes-key">
-            <span><span class="bar bar-more" aria-hidden="true"></span>More capacity</span>
-            <span><span class="bar bar-less" aria-hidden="true"></span>Less capacity</span>
-            <span><span class="bar bar-new" aria-hidden="true"></span>New</span>
-            <span><span class="bar bar-feeder" aria-hidden="true"></span>Feeder with changes, when zoomed out</span>
-            <span class="issues-key-rest">Zoom in to see which sections changed. Other lines are shown in gray.</span>
-          </p>
+          <p class="field-label">On the map</p>
+          <ul class="map-key">
+            <li><span class="bar bar-more" aria-hidden="true"></span><span>More capacity than last week</span></li>
+            <li><span class="bar bar-less" aria-hidden="true"></span><span>Less capacity than last week</span></li>
+            <li><span class="bar bar-new" aria-hidden="true"></span><span>New line, or a value published for the first time</span></li>
+            <li><span class="bar bar-feeder" aria-hidden="true"></span><span>Zoomed out: a feeder with changes. Zoom in to see which lines changed.</span></li>
+          </ul>
+          <p class="note">All other lines are shown in gray.</p>
         </div>
       </section>
 

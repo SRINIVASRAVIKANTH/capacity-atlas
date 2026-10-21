@@ -116,8 +116,9 @@ a:hover { color: var(--strong); }
 }
 .panel-head { padding: 18px 22px 16px; border-bottom: 1px solid var(--line); }
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.lede { margin-top: 6px; color: var(--muted); max-width: 36ch; }
-.updated { margin-top: 6px; color: var(--faint); font-size: 12.5px; }
+.lede { margin-top: 6px; color: var(--muted); text-wrap: pretty; } /* pretty: no single word left alone on the last line */
+.coverage { margin-top: 6px; color: var(--muted); font-size: 12.5px; }
+.updated { margin-top: 2px; color: var(--faint); font-size: 12.5px; }
 .updated:empty { display: none; }
 .key { margin-top: 16px; }
 .key h2 { margin-bottom: 0; }
@@ -160,6 +161,7 @@ a:hover { color: var(--strong); }
 .panel.is-collapsed { bottom: auto; }
 .panel.is-collapsed .lede,
 .panel.is-collapsed .updated,
+.panel.is-collapsed .coverage,
 .panel.is-collapsed .key-sub,
 .panel.is-collapsed .key-none,
 .panel.is-collapsed .panel-body { display: none; }
@@ -272,7 +274,26 @@ a:hover { color: var(--strong); }
 .cs-detail { flex-basis: 100%; padding-left: 17px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .issues-details { margin-top: 14px; }
 .issues-details[hidden] { display: none; }
-.legend-shapes { margin-top: 4px; line-height: 1.7; }
+/* Keys under the highlight switches: one item per line, a sample of how it looks on the map */
+.map-key { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.map-key li { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 6px; }
+.map-key strong { color: var(--text); font-weight: 500; }
+.map-key .dash { display: block; width: 22px; height: 0; border-top: 3px dashed; }
+.map-key .dash-error { border-color: var(--sev-error); }
+.map-key .dash-warning { border-color: var(--sev-warning); }
+.map-key .dash-clean { border-top: 3px solid var(--muted-line, #7a7f8c); }
+.map-key .bar { margin: 0; }
+.sev-key { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sev-key li { grid-template-columns: 14px 1fr; }
+/* This week's result per utility: name, then a labeled badge */
+#check-summary { margin: 4px 0 12px; gap: 6px; }
+.check-summary .cs-result { justify-content: space-between; align-items: center; }
+#quality-title ~ .field-label { margin-top: 12px; }
+.cs-result { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.cs-badge { flex: none; display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid; }
+.badge-ok { color: var(--sev-ok); border-color: color-mix(in srgb, var(--sev-ok) 45%, transparent); background: color-mix(in srgb, var(--sev-ok) 12%, transparent); }
+.badge-warning { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); background: color-mix(in srgb, var(--sev-warning) 12%, transparent); }
+.badge-error { color: var(--sev-error); border-color: color-mix(in srgb, var(--sev-error) 45%, transparent); background: color-mix(in srgb, var(--sev-error) 12%, transparent); }
 
 /* Weekly check details */
 .utility { padding: 14px 0 14px; border-top: 1px solid var(--line); }
@@ -656,7 +677,9 @@ body.assistant-open .detail { right: calc(var(--gap) + 400px + 12px); }
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
 }
-.detail::after, .assistant-panel::after { animation: ring-lap 1.1s ease-out forwards; }
+.detail::after { animation: ring-lap 1.1s ease-out forwards; }
+/* Volta's chat: one quick lap as it opens, then a slow, faint light that keeps circling while it is open */
+.assistant-panel::after { opacity: 0.9; padding: 2px; animation: ring-lap 1.1s ease-out, ring-spin 14s linear 1.1s infinite; }
 .hint::after { animation: ring-spin 2s linear 2 forwards, ring-fade 4s linear forwards; }
 .maplibregl-ctrl-attrib.credits-intro::before { animation: ring-spin 3s linear infinite; padding: 2px; }
 .detail.is-leaving::after, .assistant-panel.is-leaving::after { display: none; }

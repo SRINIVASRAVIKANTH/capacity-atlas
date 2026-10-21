@@ -8,7 +8,7 @@ export default [
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "script",
-      globals: { ...globals.browser, maplibregl: "readonly", pmtiles: "readonly", AtlasGeo: "readonly", AtlasExport: "readonly" },
+      globals: { ...globals.browser, maplibregl: "readonly", pmtiles: "readonly", AtlasGeo: "readonly", AtlasExport: "readonly", AtlasHistory: "readonly" },
     },
     rules: {
       "no-undef": "error",

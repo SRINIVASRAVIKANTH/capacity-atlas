@@ -46,6 +46,7 @@ flowchart LR
 | Run the data checks | `capacity_atlas/quality/` | `reports/<source>/<date>.quality.md` and `.json` |
 | Compare with the previous snapshot by the utility's own section ID | `capacity_atlas/changes.py` | `reports/<source>/changes/<old>_to_<new>.md` |
 | Summarize the run | `capacity_atlas/pipeline.py` | `reports/LATEST.md` |
+| Add the week to the feeder capacity history | `capacity_atlas/history.py` | `reports/history/feeder_capacity.json`, uploaded as `history.json` |
 | Build the map data | `capacity_atlas/tiles.py` | `atlas.pmtiles`, `summary.json` |
 
 One utility failing never stops the others, and one broken quality check never hides the
@@ -65,6 +66,7 @@ failed that week.
 | `SnapshotStore` | Finds the latest snapshot of a source, and the one before a date, across this run and earlier releases. Used by the pipeline and the map build. |
 | `QualityRule` (abstract) | Each of the 14 checks is a subclass with `required_columns()` and `check()`. `QualityChecker` runs any list of them. |
 | `ChangeSummary` | The result of comparing two snapshots, written as the weekly change report. |
+| `FeederHistory` | Every feeder's highest capacity on each snapshot date, added to week by week and saved compactly. |
 
 Each utility publishes different column names. A `ColumnMap` in `capacity_atlas/sources.py`
 translates them, so the checks, the comparison and the map all work on one shared vocabulary.
@@ -99,6 +101,25 @@ the same words.
 PMTiles is a single file read with HTTP range requests, so the browser downloads only the
 tiles in view. It is served from Cloudflare R2 because R2 allows cross-origin range requests
 and charges nothing for downloads.
+
+## Capacity history
+
+The map shows one week; the history shows how each feeder moves over time. For every feeder
+and snapshot date, `capacity_atlas/history.py` keeps the feeder's highest published capacity,
+the best spot a project could find on it.
+
+* Stored in the repository as `reports/history/feeder_capacity.json`, so every version is in
+  git, and uploaded to R2 as `history.json` for the site.
+* Each feeder keeps only the dates where its value changed, as `[date index, value]` pairs.
+  Most feeders stay the same for weeks, so the file stays near 50 KB.
+* Each run adds any snapshot date the history lacks. On the first run that means every
+  earlier release; afterwards only the new week. A date added twice replaces the old point,
+  and a damaged file or snapshot costs one point, never the run.
+* Two years of dates are kept.
+* The site loads the file once, after the map has drawn. The feeder card (zoomed out) draws
+  the trend as a small chart, and the section card adds one "Feeder trend" line. Both appear
+  only from 4 dates on, because fewer is not a trend. The browser checks the file's shape and
+  shows nothing if anything is off (`web/history.js`).
 
 ## Web map
 

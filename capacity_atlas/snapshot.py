@@ -20,7 +20,7 @@ from capacity_atlas.sources import Source
 DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})$")
 
 
-def _replace_atomically(target: Path, write) -> None:
+def replace_atomically(target: Path, write) -> None:
     """Write to a temporary file next to the target, then rename it over the target.
 
     A run that is stopped halfway (time limit, crash, full disk) leaves the old file in place
@@ -48,7 +48,7 @@ def save_snapshot(
     data_path = folder / f"{stem}.parquet"
     meta_path = folder / f"{stem}.meta.json"
 
-    _replace_atomically(data_path, lambda tmp: gdf.to_parquet(tmp, index=False))
+    replace_atomically(data_path, lambda tmp: gdf.to_parquet(tmp, index=False))
     meta = {
         "source_id": source.source_id,
         "utility": source.utility,
@@ -59,7 +59,7 @@ def save_snapshot(
         "feature_count": int(len(gdf)),
         "columns": [c for c in gdf.columns if c != "geometry"],
     }
-    _replace_atomically(meta_path, lambda tmp: tmp.write_text(json.dumps(meta, indent=2), encoding="utf-8"))
+    replace_atomically(meta_path, lambda tmp: tmp.write_text(json.dumps(meta, indent=2), encoding="utf-8"))
     return data_path
 
 

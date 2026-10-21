@@ -90,6 +90,31 @@
     if (ms) showStatus.timer = setTimeout(() => (el.hidden = true), ms);
   }
 
+  // ---------- opening and closing panels ----------
+  // Panels fold away with a short animation instead of vanishing. While one is leaving it
+  // counts as closed, and opening it again cancels the fold. People who ask their system for
+  // reduced motion get the instant version.
+  const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isShown = (el) => !el.hidden && !el.classList.contains("is-leaving");
+  function showSoftly(el) {
+    el.classList.remove("is-leaving");
+    el.hidden = false;
+  }
+  function hideSoftly(el) {
+    if (!isShown(el)) return;
+    if (reduceMotion()) { el.hidden = true; return; }
+    el.classList.add("is-leaving");
+    const done = () => {
+      el.removeEventListener("animationend", onEnd);
+      if (!el.classList.contains("is-leaving")) return; // reopened meanwhile
+      el.classList.remove("is-leaving");
+      el.hidden = true;
+    };
+    const onEnd = (e) => { if (e.target === el && !e.pseudoElement) done(); }; // not the light or anything inside
+    el.addEventListener("animationend", onEnd);
+    setTimeout(done, 400); // in case the browser skips the animation
+  }
+
   // ---------- display preferences (theme and color scale), remembered in this browser only ----------
   function loadPrefs() {
     const defaults = { theme: "auto", palette: "plasma" };
@@ -371,11 +396,12 @@
     const setPopover = (name, open) => {
       for (const [key, [button, panel]] of Object.entries(popovers)) {
         const show = key === name && open;
-        $(panel).hidden = !show;
+        if (show) showSoftly($(panel));
+        else hideSoftly($(panel));
         $(button).setAttribute("aria-expanded", String(show));
       }
     };
-    const isOpen = (name) => !$(popovers[name][1]).hidden;
+    const isOpen = (name) => isShown($(popovers[name][1]));
     $("display-toggle").addEventListener("click", () => setPopover("display", !isOpen("display")));
     $("help-toggle").addEventListener("click", () => setPopover("help", !isOpen("help")));
     $("help-close").addEventListener("click", () => setPopover("help", false));
@@ -714,13 +740,14 @@
     $("greeting-open").addEventListener("click", () => setOpen(true));
     const setOpen = (open) => {
       if (open) hideGreeting();
-      panel.hidden = !open;
+      if (open) showSoftly(panel);
+      else hideSoftly(panel);
       $("assistant-toggle").setAttribute("aria-expanded", String(open));
       document.body.classList.toggle("assistant-open", open);
       if (open) setTimeout(() => $("chat-input").focus(), 50);
     };
     state.closeAssistant = () => setOpen(false);
-    $("assistant-toggle").addEventListener("click", () => setOpen(panel.hidden));
+    $("assistant-toggle").addEventListener("click", () => setOpen(!isShown(panel)));
     $("assistant-close").addEventListener("click", () => setOpen(false));
     // "New chat": back to the first message with its example questions, and every filter cleared.
     const welcome = $("chat-log").innerHTML;
@@ -1045,6 +1072,52 @@
       ${answer.note ? `<p class="note">${answer.note}</p>` : ""}</div>`;
   }
 
+  // ---------- capacity history ----------
+  // history.json (about 50 KB) is fetched once, after the map has drawn, so it never slows
+  // the first view. Without it, cards simply show no trend.
+  let historyLoad = null;
+  function loadHistory() {
+    if (!historyLoad) {
+      historyLoad = fetch(DATA_URL + "/history.json", { cache: "no-cache", signal: withTimeout(15000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch((err) => { console.warn("Capacity history unavailable:", err); return null; });
+    }
+    return historyLoad;
+  }
+
+  const feederKey = (p) => (p && p.feeder ? `${p.src}|${p.feeder}` : null);
+  const shownFeeder = () => feederKey(state.selected && state.selected.properties);
+
+  // The trend arrives after the card is drawn; it is added only if the same feeder is still shown.
+  function fillHistory(props, slot, fill) {
+    const key = feederKey(props);
+    if (!key) return;
+    loadHistory().then((data) => {
+      if (!data || shownFeeder() !== key || !$(slot) || $(slot).dataset.trend) return;
+      const series = AtlasHistory.seriesFor(data, props.src, String(props.feeder));
+      const t = AtlasHistory.trend(series, fmtDate, fmtMW);
+      if (t) fill($(slot), series, t);
+    });
+  }
+
+  function feederHistoryHtml(slot, series, t) {
+    const values = series.map((p) => p.value);
+    const hi = Math.max(...values), lo = Math.min(...values);
+    // A flat line sits in the middle of the chart, with one label beside it.
+    const axis = hi === lo ? `<div class="h-axis h-flat" aria-hidden="true"><span>${fmtMW(hi)} MW</span></div>`
+      : `<div class="h-axis" aria-hidden="true"><span>${fmtMW(hi)} MW</span><span>${fmtMW(lo)} MW</span></div>`;
+    slot.innerHTML = `
+      <h3>Highest capacity, week by week</h3>
+      <div class="h-wrap">
+        ${axis}
+        ${AtlasHistory.sparkline(series, 280, 64)}
+      </div>
+      <div class="h-dates" aria-hidden="true"><span>${escapeHtml(fmtDate(series[0].date))}</span><span>${escapeHtml(fmtDate(series[series.length - 1].date))}</span></div>
+      <p class="h-text h-dir${t.direction}">${escapeHtml(t.long)}</p>`;
+    slot.dataset.trend = "1";
+    slot.hidden = false;
+  }
+
   // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
   function renderFeeder(props) {
     const range = props.fmax === undefined || props.fmax === null
@@ -1060,14 +1133,16 @@
       <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines without a feeder ID"}</div>
       <div class="d-caption">Hosting capacity along this feeder: <strong>${range}</strong></div>
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <div class="d-history" id="feeder-history" hidden></div>
       <div class="d-key">
         <div><span class="key-feeder" aria-hidden="true"></span>Selected feeder</div>
         <p>A feeder is one circuit leaving a substation. Zoom in and select a line to see the value for a single section.</p>
         ${props.fx0 !== undefined ? '<button class="d-action" id="zoom-feeder" type="button">Zoom to this feeder</button>' : ""}
       </div>
       ${shareHtml()}`;
-    $("detail").hidden = false;
+    showSoftly($("detail"));
     wireShare();
+    fillHistory(props, "feeder-history", feederHistoryHtml);
     const button = $("zoom-feeder");
     if (button) {
       button.addEventListener("click", () => {
@@ -1136,13 +1211,18 @@
       <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
       ${capacityHtml}
       ${changeHtml(props)}
-      <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <dl class="facts" id="section-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       ${limitHtml(props)}
       ${keyHtml}
       ${issuesHtml}
       ${shareHtml()}`;
-    $("detail").hidden = false;
+    showSoftly($("detail"));
     wireShare();
+    fillHistory(props, "section-facts", (list, series, t) => {
+      if (list.dataset.trend) return; // already added by an earlier, slower answer
+      list.dataset.trend = "1";
+      list.insertAdjacentHTML("beforeend", `<dt>Feeder trend</dt><dd class="h-dir${t.direction}" title="${escapeHtml(t.long)}">${escapeHtml(t.short)}</dd>`);
+    });
   }
 
   function select(map, feature) {
@@ -1165,7 +1245,7 @@
 
   function clearSelection(map) {
     state.selected = null;
-    $("detail").hidden = true;
+    hideSoftly($("detail"));
     clearSite(map);
     if (!state.layersReady) return;
     for (const id of ["selected-halo", "selected-line", ...ids("feeder-halo")]) map.setFilter(id, NOTHING);
@@ -1276,7 +1356,7 @@
         <div class="d-capacity d-feeder">No line found</div>
         <div class="d-caption">No line with ${need} within about ${fmtMiles(result ? result.searchedKm : 0)} of this spot${state.hidden.size ? " among the utilities shown" : ""}.</div>
         <div class="d-key"><p>Try a smaller project size, or a spot closer to the colored lines. Areas without lines are served by utilities that are not on the map yet.</p></div>`;
-      $("detail").hidden = false;
+      showSoftly($("detail"));
       return;
     }
     const p = result.feature.properties;
@@ -1296,7 +1376,7 @@
         ${result.feature.id !== undefined ? '<button class="d-action" id="site-line" type="button">Show this line\'s details</button>' : ""}
       </div>
       <div class="d-share"><button class="d-link" id="site-share" type="button">Copy link to this site check</button></div>`;
-    $("detail").hidden = false;
+    showSoftly($("detail"));
     $("site-share").addEventListener("click", () => copyLink($("site-share"), AtlasExport.siteLink(location.origin + location.pathname, spot, mw)));
     const button = $("site-line");
     if (button) {
@@ -1374,6 +1454,28 @@
     });
   }
 
+  // A card or the chat can open on top of the spot that was just clicked. Slide the map just
+  // enough to bring that spot back into the clear: left on wide screens, up on phones.
+  function keepInView(map, point) {
+    const phone = window.matchMedia("(max-width: 760px)").matches;
+    const margin = 40;
+    const panelRight = phone ? 0 : $("panel").getBoundingClientRect().right;
+    let dx = 0, dy = 0;
+    for (const el of [$("detail"), $("assistant-panel")]) {
+      if (!isShown(el)) continue;
+      // Layout position, not the on-screen one: the card is still sliding in at this moment.
+      const box = el.offsetParent === null && getComputedStyle(el).position === "fixed" ? el : el.offsetParent;
+      const origin = box === el ? { left: 0, top: 0 } : box.getBoundingClientRect();
+      const r = { left: origin.left + el.offsetLeft, top: origin.top + el.offsetTop };
+      r.right = r.left + el.offsetWidth;
+      r.bottom = r.top + el.offsetHeight;
+      if (point.x < r.left - 8 || point.x > r.right + 8 || point.y < r.top - 8 || point.y > r.bottom + 8) continue;
+      if (phone) dy = Math.max(dy, point.y - (r.top - margin));
+      else dx = Math.max(dx, point.x - Math.max(r.left - margin, panelRight + margin));
+    }
+    if (dx > 0 || dy > 0) map.panBy([dx, dy], { duration: reduceMotion() ? 0 : 350 });
+  }
+
   function wireClicks(map) {
     const clickable = [...ids("capacity"), ...ids("unanalyzed"), ...ids("issues"), ...ids("changes")];
     const hitBox = (point) => [[point.x - 6, point.y - 6], [point.x + 6, point.y + 6]];
@@ -1395,6 +1497,7 @@
       };
       select(map, feature);
       renderDetail(feature.properties);
+      keepInView(map, e.point);
       if (!$("hint").hidden) dismissHint();
       // On phones the chat covers the map, so a line click closes it to show the card.
       if (state.closeAssistant && window.matchMedia("(max-width: 760px)").matches) state.closeAssistant();
@@ -1517,9 +1620,10 @@
     update();
   }
 
-  // The data credits (the "i" box) open when the page loads. They glow softly for a moment
-  // so people notice where the data comes from, then fold away after 30 seconds, unless the
-  // person has opened or closed them in the meantime. Dragging the map folds them sooner.
+  // The data credits (the "i" box) open when the page loads, with a light running around
+  // their edge so people notice where the data comes from. After 30 seconds they fold shut
+  // into the "i", unless the person has opened or closed them in the meantime. Dragging the
+  // map closes them sooner (MapLibre's own behavior).
   const CREDITS_OPEN_MS = 30000;
   function introduceCredits(map) {
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
@@ -1530,8 +1634,18 @@
     setTimeout(() => {
       box.classList.remove("credits-intro");
       if (touched || !box.classList.contains("maplibregl-compact-show")) return;
-      box.classList.remove("maplibregl-compact-show");
-      box.removeAttribute("open");
+      const close = () => {
+        inner.style.maxWidth = "";
+        box.classList.remove("credits-folding", "maplibregl-compact-show");
+        box.removeAttribute("open");
+      };
+      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
+      if (!inner || reduceMotion()) return close();
+      // Fold: the text slides shut into the "i" instead of disappearing at once.
+      inner.style.maxWidth = inner.scrollWidth + "px";
+      box.classList.add("credits-folding");
+      requestAnimationFrame(() => requestAnimationFrame(() => { inner.style.maxWidth = "0px"; }));
+      setTimeout(close, 650);
     }, CREDITS_OPEN_MS);
   }
 
@@ -1587,6 +1701,7 @@
     wireClicks(map);
     wireControls(map);
     openSharedSite(map);
+    map.once("idle", () => loadHistory()); // ready before most people click a line
     window.atlasMap = map; // handy for debugging in the browser console
   }
 

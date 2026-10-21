@@ -86,7 +86,8 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes, and says so when the cap is something the utility does not publish |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
-| 🕰️ | **History** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
+| 📈 | **Capacity history** | Each feeder's highest capacity is tracked week by week. The feeder card draws the trend, and a line's card says whether its feeder is filling up |
+| 🕰️ | **Snapshot archive** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
 | 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
@@ -131,8 +132,8 @@ flowchart LR
 ```
 
 Every Monday a GitHub Actions run downloads each utility's full layer, saves a snapshot,
-runs the checks, compares with the previous week, builds one PMTiles file and uploads it to
-Cloudflare R2. The site is static HTML, CSS and JavaScript on Cloudflare Pages, and it reads
+runs the checks, compares with the previous week, adds the week to each feeder's capacity
+history, builds one PMTiles file and uploads it to Cloudflare R2. The site is static HTML, CSS and JavaScript on Cloudflare Pages, and it reads
 only the map tiles in view, straight from R2. Details are in
 [docs/architecture.md](docs/architecture.md).
 
@@ -174,7 +175,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (84 tests, 90% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (91 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
 
 ---
 
@@ -184,7 +185,7 @@ only the map tiles in view, straight from R2. Details are in
 capacity_atlas/       Python package: collectors, sources, quality checks, changes, tiles, pipeline
 functions/api/ask.js  The assistant's server function
 web/                  The website, deployed as is
-reports/              Weekly quality and change reports, written by the pipeline
+reports/              Weekly quality and change reports and the feeder capacity history, written by the pipeline
 tests/                Python and JavaScript tests
 docs/                 Architecture, data quality and operations
 scripts/              Diagnostic tools used while adding a utility

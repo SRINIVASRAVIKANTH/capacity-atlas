@@ -11,6 +11,10 @@ What to check after a run:
 * `reports/LATEST.md` has the new date and every source shows `OK`.
 * A release named `snapshot-YYYY-MM-DD` holds one parquet file per source.
 * The site's panel shows the new "Data as of" date.
+* `reports/history/feeder_capacity.json` lists the new date (the run commits it with the reports).
+
+The feeder capacity history rebuilds itself: if the file is deleted or damaged, the next run
+starts it again from every snapshot in the releases.
 
 If a utility's server is down, that source shows `FAILED` in `LATEST.md`, the others still
 publish, and the map keeps that utility's previous snapshot. The same happens when a server

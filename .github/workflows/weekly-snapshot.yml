@@ -1,8 +1,9 @@
 # Weekly run: download every utility, check quality, compare with last week, publish results.
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
-# The web map's data (atlas.pmtiles and summary.json) goes to Cloudflare R2.
-# Small reports (quality reports, change reports, metadata, LATEST.md) are committed to the repository.
+# The web map's data (atlas.pmtiles, summary.json and history.json) goes to Cloudflare R2.
+# Small reports (quality reports, change reports, metadata, LATEST.md, and the feeder capacity
+# history in reports/history/) are committed to the repository.
 
 name: Weekly snapshot
 
@@ -69,6 +70,33 @@ jobs:
         continue-on-error: true   # still publish what succeeded if one utility fails
         timeout-minutes: 100      # leave time for tiles, reports and the release if a server is slow
         run: python -m capacity_atlas.pipeline --all --previous data/previous
+
+      - name: Update the feeder capacity history
+        id: history
+        if: always()
+        continue-on-error: true   # a history problem must not stop the map, reports or snapshots
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The history keeps every feeder's highest capacity per snapshot date. Any date it does
+          # not have yet is filled in from the releases (the first time: all of them), then this
+          # run's snapshots are added. Release files are named <source_id>_<date>.parquet.
+          mkdir -p data/history-src data/tiles
+          known=$(python -m capacity_atlas.history --out reports/history/feeder_capacity.json --known-dates)
+          for tag in $(gh release list --limit 60 --json tagName --jq '.[].tagName'); do
+            for asset in $(gh release view "$tag" --json assets --jq '.assets[].name'); do
+              stem="${asset%.parquet}"
+              [ "$stem" = "$asset" ] && continue                          # not a snapshot
+              grep -qxF "$stem" <<< "$known" && continue                  # already in the history
+              [ -e "data/previous/$asset" ] || [ -e "data/history-src/$asset" ] && continue
+              gh release download "$tag" --pattern "$asset" --dir data/history-src \
+                && echo "History: $asset from $tag"
+            done
+          done
+          python -m capacity_atlas.history --data data/snapshots \
+            --previous data/previous data/history-src \
+            --out reports/history/feeder_capacity.json
+          cp reports/history/feeder_capacity.json data/tiles/history.json
 
       - name: Restore tippecanoe (map tile tool) from cache
         id: tippecanoe-cache
@@ -137,8 +165,18 @@ jobs:
             --content-type application/json \
             --cache-control "public, max-age=300" \
             --only-show-errors
+          # The capacity history is optional: the map works without it.
+          if [ -f data/tiles/history.json ]; then
+            aws s3 cp data/tiles/history.json "s3://${R2_BUCKET}/history.json" \
+              --endpoint-url "$endpoint" \
+              --content-type application/json \
+              --cache-control "public, max-age=300" \
+              --only-show-errors
+          fi
           echo "Uploaded. Checking the files now in R2:"
-          for key in atlas.pmtiles summary.json; do
+          keys="atlas.pmtiles summary.json"
+          [ -f data/tiles/history.json ] && keys="$keys history.json"
+          for key in $keys; do
             aws s3api head-object --bucket "$R2_BUCKET" --key "$key" \
               --endpoint-url "$endpoint" \
               --query "{file: '$key', size: ContentLength, modified: LastModified}"

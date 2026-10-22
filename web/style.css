@@ -642,6 +642,10 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
 }
 .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-inner { font-size: 11.5px; line-height: 1.55; white-space: normal; }
 .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-inner a { white-space: nowrap; } /* a link never splits across lines */
+/* One credit per line (see tidyCredits in app.js), with the terms link set apart below them. */
+.maplibregl-ctrl-attrib-inner .credit-line { display: block; }
+.maplibregl-ctrl-attrib-inner .credit-line:has(a[href^="terms.html"]) { margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--line); }
+.maplibregl-ctrl-attrib-inner .credit-line a[href^="terms.html"] { color: var(--text); font-weight: 500; }
 .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button { top: 5px; right: 5px; }
 .maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner,
 .maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner a { color: var(--muted); }
@@ -674,7 +678,7 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
   .chevron { transform: rotate(180deg); }
   .panel.is-collapsed .chevron { transform: none; }
   .display-menu { width: min(300px, calc(100vw - 2 * var(--gap))); }
-  .help { left: var(--gap); right: var(--gap); width: auto; max-height: calc(100% - 2 * var(--gap) - 52px - 140px); }
+  .help { left: var(--gap); right: var(--gap); width: auto; max-height: calc(100% - 2 * var(--gap) - 52px - 140px);  transform-origin: calc(100% - 74px) -30px; }
   .hint { right: auto; padding-left: 8px; }
   .hint-text { display: none; }
   .detail { top: auto; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; max-height: 60vh; }
@@ -690,7 +694,11 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
 /* Uses the separate translate and scale properties, so it never fights an element's own
    transform (the tip and the status message are centered with one). */
 .detail { animation: card-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1); }
-.popover:not([hidden]) { animation: drop-in 0.18s ease-out; }
+/* The guide and display menu grow out of their buttons and shrink back into them, like a window
+   opening from its icon. The origin sits on each button, above the popover's top right corner. */
+.popover:not([hidden]) { animation: pop-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.05); }
+.help { transform-origin: calc(100% + 4px) -30px; }
+.display-menu { transform-origin: calc(100% - 20px) -26px; }
 .hint { animation: drop-in 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
 .status { animation: rise-in 0.2s ease-out; }
 .search-results { animation: drop-in 0.15s ease-out; }
@@ -701,6 +709,7 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
 .msg-bot { transform-origin: bottom left; }
 @keyframes card-in { from { opacity: 0; translate: 24px 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes drop-in { from { opacity: 0; translate: 0 -6px; } to { opacity: 1; translate: 0 0; } }
+@keyframes pop-in { from { opacity: 0; scale: 0.3; filter: blur(3px); } 60% { opacity: 1; filter: none; } to { opacity: 1; scale: 1; } }
 @keyframes rise-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes msg-in { from { opacity: 0; scale: 0.94; } to { opacity: 1; scale: 1; } }
@@ -708,13 +717,14 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
   @keyframes card-in { from { opacity: 0; translate: 0 24px; } to { opacity: 1; translate: 0 0; } }
 }
 
-/* Closing: panels fold back the way they came. */
-.detail.is-leaving { animation: card-out 0.18s ease-in forwards; pointer-events: none; }
-.assistant-panel.is-leaving { animation: bubble-out 0.2s ease-in forwards; pointer-events: none; }
-.popover.is-leaving { animation: drop-out 0.14s ease-in forwards; pointer-events: none; }
-@keyframes card-out { to { opacity: 0; translate: 24px 0; } }
-@keyframes bubble-out { to { opacity: 0; transform: scale(0.4); } }
-@keyframes drop-out { to { opacity: 0; translate: 0 -6px; } }
+/* Closing: every panel goes back the way it came, smoothly. The guide, the display menu and
+   Volta's chat shrink into the button that opened them; a line's card slides away. */
+.detail.is-leaving { animation: card-out 0.26s cubic-bezier(0.4, 0, 0.7, 0.2) forwards; pointer-events: none; }
+.assistant-panel.is-leaving { animation: bubble-out 0.3s cubic-bezier(0.5, 0, 0.75, 0) forwards; pointer-events: none; }
+.popover.is-leaving { animation: pop-out 0.26s cubic-bezier(0.5, 0, 0.75, 0) forwards; pointer-events: none; }
+@keyframes card-out { to { opacity: 0; translate: 32px 0; scale: 0.97; } }
+@keyframes bubble-out { 40% { opacity: 1; } to { opacity: 0; transform: scale(0.08); filter: blur(2px); } }
+@keyframes pop-out { 50% { opacity: 1; } to { opacity: 0; scale: 0.08; filter: blur(2px); } }
 @media (max-width: 760px) {
   @keyframes card-out { to { opacity: 0; translate: 0 24px; } }
 }

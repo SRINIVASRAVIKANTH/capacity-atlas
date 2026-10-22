@@ -132,9 +132,12 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   from the site itself, and data only from R2, OpenFreeMap and Photon.
 * Every number shown, including the assistant's counts, is computed in the browser from the
   tiles currently on screen.
-* Motion is short and only on arrival: cards slide in, popovers drop in, Volta's chat grows
-  out of its button, and the data credits glow once on load and fold away after 30 seconds.
-  People who ask their system for reduced motion get none of it.
+* Every panel opens and closes smoothly, the way it came. The guide and the display menu grow
+  out of their buttons and shrink back into them, Volta's chat does the same with its button, a
+  line's card slides in and away, and the side panel rolls up to its title and color key (on a
+  phone, the sheet slides down). The data credits glow once on load and fold away after 30
+  seconds. People who ask their system for reduced motion get none of it: everything switches
+  at once.
 * The detail card and the "How to read this map" guide always stay left of the column of map
   buttons (zoom, home, the credits, Volta), so they never cover them or get drawn over. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
   1199px both get narrower, and below 1090px they stack on the right.
@@ -147,13 +150,19 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   outlines the note a card linked to). It does not link to National Grid's portal, whose terms
   ask for written consent first.
 * The map reaches it three ways, always in a new tab so the map keeps its place: the credits
-  ("Grid data: ... · Data sources and terms", with the utilities named from `summary.json`),
+  (the utilities named from `summary.json`, with "Data sources and terms" on its own line),
   the panel footer and the guide, and every line's card, which ends with "Data from National
   Grid. Read the disclaimer" and opens `terms.html#source-<source id>`.
-* The lower right corner shows one thing at a time. Opening a card, Volta's chat, the guide or
-  the display menu folds the credits; opening the credits closes the guide and the menu. Open
-  credits are a small card whose lines wrap (at most 420px wide), drawn above a line's card, so
-  they are never cut off. That works because the map is positioned absolute, not fixed: a
+* The right side shows one thing at a time. Opening the guide or the display menu closes Volta's
+  chat and the credits, and tucks a line's card away; the card comes back, with its selection
+  and any site check, when the guide or menu closes (a theme change underneath only redraws it).
+  Opening Volta closes the guide and the menu; opening the credits closes the guide, the menu
+  and the chat. The one pair that stays together is Volta
+  and a card, because Volta's answers open cards, and the card then sits beside the chat.
+* Open credits are a small card, at most 420px wide, with one credit per line: the grid data,
+  the basemap, then the link to the terms page. MapLibre joins credits with " | ", so
+  `tidyCredits` moves its nodes into lines (nothing is parsed again) and runs again whenever
+  MapLibre rewrites them. The credits are drawn above a line's card, so they are never cut off. That works because the map is positioned absolute, not fixed: a
   fixed map would hold every map control in its own layer under the panels. On phones the card
   still covers the lower screen, buttons included.
 * Volta's greeting waits while a line's card or the guide is open, since both reach its corner,

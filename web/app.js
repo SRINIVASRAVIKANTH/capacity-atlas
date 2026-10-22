@@ -238,7 +238,7 @@
   function creditLine() {
     const names = state.summary ? state.summary.sources.map((s) => escapeHtml(s.utility)) : [];
     return "Grid data: " + (names.length ? names.join(", ") : "utility hosting capacity maps") +
-      ' · <a href="terms.html" target="_blank" rel="noopener">Data sources and terms</a>';
+      ' | <a href="terms.html" target="_blank" rel="noopener">Data sources and terms</a>';
   }
 
   function addLayers(map) {
@@ -314,7 +314,7 @@
     if (!state.layersReady) return;
     for (const id of ids("glow")) map.setPaintProperty(id, "line-color", capacityColor());
     applyFilters(map); // sets the capacity colors (or the muted gray while issues are highlighted)
-    if (state.selected) renderDetail(state.selected.properties);
+    if (state.selected) renderDetail(state.selected.properties, true);
   }
 
   // ---------- filters ----------
@@ -402,8 +402,18 @@
 
     // Toolbar popovers (display settings, guide): one open at a time.
     const popovers = { display: ["display-toggle", "display-menu"], help: ["help-toggle", "help"] };
+    // The right side shows one thing at a time: opening the guide or the display menu closes
+    // Volta's chat and the credits, and tucks a line's card away. The card is not lost: it comes
+    // back, with its selection and any site check, when the guide or menu closes.
     const setPopover = (name, open) => {
-      if (open && state.foldCredits) state.foldCredits();
+      if (open) {
+        if (state.foldCredits) state.foldCredits();
+        if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant();
+        if (isShown($("detail"))) { state.cardTucked = true; hideSoftly($("detail")); }
+      } else if (state.cardTucked) {
+        state.cardTucked = false;
+        showSoftly($("detail"));
+      }
       for (const [key, [button, panel]] of Object.entries(popovers)) {
         const show = key === name && open;
         if (show) showSoftly($(panel));
@@ -434,20 +444,74 @@
       else if (state.closeAssistant && !$("assistant-panel").hidden) state.closeAssistant();
     });
 
-    // The panel folds down to its title and color key, on any screen size.
-    const setCollapsed = (collapsed) => {
-      $("panel").classList.toggle("is-collapsed", collapsed);
+    // The panel folds down to its title and color key, on any screen size. It rolls up (on a
+    // phone, the sheet slides down) instead of jumping: the parts that disappear shrink while
+    // the panel's visible edge moves to where the folded panel ends.
+    const panelEl = $("panel");
+    let folding = [];
+    const markCollapsed = (collapsed) => {
       for (const id of ["panel-toggle", "sheet-toggle"]) $(id).setAttribute("aria-expanded", String(!collapsed));
       const label = collapsed ? "Expand panel" : "Collapse panel";
       $("panel-toggle").title = label;
       $("panel-toggle-label").textContent = label;
       padForPanel(map);
     };
+    const foldPanel = (collapsed) => {
+      folding.forEach((a) => a.cancel());
+      folding = [];
+      const phone = window.matchMedia("(max-width: 760px)").matches;
+      // Heights open and folded, measured in one go before the browser paints anything.
+      const wasCollapsed = panelEl.classList.contains("is-collapsed");
+      panelEl.classList.remove("is-collapsed");
+      const open = panelEl.offsetHeight;
+      const subs = [...panelEl.querySelectorAll(".key-sub, .key-none")];
+      const subSizes = subs.map((el) => { const cs = getComputedStyle(el); return [el.offsetHeight + "px", cs.marginTop, cs.marginBottom]; });
+      panelEl.classList.add("is-collapsed");
+      const shut = panelEl.offsetHeight;
+      panelEl.classList.toggle("is-collapsed", wasCollapsed);
+      const gap = Math.max(open - shut, 0);
+      const timing = { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)" };
+      const ends = (from, to) => (collapsed ? [from, to] : [to, from]);
+      if (!collapsed) panelEl.classList.remove("is-collapsed");
+      const run = (el, frames, extra) => { const a = el.animate(frames, { ...timing, ...extra }); folding.push(a); return a; };
+      const main = phone
+        ? run(panelEl, ends({ transform: "translateY(0)" }, { transform: `translateY(${gap}px)` }))
+        : run(panelEl, ends({ clipPath: "inset(0 0 0 0 round 14px)" }, { clipPath: `inset(0 0 ${gap}px 0 round 14px)` }));
+      subs.forEach((el, i) => {
+        const [h, mt, mb] = subSizes[i];
+        run(el, ends({ height: h, marginTop: mt, marginBottom: mb, opacity: 1, overflow: "hidden" },
+          { height: "0px", marginTop: "0px", marginBottom: "0px", opacity: 0, overflow: "hidden" }));
+      });
+      run(panelEl.querySelector(".key"), ends({ marginTop: "16px" }, { marginTop: "10px" }));
+      run(panelEl.querySelector(".key .ramp-labels"), ends({ marginBottom: "8px" }, { marginBottom: "0px" }));
+      if (collapsed) run($("panel-body"), [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
+      main.onfinish = () => {
+        if (collapsed) panelEl.classList.add("is-collapsed");
+        folding.forEach((a) => a.cancel());
+        folding = [];
+        markCollapsed(collapsed);
+      };
+    };
+    const setCollapsed = (collapsed, animate = true) => {
+      if (panelEl.classList.contains("is-collapsed") === collapsed && !folding.length) return markCollapsed(collapsed);
+      if (!animate || reduceMotion() || !panelEl.animate) {
+        folding.forEach((a) => a.cancel());
+        folding = [];
+        panelEl.classList.toggle("is-collapsed", collapsed);
+        return markCollapsed(collapsed);
+      }
+      foldPanel(collapsed);
+    };
     for (const id of ["panel-toggle", "sheet-toggle"]) {
-      $(id).addEventListener("click", () => setCollapsed(!$("panel").classList.contains("is-collapsed")));
+      $(id).addEventListener("click", () => {
+        const target = folding.length ? !panelState : !panelEl.classList.contains("is-collapsed");
+        panelState = target;
+        setCollapsed(target);
+      });
     }
-    state.setCollapsed = setCollapsed;
-    if (window.matchMedia("(max-width: 760px)").matches) setCollapsed(true);
+    let panelState = panelEl.classList.contains("is-collapsed"); // where the panel is heading
+    state.setCollapsed = (collapsed) => { panelState = collapsed; setCollapsed(collapsed); };
+    if (window.matchMedia("(max-width: 760px)").matches) { panelState = true; setCollapsed(true, false); }
 
     // First visit: offer the guide once.
     if (!readFlag(HINT_KEY)) $("hint").hidden = false;
@@ -755,6 +819,7 @@
     const setOpen = (open) => {
       if (open) hideGreeting();
       if (open && state.foldCredits) state.foldCredits();
+      if (open && state.closePopovers) state.closePopovers(); // the guide and display menu make way
       if (open) showSoftly(panel);
       else hideSoftly(panel);
       $("assistant-toggle").setAttribute("aria-expanded", String(open));
@@ -1145,7 +1210,7 @@
   }
 
   // Zoomed out, a click picks a whole feeder: show its range and offer to zoom in.
-  function renderFeeder(props) {
+  function renderFeeder(props, refresh = false) {
     const range = props.fmax === undefined || props.fmax === null
       ? "Not published"
       : props.fmin === props.fmax ? `${fmtMW(props.fmax)} MW` : `${fmtMW(props.fmin)} to ${fmtMW(props.fmax)} MW`;
@@ -1166,7 +1231,7 @@
         ${props.fx0 !== undefined ? '<button class="d-action" id="zoom-feeder" type="button">Zoom to this feeder</button>' : ""}
       </div>
       ${shareHtml(props.src)}`;
-    showSoftly($("detail"));
+    presentCard(refresh);
     wireShare();
     fillHistory(props, "feeder-history", feederHistoryHtml);
     const button = $("zoom-feeder");
@@ -1211,11 +1276,21 @@
     }
   }
 
-  function renderDetail(props) {
-    // The card covers the open credits box at the lower right, so the credits fold first,
-    // as they do for Volta, rather than leave their text cut off behind the card.
-    if (state.foldCredits) state.foldCredits();
-    if (props.fn !== undefined) return renderFeeder(props);
+  // Shows the card that was just filled in. A new card folds the credits (the card would cut
+  // their text off) and closes the guide or display menu. A refresh (the theme or colors
+  // changed) only redraws it, and keeps it tucked away if the guide or menu is open.
+  function presentCard(refresh) {
+    if (refresh && state.cardTucked) { $("detail").hidden = true; return; }
+    state.cardTucked = false;
+    if (!refresh) {
+      if (state.foldCredits) state.foldCredits();
+      if (state.closePopovers) state.closePopovers();
+    }
+    showSoftly($("detail"));
+  }
+
+  function renderDetail(props, refresh = false) {
+    if (props.fn !== undefined) return renderFeeder(props, refresh);
     const hc = props.hc;
     const analyzed = hc !== undefined && hc !== null;
     const facts = [
@@ -1256,7 +1331,7 @@
       ${keyHtml}
       ${issuesHtml}
       ${shareHtml(props.src)}`;
-    showSoftly($("detail"));
+    presentCard(refresh);
     wireShare();
     // One line in the facts; clicking it opens the same chart as the feeder card, right here.
     fillHistory(props, "section-facts", (list, series, t) => {
@@ -1301,6 +1376,7 @@
 
   function clearSelection(map) {
     state.selected = null;
+    state.cardTucked = false;
     hideSoftly($("detail"));
     clearSite(map);
     if (!state.layersReady) return;
@@ -1412,7 +1488,7 @@
         <div class="d-capacity d-feeder">No line found</div>
         <div class="d-caption">No line with ${need} within about ${fmtMiles(result ? result.searchedKm : 0)} of this spot${state.hidden.size ? " among the utilities shown" : ""}.</div>
         <div class="d-key"><p>Try a smaller project size, or a spot closer to the colored lines. Areas without lines are served by utilities that are not on the map yet.</p></div>`;
-      showSoftly($("detail"));
+      presentCard();
       return;
     }
     const p = result.feature.properties;
@@ -1432,7 +1508,7 @@
         ${result.feature.id !== undefined ? '<button class="d-action" id="site-line" type="button">Show this line\'s details</button>' : ""}
       </div>
       <div class="d-share"><button class="d-link" id="site-share" type="button">Copy link to this site check</button></div>`;
-    showSoftly($("detail"));
+    presentCard();
     $("site-share").addEventListener("click", () => copyLink($("site-share"), AtlasExport.siteLink(location.origin + location.pathname, spot, mw)));
     const button = $("site-line");
     if (button) {
@@ -1681,16 +1757,56 @@
   // into the "i", unless the person has opened or closed them in the meantime. Dragging the
   // map closes them sooner (MapLibre's own behavior).
   // The lower right corner holds one thing at a time: opening a card, Volta's chat, the guide or
-  // the display menu folds the credits, and opening the credits closes the guide and the menu.
+  // the display menu folds the credits, and opening the credits closes the guide, the menu and
+  // the chat (a line's card stays; the credits open on top of it).
   const CREDITS_OPEN_MS = 30000;
+
+  // MapLibre writes every credit on one line joined by " | ", which wraps with a "|" at the start
+  // of a line. This puts each credit on its own line instead: the grid data, the basemap, then
+  // the link to the terms page. It moves MapLibre's own nodes (nothing is parsed again) and runs
+  // again whenever MapLibre rewrites the credits, for example after a theme change.
+  function tidyCredits(inner) {
+    if (!inner) return;
+    const tidy = () => {
+      if (!inner.firstChild || inner.querySelector(":scope > .credit-line")) return;
+      const lines = [[]];
+      for (const node of [...inner.childNodes]) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.includes("|")) {
+          node.textContent.split("|").forEach((piece, i) => {
+            if (i > 0) lines.push([]);
+            if (piece.trim()) lines[lines.length - 1].push(document.createTextNode(piece));
+          });
+        } else {
+          lines[lines.length - 1].push(node);
+        }
+      }
+      const rows = lines.filter((nodes) => nodes.some((n) => n.textContent.trim())).map((nodes) => {
+        const row = document.createElement("span");
+        row.className = "credit-line";
+        nodes.forEach((n) => row.append(n));
+        row.normalize();
+        if (row.firstChild && row.firstChild.nodeType === Node.TEXT_NODE) row.firstChild.textContent = row.firstChild.textContent.trimStart();
+        if (row.lastChild && row.lastChild.nodeType === Node.TEXT_NODE) row.lastChild.textContent = row.lastChild.textContent.trimEnd();
+        return row;
+      });
+      // The link to the terms page goes last, under all the credits.
+      rows.sort((a, b) => Number(!!a.querySelector('a[href^="terms.html"]')) - Number(!!b.querySelector('a[href^="terms.html"]')));
+      inner.replaceChildren(...rows);
+    };
+    new MutationObserver(tidy).observe(inner, { childList: true });
+    tidy();
+  }
   function introduceCredits(map) {
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
     if (!box) return; // wide screens without the compact box show the credits as plain text
     box.classList.add("credits-intro");
+    tidyCredits(box.querySelector(".maplibregl-ctrl-attrib-inner"));
     let touched = false, closing = false;
     box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
     box.addEventListener("toggle", () => {
-      if (box.open && state.closePopovers) state.closePopovers();
+      if (!box.open) return;
+      if (state.closePopovers) state.closePopovers();
+      if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant(); // the chat would cover them
     });
     const shut = () => {
       box.classList.remove("credits-intro");

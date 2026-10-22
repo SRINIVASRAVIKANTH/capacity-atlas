@@ -88,7 +88,7 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 📈 | **Capacity history** | Each feeder's highest capacity is tracked week by week. The feeder card draws the trend, and a line's card says whether its feeder is filling up |
 | 🕰️ | **Snapshot archive** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
-| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place |
+| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place, "hide that" or "back to normal" undo, spelling mistakes are understood, and an unclear question gets a question back |
 | 📜 | **Data sources and terms** | One page, linked from the map's credits, its panel and every line's card, credits each source, shows each utility's disclaimer in its own words, and sets out the site's terms of use, privacy, copyright and security |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 

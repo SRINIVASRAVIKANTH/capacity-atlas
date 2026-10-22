@@ -205,12 +205,21 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
 1. The browser sends the question.
 2. The function calls Claude with one forced tool, `set_map_view`, so the reply is always
-   structured: place, minimum MW, utility, whether to show data issues, whether to run the
-   site check, and one sentence.
+   structured: place, minimum MW, utility, the data quality and change highlights (each on,
+   off, or left as it is), back to normal, whether to run the site check, whether the question
+   could not be understood, and one sentence. The instructions tell the model to read through
+   spelling mistakes and shorthand ("albny", "2mw", "erors") and give short worked examples.
+   When it cannot tell what someone wants, it asks one short question back instead of guessing.
 3. The function cleans the result to known fields and values and returns it.
 4. The browser applies the settings, flies to the place, waits for the map to render,
    then counts sections, miles and feeders from the data on screen, or, for a site check,
-   measures the distance to the nearest line with room.
+   measures the distance to the nearest line with room. A new place or size replaces the
+   earlier settings; a question about a highlight alone ("any errors here?", "hide that")
+   changes only that highlight; "back to normal" clears every filter, highlight and site check.
+   Turning on the data quality or change highlight also opens the side panel at that section
+   and outlines it, so its explanation and key are in view (not on phones, where the chat
+   covers the panel). Questions it could not understand, or that are off topic, change nothing
+   and are left out of the chat's memory.
 
 Follow-ups: the browser keeps the last three questions of the chat and the settings chosen
 for each, only in the open page, and sends them with the next question. The function checks

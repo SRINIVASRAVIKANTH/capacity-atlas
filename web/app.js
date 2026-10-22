@@ -871,9 +871,44 @@
   const CHAT_MEMORY = 3;
   const chat = [];
   function remember(question, plan) {
-    const { place, min_mw, utility, show_issues, nearest } = plan;
-    chat.push({ question, plan: { place, min_mw, utility, show_issues, nearest } });
+    const { place, min_mw, utility, show_issues, show_changes, reset, nearest } = plan;
+    chat.push({ question, plan: { place, min_mw, utility, show_issues, show_changes, reset, nearest } });
     if (chat.length > CHAT_MEMORY) chat.shift();
+  }
+
+  // When Volta turns on the data quality or change highlight, the panel opens at that section,
+  // so the explanation and the color key are right there. Not on phones, where the chat covers it.
+  function revealSection(titleId) {
+    if (window.matchMedia("(max-width: 760px)").matches) return;
+    const section = $(titleId) && $(titleId).closest("section");
+    if (!section) return;
+    if (state.setCollapsed && $("panel").classList.contains("is-collapsed")) state.setCollapsed(false);
+    // After the panel has rolled open, scroll the section to the top of the panel and outline it.
+    setTimeout(() => {
+      const body = $("panel-body");
+      body.scrollTo({ top: section.offsetTop - body.offsetTop - 8, behavior: reduceMotion() ? "auto" : "smooth" });
+      section.classList.remove("is-pointed");
+      void section.offsetWidth; // restart the outline when asked twice in a row
+      section.classList.add("is-pointed");
+    }, 320);
+  }
+
+  // Changes in view, for the chat: how many sections went up, down or are new.
+  function describeChanges(map) {
+    if ($("changes-toggle").disabled) return "<p>Changes appear after the second weekly update, once there is a week to compare with.</p>";
+    const seen = new Set();
+    const counts = { up: 0, down: 0, added: 0 };
+    for (const f of map.queryRenderedFeatures({ layers: ids("changes").filter((id) => map.getLayer(id)) })) {
+      const key = f.id !== undefined ? f.id : JSON.stringify(f.properties);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const ch = f.properties.ch;
+      if (ch === 1) counts.up += 1; else if (ch === 3) counts.added += 1; else if (ch === 2 || ch === 4) counts.down += 1;
+    }
+    const total = counts.up + counts.down + counts.added;
+    if (!total) return "<p>No changes since last week in this view.</p>";
+    return `<p>In this view, <strong>${fmtInt(total)} line sections</strong> changed since last week: ${fmtInt(counts.up)} gained capacity, ` +
+      `${fmtInt(counts.down)} lost capacity and ${fmtInt(counts.added)} are new. Select a highlighted line to see what changed.</p>`;
   }
 
   async function askAI(map, question) {
@@ -899,20 +934,49 @@
         reply.innerHTML = `<p>${escapeHtml(message)} You can still use place search and the filters.</p>`;
         return;
       }
-      if (!plan.out_of_scope) remember(question, plan);
-      if (plan.out_of_scope) {
-        reply.innerHTML = `<p>${escapeHtml(plan.reply || "I can help with solar hosting capacity in this part of New York.")}</p>`;
+      // Could not understand, or not about this map: answer in words, change nothing, and keep
+      // the question out of the chat's memory so it does not confuse the next follow-up.
+      if (plan.unclear || plan.out_of_scope) {
+        const fallback = plan.unclear ? "Sorry, I did not catch that. Which place or project size should I show?"
+          : "I can help with solar hosting capacity in this part of New York.";
+        reply.innerHTML = `<p>${escapeHtml(plan.reply || fallback)}</p>`;
         return;
       }
+      remember(question, plan);
+      const setsView = !!(plan.place || plan.min_mw || plan.utility || plan.nearest);
+      // A highlight counts as asked for when it would change something: on, or off while it is on.
+      // (A model that writes false for "not mentioned" then cannot turn a plain question into a
+      // map change.)
+      const toggles = plan.show_issues === true || plan.show_changes === true
+        || (plan.show_issues === false && state.issuesOnly) || (plan.show_changes === false && state.changesOnly);
       // A general question ("What does hosting capacity mean?") gets an answer in words and
       // leaves the map and the person's filters exactly as they were.
-      if (!plan.place && !plan.min_mw && !plan.utility && !plan.show_issues) {
+      if (!plan.reset && !setsView && !toggles) {
         reply.innerHTML = `<p>${escapeHtml(plan.reply || "Ask me about a place and a project size, and I will set the map.")}</p>`;
         return;
       }
-      setUtility(map, plan.utility);
-      setMinMW(map, plan.min_mw);
-      setIssues(map, plan.show_issues);
+      if (plan.reset) {
+        // Back to normal: every filter and highlight off, and any site check cleared.
+        setMinMW(map, 0);
+        setUtility(map, null);
+        setIssues(map, false);
+        setChanges(map, false);
+        clearSelection(map);
+      }
+      if (setsView) {
+        // A new place or size: these settings replace the old ones, and a highlight stays on
+        // only if this question asks for it.
+        setUtility(map, plan.utility);
+        setMinMW(map, plan.min_mw);
+        setIssues(map, plan.show_issues === true);
+        setChanges(map, plan.show_changes === true && plan.show_issues !== true);
+      } else if (!plan.reset) {
+        // Only a highlight was asked for ("any errors here?", "hide that"): the rest stays.
+        if (plan.show_issues === true || plan.show_issues === false) setIssues(map, plan.show_issues);
+        if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes);
+      }
+      if (plan.show_issues === true) revealSection("quality-title");
+      else if (plan.show_changes === true) revealSection("changes-title");
       reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
       let spot = null;
       const coords = plan.place && plan.place.match(COORDS);
@@ -948,7 +1012,9 @@
       reply.querySelector(".typing")?.remove();
       reply.insertAdjacentHTML("beforeend", !hasGridData(map)
         ? "<p>No utility lines in this view. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York) so far.</p>"
-        : plan.show_issues ? describeIssues(map) : describe(summarizeView(map), plan.min_mw));
+        : state.issuesOnly ? describeIssues(map)
+          : state.changesOnly || plan.show_changes === true ? describeChanges(map) // says so when there is no week to compare yet
+            : describe(summarizeView(map), state.minMW || null));
       $("chat-log").scrollTop = $("chat-log").scrollHeight;
     } finally {
       asking = false;

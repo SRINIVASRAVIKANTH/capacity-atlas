@@ -2,8 +2,9 @@
  *
  * The browser sends a plain-English question, plus up to the last three questions of the
  * same chat with the settings chosen for each, so follow-ups such as "and for 5 MW?" work. This function asks Claude to turn it into map
- * settings (a place, a minimum hosting capacity, a utility, whether to show data issues,
- * whether to find the nearest line with room). Claude never states capacity numbers or
+ * settings (a place, a minimum hosting capacity, a utility, the data quality or change
+ * highlight, going back to normal, whether to find the nearest line with room), or into a
+ * short question back when it cannot tell what the person wants. Claude never states capacity numbers or
  * distances: the map computes every number from the utilities' own data after it applies
  * these settings.
  *
@@ -28,21 +29,41 @@ The map shows distribution lines from two utilities:
 - National Grid (id national_grid_ny_pv): upstate New York, for example Albany, Schenectady, Troy, Saratoga Springs, Syracuse, Utica, Buffalo, Niagara Falls, Glens Falls.
 Other parts of New York (for example New York City, Long Island, Westchester, Rochester, Ithaca, Binghamton) are served by utilities that are not on this map yet.
 
-Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades.
+Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades. The map can also highlight data quality issues (lines whose published data failed a check) and changes since last week (lines whose value went up, down, or is new).
 
 Always call the set_map_view tool. Rules:
-- place: the town, city, county or address the person names, written so a geocoder can find it, with ", New York" added. null if they name no place. Without a place the map keeps the current view and applies the size there, so then never ask which place they mean: reply says the map shows the lines in the current view.
+- People type fast. Read through spelling mistakes, missing spaces and shorthand, and act on what they clearly mean: "poughkepsie" and "pokipsi" are Poughkeepsie, "albny" is Albany, "shenectady" is Schenectady, "nationl grid" is National Grid, "data qualty" or "erors" mean data quality, "2mw", "2 megs" or "2 megawatt" mean 2 MW. Always write place names correctly spelled.
+- place: the town, city, county or address the person names, written so a geocoder can find it, with ", New York" added. null if they name no place. Without a place the map keeps the current view, so never ask which place they mean: reply says the map shows the lines in the current view.
 - min_mw: the project size or minimum capacity they need, in MW. Convert kW to MW (500 kW = 0.5). null if they give none.
 - utility: only if they name the utility itself ("National Grid", "Central Hudson"). Never infer it from the place. Otherwise null.
-- show_issues: true only if they ask about data quality, errors, problems or reliability of the data.
+- show_issues: true if they ask to see data quality, errors, warnings, problems or how reliable the data is. false if they ask to hide or turn off the data quality highlight. null if they say nothing about it.
+- show_changes: true if they ask what changed, what is new, or what went up or down since last week. false if they ask to hide the changes highlight. null if they say nothing about it.
+- reset: true if they ask to go back to normal, clear or remove the filters or highlights, start over, undo, or show all lines again. The map then clears the size, utility, data quality and change settings and keeps its place, unless they also name a place.
 - nearest: true only if they ask for the nearest or closest line, how far a line is, or the distance from a specific street address or spot. The map then measures the distance from that place to the nearest line with room for min_mw. "Where near Albany can I connect 2 MW?" or "lines near Troy" ask about an area, not a distance: nearest is false, and the map shows and counts every line with room there.
-- reply: one short sentence saying what the map will show. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
-- General questions about solar, hosting capacity, interconnection or how to use this map that name no place and no size: answer in reply in one or two plain sentences, and leave place, min_mw and utility null and show_issues false.
+- reply: one short sentence saying what the map will show or what changed. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
+- unclear: true if you cannot tell what they want, for example random letters, a single word you cannot place, or a request these settings cannot do. Then reply asks one short question to find out, for example "Sorry, I did not catch that. Which place or project size should I show?" and every setting stays null or false.
+- General questions about solar, hosting capacity, interconnection, the data quality checks or how to use this map that name no place and no size: answer in reply in one or two plain sentences, and leave the settings null or false.
 - Questions about one specific feeder or line: say in reply that they can click that line on the map to see its published value.
 - Several places or sizes in one question: set the first one, and say in reply that you show one place at a time.
 - Always write reply in English, whatever language the question uses, because the rest of the answer on the map is in English.
-- Earlier questions of this chat and the settings you chose for them may come first. Use them only to understand a follow-up: "what about 5 MW?" keeps the earlier place, "and Troy?" keeps the earlier size and utility. A question that names its own place and size stands on its own.
-- out_of_scope: true if the question is not about solar, the grid, hosting capacity or places on this map, or the place is outside New York. Then reply politely says what you can help with.`;
+- Earlier questions of this chat and the settings you chose for them may come first. Use them only to understand a follow-up: "what about 5 MW?" keeps the earlier place, "and Troy?" keeps the earlier size and utility, "now near Kingston" keeps the size, "hide them" or "turn that off" after a highlight sets that highlight to false. A question that names its own place and size stands on its own.
+- Greetings or thanks ("hi", "thanks") are not out of scope: reply briefly and say what you can do, with every setting null or false.
+- out_of_scope: true if the question is not about solar, the grid, hosting capacity, this map or places on it, or the place is outside New York. Then reply politely says what you can help with.
+
+Examples (question, then the settings that matter; every other setting is null or false):
+- "Where near Albany can I connect 2 MW?" -> place "Albany, New York", min_mw 2
+- "lines with room for 5mw near shenectady" -> place "Schenectady, New York", min_mw 5
+- "500 kw in pokipsi" -> place "Poughkeepsie, New York", min_mw 0.5
+- "nearest line for 3 MW from 12 Main St, Kingston" -> place "12 Main St, Kingston, New York", min_mw 3, nearest true
+- "show data quality issues near Troy" -> place "Troy, New York", show_issues true
+- "any erors here?" -> show_issues true
+- "what changed this week" -> show_changes true
+- after a highlight: "hide that" -> show_issues false (or show_changes false, whichever is on)
+- "back to normal please" or "clear everything" -> reset true
+- "only national grid lines" -> utility "national_grid_ny_pv"
+- "what is hosting capacity?" -> reply explains it, no settings
+- "asdkjh" -> unclear true, reply asks what they would like to see
+- "pizza near me" -> out_of_scope true`;
 
 const TOOL = {
   name: "set_map_view",
@@ -50,15 +71,18 @@ const TOOL = {
   input_schema: {
     type: "object",
     properties: {
-      place: { type: ["string", "null"], description: "Place to center the map on, for example 'Albany, New York'." },
+      place: { type: ["string", "null"], description: "Place to center the map on, correctly spelled, for example 'Albany, New York'." },
       min_mw: { type: ["number", "null"], description: "Minimum hosting capacity in MW." },
       utility: { type: ["string", "null"], enum: [...UTILITIES, null] },
-      show_issues: { type: "boolean" },
+      show_issues: { type: ["boolean", "null"], description: "true shows the data quality highlight, false hides it, null leaves it." },
+      show_changes: { type: ["boolean", "null"], description: "true shows the changes since last week, false hides them, null leaves them." },
+      reset: { type: "boolean", description: "Back to normal: clear the size, utility and highlights." },
       nearest: { type: "boolean", description: "Find the nearest line with room for min_mw from the place." },
       reply: { type: "string", description: "One short sentence, no numbers about capacity." },
+      unclear: { type: "boolean", description: "The question could not be understood; reply asks what they mean." },
       out_of_scope: { type: "boolean" },
     },
-    required: ["place", "min_mw", "utility", "show_issues", "nearest", "reply", "out_of_scope"],
+    required: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "reply", "unclear", "out_of_scope"],
   },
 };
 
@@ -99,13 +123,17 @@ function sameOrigin(request) {
 
 // Clean what Claude returned, so the browser only ever receives known fields and values.
 export function sanitize(input) {
+  const tri = (v) => (v === true ? true : v === false ? false : null); // on, off, or leave as is
   const out = {
     place: typeof input.place === "string" && input.place.trim() ? input.place.trim().slice(0, 120) : null,
     min_mw: Number.isFinite(input.min_mw) && input.min_mw > 0 && input.min_mw <= 10000 ? Math.round(input.min_mw * 100) / 100 : null,
     utility: UTILITIES.includes(input.utility) ? input.utility : null,
-    show_issues: input.show_issues === true,
+    show_issues: tri(input.show_issues),
+    show_changes: tri(input.show_changes),
+    reset: input.reset === true,
     nearest: input.nearest === true,
     reply: typeof input.reply === "string" ? input.reply.trim().slice(0, 300) : "",
+    unclear: input.unclear === true,
     out_of_scope: input.out_of_scope === true,
   };
   return out;
@@ -122,7 +150,7 @@ export function cleanHistory(history) {
     if (!question || question.length > MAX_QUESTION || !turn.plan || typeof turn.plan !== "object") return [];
     const clean = sanitize(turn.plan);
     const settings = { place: clean.place, min_mw: clean.min_mw, utility: clean.utility,
-      show_issues: clean.show_issues, nearest: clean.nearest };
+      show_issues: clean.show_issues, show_changes: clean.show_changes, reset: clean.reset, nearest: clean.nearest };
     return [{ question, settings }];
   });
 }
@@ -136,7 +164,7 @@ export function buildMessages(history, question) {
     const id = `turn_${i + 1}`;
     messages.push({ role: "user", content: pending ? [pending, { type: "text", text: turn.question }] : turn.question });
     messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: TOOL.name,
-      input: { ...turn.settings, reply: "", out_of_scope: false } }] });
+      input: { ...turn.settings, reply: "", unclear: false, out_of_scope: false } }] });
     pending = { type: "tool_result", tool_use_id: id, content: "The map was updated." };
   }
   messages.push({ role: "user", content: pending ? [pending, { type: "text", text: question }] : question });
@@ -192,7 +220,7 @@ async function answer({ request, env }) {
       },
       body: JSON.stringify({
         model: env.ANTHROPIC_MODEL || MODEL,
-        max_tokens: 300,
+        max_tokens: 400,
         system: SYSTEM,
         tools: [TOOL],
         tool_choice: { type: "tool", name: TOOL.name },

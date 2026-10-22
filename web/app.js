@@ -403,6 +403,7 @@
     // Toolbar popovers (display settings, guide): one open at a time.
     const popovers = { display: ["display-toggle", "display-menu"], help: ["help-toggle", "help"] };
     const setPopover = (name, open) => {
+      if (open && state.foldCredits) state.foldCredits();
       for (const [key, [button, panel]] of Object.entries(popovers)) {
         const show = key === name && open;
         if (show) showSoftly($(panel));
@@ -412,12 +413,16 @@
     };
     const isOpen = (name) => isShown($(popovers[name][1]));
     $("display-toggle").addEventListener("click", () => setPopover("display", !isOpen("display")));
-    $("help-toggle").addEventListener("click", () => setPopover("help", !isOpen("help")));
+    $("help-toggle").addEventListener("click", () => {
+      if (!isOpen("help")) dismissHint(); // the first-visit tip offers this guide, so it has done its job
+      setPopover("help", !isOpen("help"));
+    });
     $("help-close").addEventListener("click", () => setPopover("help", false));
     document.addEventListener("click", (e) => {
       if (isOpen("display") && !e.target.closest(".display")) setPopover("display", false);
     });
     state.openGuide = () => setPopover("help", true);
+    state.closePopovers = () => { if (isOpen("display") || isOpen("help")) setPopover(null, false); };
 
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
@@ -1675,33 +1680,43 @@
   // their edge so people notice where the data comes from. After 30 seconds they fold shut
   // into the "i", unless the person has opened or closed them in the meantime. Dragging the
   // map closes them sooner (MapLibre's own behavior).
+  // The lower right corner holds one thing at a time: opening a card, Volta's chat, the guide or
+  // the display menu folds the credits, and opening the credits closes the guide and the menu.
   const CREDITS_OPEN_MS = 30000;
   function introduceCredits(map) {
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
     if (!box) return; // wide screens without the compact box show the credits as plain text
     box.classList.add("credits-intro");
-    let touched = false, folded = false;
+    let touched = false, closing = false;
     box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
-    const fold = () => {
-      if (folded) return;
-      folded = true;
+    box.addEventListener("toggle", () => {
+      if (box.open && state.closePopovers) state.closePopovers();
+    });
+    const shut = () => {
       box.classList.remove("credits-intro");
-      if (touched || !box.classList.contains("maplibregl-compact-show")) return;
+      if (closing || !box.classList.contains("maplibregl-compact-show")) return;
       const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
       const close = () => {
-        if (inner) inner.style.maxWidth = "";
+        if (inner) { inner.style.maxWidth = ""; inner.style.maxHeight = ""; }
         box.classList.remove("credits-folding", "maplibregl-compact-show");
         box.removeAttribute("open");
+        closing = false;
       };
       if (!inner || reduceMotion()) return close();
-      // Fold: the text slides shut into the "i" instead of disappearing at once.
-      inner.style.maxWidth = inner.scrollWidth + "px";
+      // Fold: the text fades and the box closes into the "i" instead of vanishing at once. Its
+      // size is pinned first, so the wrapped lines cannot reflow while it narrows.
+      closing = true;
+      inner.style.maxWidth = inner.offsetWidth + "px";
+      inner.style.maxHeight = inner.offsetHeight + "px";
       box.classList.add("credits-folding");
-      requestAnimationFrame(() => requestAnimationFrame(() => { inner.style.maxWidth = "0px"; }));
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        inner.style.maxWidth = "0px";
+        inner.style.maxHeight = "18px";
+      }));
       setTimeout(close, 650);
     };
-    setTimeout(fold, CREDITS_OPEN_MS);
-    state.foldCredits = fold; // Volta and the line card fold them at once, so neither cuts the text off
+    setTimeout(() => { if (!touched) shut(); }, CREDITS_OPEN_MS);
+    state.foldCredits = shut;
   }
 
   // ---------- start ----------

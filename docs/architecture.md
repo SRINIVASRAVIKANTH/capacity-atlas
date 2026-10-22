@@ -135,8 +135,8 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * Motion is short and only on arrival: cards slide in, popovers drop in, Volta's chat grows
   out of its button, and the data credits glow once on load and fold away after 30 seconds.
   People who ask their system for reduced motion get none of it.
-* The detail card always stays left of the column of map buttons (zoom, home, Volta), so it
-  never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
+* The detail card and the "How to read this map" guide always stay left of the column of map
+  buttons (zoom, home, the credits, Volta), so they never cover them or get drawn over. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
   1199px both get narrower, and below 1090px they stack on the right.
 * Everything legal lives on one page, `web/terms.html` ("Data sources and terms"), so the
   map's panels stay about the map. It credits each source, shows each utility's disclaimer
@@ -149,8 +149,15 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * The map reaches it three ways, always in a new tab so the map keeps its place: the credits
   ("Grid data: ... · Data sources and terms", with the utilities named from `summary.json`),
   the panel footer and the guide, and every line's card, which ends with "Data from National
-  Grid. Read the disclaimer" and opens `terms.html#source-<source id>`. Opening a card folds
-  the credits, as Volta does, so their text is never cut off behind the card.
+  Grid. Read the disclaimer" and opens `terms.html#source-<source id>`.
+* The lower right corner shows one thing at a time. Opening a card, Volta's chat, the guide or
+  the display menu folds the credits; opening the credits closes the guide and the menu. Open
+  credits are a small card whose lines wrap (at most 420px wide), drawn above a line's card, so
+  they are never cut off. That works because the map is positioned absolute, not fixed: a
+  fixed map would hold every map control in its own layer under the panels. On phones the card
+  still covers the lower screen, buttons included.
+* Volta's greeting waits while a line's card or the guide is open, since both reach its corner,
+  and opening the guide from the "?" button also retires the first-visit tip that offers it.
 * The panel keeps the search and color key fixed at the top. The introduction and coverage
   line scroll with the sections below, so the sections get more room, and each section title
   has a small line icon so the long panel is quick to scan.

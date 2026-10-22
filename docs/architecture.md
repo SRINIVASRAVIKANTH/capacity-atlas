@@ -138,13 +138,22 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 * The detail card always stays left of the column of map buttons (zoom, home, Volta), so it
   never covers them. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
   1199px both get narrower, and below 1090px they stack on the right.
-* The panel ends with "Data sources": each utility's credit, and National Grid's disclaimer
-  word for word, as its REST API terms require. It is page markup, not data, so it shows even
-  when `summary.json` does not load, and a test holds the disclaimer text exactly. Cards for a
-  utility with a disclaimer end with "Data from National Grid. Read their disclaimer", which
-  opens the panel at the note (on phones the card closes first, since it covers the panel).
-  The map credits name each utility from `summary.json`, and opening a card folds them, as
-  Volta does, so their text is never cut off behind the card.
+* Everything legal lives on one page, `web/terms.html` ("Data sources and terms"), so the
+  map's panels stay about the map. It credits each source, shows each utility's disclaimer
+  word for word (National Grid's REST API terms require its text on any map showing its
+  layers; a test holds both texts exactly), and sets out the site's terms of use, privacy,
+  copyright and security. It is plain page markup, so it reads in full without its script
+  (`terms.js` only marks the current section in the contents, lets sections rise into view and
+  outlines the note a card linked to). It does not link to National Grid's portal, whose terms
+  ask for written consent first.
+* The map reaches it three ways, always in a new tab so the map keeps its place: the credits
+  ("Grid data: ... · Data sources and terms", with the utilities named from `summary.json`),
+  the panel footer and the guide, and every line's card, which ends with "Data from National
+  Grid. Read the disclaimer" and opens `terms.html#source-<source id>`. Opening a card folds
+  the credits, as Volta does, so their text is never cut off behind the card.
+* The panel keeps the search and color key fixed at the top. The introduction and coverage
+  line scroll with the sections below, so the sections get more room, and each section title
+  has a small line icon so the long panel is quick to scan.
 * The panel's coverage line ("Coverage: ... , New York.") is written from the utilities in
   `summary.json`, so adding a utility or a state updates it without touching the page.
 * Volta's chat sits left of the map buttons, so it never covers zoom or home. A faint light

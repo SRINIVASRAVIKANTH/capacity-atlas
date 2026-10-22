@@ -89,6 +89,7 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 | 📈 | **Capacity history** | Each feeder's highest capacity is tracked week by week. The feeder card draws the trend, and a line's card says whether its feeder is filling up |
 | 🕰️ | **Snapshot archive** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
 | 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place |
+| 📜 | **Data sources and terms** | One page, linked from the map's credits, its panel and every line's card, credits each source, shows each utility's disclaimer in its own words, and sets out the site's terms of use, privacy, copyright and security |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
 <p align="center">
@@ -175,7 +176,7 @@ only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (93 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (95 tests, 89% coverage), Node test runner for the assistant function, Ruff and ESLint, all run on every push |
 
 ---
 
@@ -184,7 +185,7 @@ only the map tiles in view, straight from R2. Details are in
 ```
 capacity_atlas/       Python package: collectors, sources, quality checks, changes, tiles, pipeline
 functions/api/ask.js  The assistant's server function
-web/                  The website, deployed as is
+web/                  The website, deployed as is: the map and the data sources and terms page
 reports/              Weekly quality and change reports and the feeder capacity history, written by the pipeline
 tests/                Python and JavaScript tests
 docs/                 Architecture, data quality and operations
@@ -213,9 +214,10 @@ Secrets, costs, adding a utility and known limits are covered in
 
 Hosting capacity values are estimates published by each utility for early screening. They
 do not replace a utility interconnection study. Data sources: Central Hudson Gas & Electric
-and National Grid public hosting capacity services, credited on the map and in the panel's
-"Data sources" section, which also shows National Grid's disclaimer in its own words. Basemap by OpenFreeMap with
-OpenMapTiles and OpenStreetMap data; place search by Photon.
+and National Grid public hosting capacity services. Basemap by OpenFreeMap with OpenMapTiles
+and OpenStreetMap data; place search by Photon. Each utility's disclaimer, in its own words,
+and the site's terms of use and privacy are on the
+[Data sources and terms](https://capacity-atlas.pages.dev/terms) page.
 
 ## 📄 License
 

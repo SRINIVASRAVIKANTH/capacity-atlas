@@ -53,10 +53,10 @@ push), confirm the feature works, then delete the old key.
    full batch, and reports what fails.
 4. Run `python -m capacity_atlas.pipeline --source <id>` locally, then
    `python scripts/inspect_snapshot.py` on the result.
-5. Add the utility's note to "Data sources" in `web/index.html` (a `<div class="source-note"
-   id="source-<id>">`), with its disclaimer word for word in a `<blockquote class="disclaimer">`
-   if its terms ask for one. Cards for that utility then link to it, and a test fails until
-   the note is there.
+5. Add the utility to `web/terms.html`: a card under "Data sources", and a note under
+   "Disclaimers" (`<article class="notice" id="source-<id>">`) with its disclaimer or notice
+   word for word in a `<blockquote class="disclaimer">`. Every card for that utility links to
+   the note, and a test fails until it is there.
 6. Read the utility's terms of use before publishing anything: some ask for a form, a
    disclaimer or written consent (see "Data use terms" below).
 7. Add a test with a few rows shaped like the new source, then push.
@@ -68,8 +68,8 @@ Utilities checked and not used (with the reason) are listed in the docstring of
 
 | Utility | What its terms ask | Status |
 | --- | --- | --- |
-| National Grid NY | The REST API Access Form; its disclaimer on any map showing the layers; a list of map users on request. Its portal terms also ask for written consent before its content is displayed for other purposes or its portal is linked to. | Disclaimer shown in "Data sources" and linked from every National Grid card. No links to its portal yet. Asked National Grid on 2026-10-21 whether a public map with no sign-in, the downloads and the GitHub snapshot archive are acceptable. Form not submitted until they reply, since we cannot keep a user list. |
-| Central Hudson | To be checked. | Credited by name in "Data sources" and the map credits. |
+| National Grid NY | The REST API Access Form; its disclaimer on any map showing the layers; a list of map users on request. Its portal terms also ask for written consent before its content is displayed for other purposes or its portal is linked to. | Disclaimer shown word for word on the terms page, linked from the map's credits and every National Grid card. No links to its portal. Asked National Grid on 2026-10-21 whether a public map with no sign-in, the downloads and the GitHub snapshot archive are acceptable. Form not submitted until they reply, since we cannot keep a user list. |
+| Central Hudson | Its Solar PV Hosting Capacity Map page invites use of the service "within your own maps" and notes the data is for information only, not a substitute for the interconnection application process. Its website has no terms of use page, only a copyright line. Checked 2026-10-21. | Notice shown word for word on the terms page, linked from every Central Hudson card. The page links to the same service we read (`Hosting_Capacity_Stage3`, layer 0); only the name says Stage 3, and the values follow its October 1 and April 1 refreshes. |
 
 ## Running locally
 

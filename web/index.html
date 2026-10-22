@@ -40,9 +40,6 @@
           <span class="visually-hidden" id="panel-toggle-label">Collapse panel</span>
         </button>
       </div>
-      <p class="lede">Capacity Atlas maps where power lines can accept new solar, using published utility hosting capacity data that is validated every week.</p>
-      <p class="coverage" id="coverage">Coverage: Central Hudson Gas &amp; Electric and National Grid, New York.</p>
-      <p class="updated" id="updated"></p>
 
       <form class="search" id="search" role="search" autocomplete="off">
         <label class="visually-hidden" for="search-input">Search for a town, address or coordinates</label>
@@ -63,8 +60,15 @@
     </header>
 
     <div class="panel-body" id="panel-body">
+      <!-- The introduction scrolls with the sections, so the search and color key above stay
+           in view while the rest of the panel gets the height. -->
+      <div class="intro">
+        <p class="lede">Capacity Atlas maps where power lines can accept new solar, using published utility hosting capacity data that is validated every week.</p>
+        <p class="coverage" id="coverage">Coverage: Central Hudson Gas &amp; Electric and National Grid, New York.</p>
+        <p class="updated" id="updated"></p>
+      </div>
       <section class="block" aria-labelledby="filter-title">
-        <h2 id="filter-title">Filters</h2>
+        <h2 id="filter-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="6" r="2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="12" r="2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Filters</h2>
         <fieldset class="segmented" id="min-mw">
           <legend>Minimum hosting capacity</legend>
           <label><input type="radio" name="min-mw" value="0" checked><span>Any</span></label>
@@ -79,7 +83,7 @@
       </section>
 
       <section class="block" aria-labelledby="site-title">
-        <h2 id="site-title">Check a site</h2>
+        <h2 id="site-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Check a site</h2>
         <p class="note">Find the nearest line with room for your project, and how far away it is.</p>
         <form class="site-form" id="site-form" autocomplete="off">
           <label class="site-size" for="site-mw">
@@ -95,7 +99,7 @@
       </section>
 
       <section class="block" aria-labelledby="quality-title">
-        <h2 id="quality-title">Data quality</h2>
+        <h2 id="quality-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Data quality</h2>
         <p class="note">Every week, each utility's data is run through <span id="rule-count">14</span> checks for missing, outdated and contradictory values.</p>
         <p class="field-label">This week's result</p>
         <div class="check-summary" id="check-summary" aria-live="polite"></div>
@@ -122,7 +126,7 @@
       </section>
 
       <section class="block" aria-labelledby="changes-title">
-        <h2 id="changes-title">Changes since last week</h2>
+        <h2 id="changes-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Changes since last week</h2>
         <p class="note">Each week's data is compared with the week before, line by line.</p>
         <div class="check-summary" id="change-summary" aria-live="polite"></div>
         <label class="switch" id="changes-switch" hidden>
@@ -143,7 +147,7 @@
       </section>
 
       <section class="block" aria-labelledby="download-title">
-        <h2 id="download-title">Download</h2>
+        <h2 id="download-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</h2>
         <p class="note">Save the lines in view, with their published values and data quality results, as a spreadsheet (CSV) or a map file (GeoJSON).</p>
         <div class="site-actions download-actions">
           <button class="d-action" id="download-csv" type="button">Download CSV</button>
@@ -152,26 +156,14 @@
         <p class="note download-note" id="download-note" aria-live="polite"></p>
       </section>
 
-      <!-- Kept in the page itself, not loaded with the data, so it shows even when the data does
-           not load. A line's card links here when its utility has a note (see sourceNoteHtml). -->
-      <section class="block data-sources" id="data-sources" aria-labelledby="sources-title">
-        <h2 id="sources-title">Data sources</h2>
-        <div class="source-note" id="source-national_grid_ny_pv" tabindex="-1">
-          <h3>National Grid</h3>
-          <p class="note">From the National Grid New York System Data Portal, read weekly. National Grid's disclaimer:</p>
-          <!-- National Grid's own wording, which its REST API terms require on any map that shows
-               its hosting capacity layers. Do not shorten or reword it. -->
-          <blockquote class="disclaimer">The maps and Hosting Capacity information provided by National Grid and contained herein are for general informational purposes only and are subject to change without notice. Nothing herein shall be construed as conferring any intellectual property or other proprietary rights to you in any content contained herein or otherwise. The content contained herein is provided on an "as is" and "as available" basis without warranty, representation, endorsement, or guarantee. By using the National Grid NY Hosting Capacity REST service URL you assume all risks regarding availability, quality, condition, completeness, accuracy, reliability, and use related to the maps, information, and any data derived therefrom.</blockquote>
-        </div>
-        <div class="source-note" id="source-central_hudson_ny_pv" tabindex="-1">
-          <h3>Central Hudson Gas &amp; Electric</h3>
-          <p class="note">From Central Hudson's published hosting capacity map, read weekly.</p>
-        </div>
-      </section>
 
       <footer class="panel-foot">
         <p>Hosting capacity values are utility estimates and do not replace an interconnection study.</p>
-        <p><a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a></p>
+        <nav class="foot-links" aria-label="About this site">
+          <a href="terms.html" target="_blank" rel="noopener">Data sources and terms</a>
+          <a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a>
+        </nav>
+        <p class="foot-copy">© 2026 Capacity Atlas</p>
       </footer>
     </div>
   </aside>
@@ -221,7 +213,7 @@
       <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
       <li><strong>See what changed.</strong> Each week's data is compared with the week before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
     </ol>
-    <h3>Terms</h3>
+    <h3>Glossary</h3>
     <dl class="glossary">
       <dt>Hosting capacity</dt><dd>The amount of new generation, in megawatts (MW), a line can accept without upgrades. Published by each utility.</dd>
       <dt>Feeder</dt><dd>One circuit leaving a substation, with all its branches. Projects on the same feeder share its capacity.</dd>
@@ -230,7 +222,7 @@
       <dt>kV</dt><dd>Line voltage in kilovolts.</dd>
       <dt>DER</dt><dd>Distributed energy resources, such as rooftop and community solar.</dd>
     </dl>
-    <p class="note">Values are utility estimates for early screening. A utility interconnection study is still required for any project.</p>
+    <p class="note">Values are utility estimates for early screening. A utility interconnection study is still required for any project. Where the data comes from, and each utility's disclaimer: <a href="terms.html" target="_blank" rel="noopener">Data sources and terms</a>.</p>
   </section>
 
   <div class="hint" id="hint" hidden>

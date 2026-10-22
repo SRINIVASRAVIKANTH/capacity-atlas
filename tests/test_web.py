@@ -6,12 +6,16 @@ from pathlib import Path
 WEB = Path(__file__).resolve().parents[1] / "web"
 
 
-def test_every_local_file_referenced_by_the_page_exists():
-    html = (WEB / "index.html").read_text(encoding="utf-8")
-    refs = re.findall(r'(?:src|href)="([^"#:]+)"', html)
-    assert refs, "no local references found"
-    missing = [r for r in refs if not (WEB / r).exists()]
-    assert not missing, f"missing files: {missing}"
+PAGES = ("index.html", "terms.html")
+
+
+def test_every_local_file_referenced_by_the_pages_exists():
+    for page in PAGES:
+        html = (WEB / page).read_text(encoding="utf-8")
+        refs = [r for r in re.findall(r'(?:src|href)="([^"#:]+)"', html) if r != "./"]
+        assert refs, f"no local references found in {page}"
+        missing = [r for r in refs if not (WEB / r).exists()]
+        assert not missing, f"missing files in {page}: {missing}"
 
 
 def test_every_font_in_the_stylesheet_exists():
@@ -52,7 +56,7 @@ def test_display_choices_match_the_code():
 
 
 def test_site_text_follows_the_copy_rules():
-    for name in ("index.html", "app.js"):
+    for name in ("index.html", "app.js", "terms.html", "terms.js"):
         assert "—" not in (WEB / name).read_text(encoding="utf-8"), f"em dash in {name}"
 
 
@@ -72,7 +76,7 @@ def test_every_id_the_script_uses_exists_in_the_page():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
     ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
-    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history", "show-disclaimer"}  # built inside the detail card at runtime
+    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history"}  # built inside the detail card at runtime
     missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
     assert not missing, f"ids used in app.js but missing from index.html: {missing}"
 
@@ -83,10 +87,11 @@ def _csp() -> dict[str, list[str]]:
     return {d.split()[0]: d.split()[1:] for d in (p.strip() for p in policy.split(";")) if d}
 
 
-def test_page_has_no_inline_scripts_so_the_policy_can_forbid_them():
-    html = (WEB / "index.html").read_text(encoding="utf-8")
-    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html)
-    assert not re.search(r"\son[a-z]+=", html), "inline event handler attribute"
+def test_pages_have_no_inline_scripts_so_the_policy_can_forbid_them():
+    for page in PAGES:
+        html = (WEB / page).read_text(encoding="utf-8")
+        assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html), page
+        assert not re.search(r"\son[a-z]+=", html), f"inline event handler attribute in {page}"
     assert _csp()["script-src"] == ["'self'"]
 
 
@@ -128,17 +133,41 @@ NATIONAL_GRID_DISCLAIMER = (
 )
 
 
-def test_national_grid_disclaimer_is_on_the_page_word_for_word():
-    html = (WEB / "index.html").read_text(encoding="utf-8")
-    block = re.search(r'<blockquote class="disclaimer">(.*?)</blockquote>', html, re.S)
-    assert block, "the disclaimer block is missing"
-    assert " ".join(block.group(1).split()) == NATIONAL_GRID_DISCLAIMER
+CENTRAL_HUDSON_NOTICE = (
+    "This data is being provided for informational purposes only and is not intended to be a "
+    "substitute for the established interconnection application process."
+)
 
 
-def test_every_source_has_a_note_in_data_sources():
-    """A new utility needs its own credit in the panel; the card's disclaimer line looks for it."""
+def _notice(html: str, source_id: str) -> str:
+    block = re.search(rf'id="source-{source_id}".*?<blockquote class="disclaimer">(.*?)</blockquote>', html, re.S)
+    assert block, f"the disclaimer for {source_id} is missing from terms.html"
+    return " ".join(block.group(1).split())
+
+
+def test_each_utility_disclaimer_is_on_the_terms_page_word_for_word():
+    html = (WEB / "terms.html").read_text(encoding="utf-8")
+    assert _notice(html, "national_grid_ny_pv") == NATIONAL_GRID_DISCLAIMER
+    assert _notice(html, "central_hudson_ny_pv") == CENTRAL_HUDSON_NOTICE
+
+
+def test_every_source_has_a_note_on_the_terms_page():
+    """Every line's card links to terms.html#source-<source id>, so a new utility needs a note."""
     from capacity_atlas.sources import SOURCES
 
-    html = (WEB / "index.html").read_text(encoding="utf-8")
+    html = (WEB / "terms.html").read_text(encoding="utf-8")
     missing = [s for s in SOURCES if f'id="source-{s}"' not in html]
-    assert not missing, f"add a Data sources note in index.html for: {missing}"
+    assert not missing, f"add a disclaimer note in terms.html for: {missing}"
+
+
+def test_the_map_links_to_the_terms_page_from_its_credits_footer_and_cards():
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'href="terms.html" target="_blank" rel="noopener"' in html   # panel footer and guide
+    assert js.count('href="terms.html') == 2                               # credits and every card
+
+
+def test_terms_page_does_not_link_to_national_grid():
+    """National Grid's portal terms ask for written consent before anyone links to it."""
+    html = (WEB / "terms.html").read_text(encoding="utf-8")
+    assert "nationalgrid" not in " ".join(re.findall(r'href="([^"]+)"', html)).lower()

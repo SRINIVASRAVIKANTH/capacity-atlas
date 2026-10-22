@@ -13,6 +13,7 @@ then **Report a vulnerability**. Please do not open a public issue for a securit
 | Assistant endpoint (`/api/ask`) | Same-site requests only, 300-character questions, at most the last three questions of the chat sent back as context (checked the same way, AI replies never sent back), 4 KB body limit, 6 questions a minute and 60 a day per visitor, 15-second limit on each call to the Claude API, prepaid credit with auto reload off. |
 | AI output | Claude can only fill one fixed tool. The function keeps known fields and values and drops everything else, and the page shows every text as plain text, never as HTML. |
 | Website | Content Security Policy in `web/_headers`: scripts only from the site itself, data only from the listed services, no framing by other sites. |
+| Privacy | No accounts, cookies, analytics or tracking. What leaves the browser (place searches to Photon, questions to Volta) is listed on the site's [terms page](https://capacity-atlas.pages.dev/terms#privacy), and the visitor IP used for the assistant's rate limit is held only in memory. |
 | Map data on Cloudflare R2 | The bucket's CORS policy allows only `https://capacity-atlas.pages.dev`, so other websites cannot load the data from it. |
 | Data from utilities | Treated as untrusted: every value is escaped before it is shown. |
 | Capacity history file | Public data only (feeder names and MW values). The site checks its shape before drawing and shows nothing if anything is off; the chart is built from numbers alone. |

@@ -233,10 +233,12 @@
     return ["step", HC, c.c0, 0.0001, c.c1, 0.5, c.c2, 1, c.c3, 2, c.c4, 5, c.c5];
   }
 
-  // The credit in the map's "i" box names each utility, so the source is on the map itself.
+  // The credit in the map's "i" box names each utility, so the source is on the map itself,
+  // and links to the page with their disclaimers and the site's terms.
   function creditLine() {
     const names = state.summary ? state.summary.sources.map((s) => escapeHtml(s.utility)) : [];
-    return "Grid data: " + (names.length ? names.join(", ") : "utility hosting capacity maps");
+    return "Grid data: " + (names.length ? names.join(", ") : "utility hosting capacity maps") +
+      ' · <a href="terms.html" target="_blank" rel="noopener">Data sources and terms</a>';
   }
 
   function addLayers(map) {
@@ -1170,38 +1172,20 @@
     }
   }
 
-  // A utility whose note in "Data sources" carries a disclaimer gets a line in each of its cards
-  // that leads to it. The notes are plain page markup, so this works even without summary.json.
-  const sourceNote = (sourceId) => document.getElementById("source-" + sourceId);
+  // Every card ends with where its data comes from and a link to that utility's disclaimer on
+  // the terms page, opened in a new tab so the map keeps its place. tests/test_web.py checks
+  // that terms.html has a note (id="source-<source id>") for every source.
   function sourceNoteHtml(sourceId) {
-    const note = sourceNote(sourceId);
-    if (!note || !note.querySelector(".disclaimer")) return "";
+    if (!sourceId) return "";
     return `<p class="d-source">Data from ${escapeHtml(utilityName(sourceId))}. ` +
-      `<button class="d-link" id="show-disclaimer" type="button" data-source="${escapeHtml(sourceId)}">Read their disclaimer</button></p>`;
-  }
-  function wireSourceNote() {
-    const button = $("show-disclaimer");
-    if (!button) return;
-    button.addEventListener("click", () => {
-      const note = sourceNote(button.dataset.source);
-      if (!note) return;
-      if (state.setCollapsed) state.setCollapsed(false);
-      // On phones the card sits over the panel, so it gives way to the note.
-      if (window.matchMedia("(max-width: 760px)").matches) clearSelection(window.atlasMap);
-      note.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
-      note.focus({ preventScroll: true });
-      note.classList.remove("is-pointed");
-      void note.offsetWidth; // restart the highlight if the button is pressed twice
-      note.classList.add("is-pointed");
-    });
+      `<a class="d-link" href="terms.html#source-${encodeURIComponent(sourceId)}" target="_blank" rel="noopener">Read the disclaimer</a></p>`;
   }
 
   // A link that opens the map at the selected spot, for sharing with a colleague.
-  // The card's last row: the link, and below it the utility's disclaimer line where it has one.
+  // The card's last row: the share link, and below it where the data comes from.
   const shareHtml = (sourceId) => '<div class="d-share"><button class="d-link" id="copy-link" type="button">Copy link to this location</button>' +
     `${sourceNoteHtml(sourceId)}</div>`;
   function wireShare() {
-    wireSourceNote();
     const button = $("copy-link");
     if (!button) return;
     button.addEventListener("click", () => {

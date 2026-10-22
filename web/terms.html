@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data sources and terms · Capacity Atlas</title>
+  <meta name="description" content="Where Capacity Atlas gets its data, each utility's disclaimer in its own words, and the site's terms of use, privacy, copyright and security.">
+  <meta name="theme-color" content="#171A21">
+  <link rel="canonical" href="https://capacity-atlas.pages.dev/terms">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A21'/%3E%3Cpath d='M6 22 L13 13 L19 18 L26 9' stroke='%23FDB52E' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="terms.css">
+  <script src="terms.js" defer></script>
+</head>
+<!-- One page for everything legal, so the map's panels stay about the map. The map links here
+     from its credits, its panel footer and every line's card (terms.html#source-<source id>).
+     Each utility's wording is copied exactly; tests/test_web.py holds National Grid's text. -->
+<body class="doc">
+  <a class="skip" href="#content">Skip to the content</a>
+
+  <header class="doc-bar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#171A21"/><path d="M6 22 L13 13 L19 18 L26 9" stroke="#FDB52E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Capacity Atlas</span>
+    </a>
+    <a class="back" href="./">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to the map
+    </a>
+  </header>
+
+  <section class="doc-hero" aria-labelledby="doc-title">
+    <!-- A feeder drawn in the map's capacity colors, with a pulse of light running along it. -->
+    <svg class="hero-line" viewBox="0 0 1200 160" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="ramp-line" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" class="s0"/><stop offset="0.2" class="s1"/><stop offset="0.4" class="s2"/>
+          <stop offset="0.6" class="s3"/><stop offset="0.8" class="s4"/><stop offset="1" class="s5"/>
+        </linearGradient>
+      </defs>
+      <path class="hero-base" d="M0 120 L140 120 L230 70 L360 70 L430 112 L560 112 L650 48 L790 48 L860 96 L990 96 L1070 40 L1200 40" pathLength="100"/>
+      <path class="hero-pulse" d="M0 120 L140 120 L230 70 L360 70 L430 112 L560 112 L650 48 L790 48 L860 96 L990 96 L1070 40 L1200 40" pathLength="100"/>
+    </svg>
+    <div class="doc-hero-text">
+      <p class="eyebrow">Legal and data</p>
+      <h1 id="doc-title">Data sources and terms</h1>
+      <p class="doc-lede">Capacity Atlas shows hosting capacity data that utilities publish. This page says where each part of the map comes from, repeats each utility's disclaimer in its own words, and sets out how the site may be used and what it does with your information.</p>
+      <p class="doc-date">Last updated October 21, 2026</p>
+    </div>
+  </section>
+
+  <div class="doc-layout">
+    <nav class="doc-toc" aria-label="On this page">
+      <p class="toc-title">On this page</p>
+      <ol>
+        <li><a href="#sources">Data sources</a></li>
+        <li><a href="#disclaimers">Disclaimers</a></li>
+        <li><a href="#terms">Terms of use</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="#copyright">Copyright and license</a></li>
+        <li><a href="#security">Security and contact</a></li>
+      </ol>
+    </nav>
+
+    <main class="doc-main" id="content">
+      <section class="doc-section" id="sources" aria-labelledby="sources-title">
+        <h2 id="sources-title"><span class="num" aria-hidden="true">01</span>Data sources</h2>
+        <p>Every line on the map comes from a utility's public hosting capacity service. Capacity Atlas reads each one once a week, checks it, and shows it unchanged.</p>
+        <div class="source-grid">
+          <article class="source-card">
+            <p class="tag">Grid data</p>
+            <h3>National Grid</h3>
+            <p>Solar hosting capacity for its New York lines, from the National Grid New York System Data Portal.</p>
+            <dl>
+              <dt>Read</dt><dd>Every Monday</dd>
+              <dt>Conditions</dt><dd>Its disclaimer below, shown on this site as its terms ask</dd>
+            </dl>
+          </article>
+          <article class="source-card">
+            <p class="tag">Grid data</p>
+            <h3>Central Hudson Gas &amp; Electric</h3>
+            <p>Solar hosting capacity for its lines in the Hudson Valley, from its Solar PV Hosting Capacity Map, which invites use of the data in other maps.</p>
+            <dl>
+              <dt>Read</dt><dd>Every Monday</dd>
+              <dt>Conditions</dt><dd>For information only, as its notice below says</dd>
+            </dl>
+          </article>
+          <article class="source-card">
+            <p class="tag">Basemap</p>
+            <h3>OpenFreeMap</h3>
+            <p>The streets, places and labels under the grid lines, from OpenMapTiles and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
+          </article>
+          <article class="source-card">
+            <p class="tag">Place search</p>
+            <h3>Photon by komoot</h3>
+            <p>Finds the towns and addresses you type in the search box, using OpenStreetMap data.</p>
+          </article>
+          <article class="source-card">
+            <p class="tag">Assistant</p>
+            <h3>Claude by Anthropic</h3>
+            <p>Reads the questions you ask Volta and turns them into map settings. It never changes the data.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="doc-section" id="disclaimers" aria-labelledby="disclaimers-title">
+        <h2 id="disclaimers-title"><span class="num" aria-hidden="true">02</span>Disclaimers</h2>
+        <p>Each utility's wording is copied exactly. It applies to that utility's lines on the map and to any file you download with them.</p>
+
+        <article class="notice" id="source-national_grid_ny_pv" tabindex="-1">
+          <h3>National Grid</h3>
+          <p class="notice-from">National Grid's disclaimer, in its own words</p>
+          <!-- National Grid's REST API terms require this text on any map that shows its hosting
+               capacity layers. Do not shorten or reword it; a test checks it word for word. -->
+          <blockquote class="disclaimer">The maps and Hosting Capacity information provided by National Grid and contained herein are for general informational purposes only and are subject to change without notice. Nothing herein shall be construed as conferring any intellectual property or other proprietary rights to you in any content contained herein or otherwise. The content contained herein is provided on an "as is" and "as available" basis without warranty, representation, endorsement, or guarantee. By using the National Grid NY Hosting Capacity REST service URL you assume all risks regarding availability, quality, condition, completeness, accuracy, reliability, and use related to the maps, information, and any data derived therefrom.</blockquote>
+        </article>
+
+        <article class="notice" id="source-central_hudson_ny_pv" tabindex="-1">
+          <h3>Central Hudson Gas &amp; Electric</h3>
+          <p class="notice-from">Central Hudson's notice on its hosting capacity map page</p>
+          <blockquote class="disclaimer">This data is being provided for informational purposes only and is not intended to be a substitute for the established interconnection application process.</blockquote>
+        </article>
+
+        <article class="notice notice-own">
+          <h3>Capacity Atlas</h3>
+          <p>Hosting capacity values are estimates that each utility publishes for early screening. They change when the utility updates its study, and they do not replace a utility interconnection study or application. Before you make a decision about a project, confirm the numbers with the utility. Capacity Atlas is an independent project. It is not affiliated with, approved or endorsed by any utility.</p>
+        </article>
+      </section>
+
+      <section class="doc-section" id="terms" aria-labelledby="terms-title">
+        <h2 id="terms-title"><span class="num" aria-hidden="true">03</span>Terms of use</h2>
+        <p>By using Capacity Atlas, you agree to the following.</p>
+        <ol class="doc-list">
+          <li><strong>Free, for information.</strong> The site is free to use. It is meant to help people see where the grid may have room for new solar, not to give engineering, legal or financial advice.</li>
+          <li><strong>No guarantee.</strong> The site and its data are provided as they are, without any warranty. Values can be out of date, incomplete or wrong, and the site can be unavailable. As far as the law allows, the author is not liable for any loss that comes from using it.</li>
+          <li><strong>The utilities' data stays theirs.</strong> Lines, values and the files you download with them come from the utilities and remain subject to their conditions above. Capacity Atlas gives you no rights in that data.</li>
+          <li><strong>Volta can be wrong.</strong> The assistant's answers are written by AI. It can only move and filter the map, but it may misread a question, so check what the map shows.</li>
+          <li><strong>Use it fairly.</strong> Please do not try to break the site, get around its limits or send it automated traffic. The assistant has a limit on questions per visitor.</li>
+          <li><strong>Changes.</strong> These terms may change. The date at the top of this page shows when they last did.</li>
+        </ol>
+      </section>
+
+      <section class="doc-section" id="privacy" aria-labelledby="privacy-title">
+        <h2 id="privacy-title"><span class="num" aria-hidden="true">04</span>Privacy</h2>
+        <p>Capacity Atlas has no accounts, no ads, no analytics and no tracking, and it sets no cookies.</p>
+        <div class="privacy-grid">
+          <div class="privacy-item">
+            <h3>Stays in your browser</h3>
+            <p>Your display settings, whether you have seen the first-visit tip, and the chat with Volta. Downloads and share links are also made in your browser. None of it is sent to the site.</p>
+          </div>
+          <div class="privacy-item">
+            <h3>Place search</h3>
+            <p>What you type in the search box goes to Photon by komoot to find matching places.</p>
+          </div>
+          <div class="privacy-item">
+            <h3>Questions to Volta</h3>
+            <p>Your question, and the last three questions of the same chat for context, go to the site's server and on to Anthropic's Claude API to be answered. The site does not keep them. Your IP address is held briefly in memory to limit how many questions each visitor can ask, then forgotten.</p>
+          </div>
+          <div class="privacy-item">
+            <h3>Hosting and map files</h3>
+            <p>The site runs on Cloudflare and the basemap comes from OpenFreeMap. As with any website, these services see your IP address when your browser asks them for files, and may keep standard technical logs under their own policies.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="doc-section" id="copyright" aria-labelledby="copyright-title">
+        <h2 id="copyright-title"><span class="num" aria-hidden="true">05</span>Copyright and license</h2>
+        <ul class="doc-list">
+          <li><strong>Capacity Atlas.</strong> Code and site content © 2026 Srinivas Ravikanth, released under the <a href="https://github.com/SRINIVASRAVIKANTH/capacity-atlas/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</li>
+          <li><strong>Utility data.</strong> The hosting capacity data belongs to each utility. It is not covered by the MIT License.</li>
+          <li><strong>Basemap and search.</strong> Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, with tiles from OpenMapTiles and OpenFreeMap. Place search by Photon from komoot.</li>
+          <li><strong>Software and fonts.</strong> The map is drawn with MapLibre GL JS and PMTiles, both under the BSD 3-Clause License. The fonts, Space Grotesk, Inter and JetBrains Mono, are under the SIL Open Font License.</li>
+          <li><strong>Names.</strong> Utility and company names belong to their owners and are used only to say where data comes from.</li>
+        </ul>
+      </section>
+
+      <section class="doc-section" id="security" aria-labelledby="security-title">
+        <h2 id="security-title"><span class="num" aria-hidden="true">06</span>Security and contact</h2>
+        <p>The site loads scripts only from itself, keeps its API key out of the browser, and treats every value from a utility as untrusted text. The full list of protections is in the project's <a href="https://github.com/SRINIVASRAVIKANTH/capacity-atlas/blob/main/SECURITY.md" target="_blank" rel="noopener">security policy</a>.</p>
+        <div class="contact">
+          <div>
+            <h3>Found a security problem?</h3>
+            <p>Please report it privately through the repository's Security tab, not in a public issue.</p>
+          </div>
+          <a class="contact-button" href="https://github.com/SRINIVASRAVIKANTH/capacity-atlas/security" target="_blank" rel="noopener">Report privately</a>
+        </div>
+        <div class="contact">
+          <div>
+            <h3>A question, or a value that looks wrong?</h3>
+            <p>Open an issue on GitHub. For a value, include the feeder and the place.</p>
+          </div>
+          <a class="contact-button" href="https://github.com/SRINIVASRAVIKANTH/capacity-atlas/issues" target="_blank" rel="noopener">Open an issue</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="doc-foot">
+    <div class="ramp" aria-hidden="true"></div>
+    <p>© 2026 Capacity Atlas · <a href="./">Back to the map</a></p>
+  </footer>
+</body>
+</html>

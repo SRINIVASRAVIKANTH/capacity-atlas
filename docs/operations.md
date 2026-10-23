@@ -66,10 +66,33 @@ Utilities checked and not used (with the reason) are listed in the docstring of
 
 ## Data use terms
 
+### Utilities on the map
+
 | Utility | What its terms ask | Status |
 | --- | --- | --- |
 | National Grid NY | The REST API Access Form; its disclaimer on any map showing the layers; a list of map users on request. Its portal terms also ask for written consent before its content is displayed for other purposes or its portal is linked to. | Disclaimer shown word for word on the terms page, linked from the map's credits and every National Grid card. No links to its portal. Asked National Grid on 2026-10-21 whether a public map with no sign-in, the downloads and the GitHub snapshot archive are acceptable. Form not submitted until they reply, since we cannot keep a user list. |
 | Central Hudson | Its Solar PV Hosting Capacity Map page invites use of the service "within your own maps" and notes the data is for information only, not a substitute for the interconnection application process. Its website has no terms of use page, only a copyright line. Checked 2026-10-21. | Notice shown word for word on the terms page, linked from every Central Hudson card. The page links to the same service we read (`Hosting_Capacity_Stage3`, layer 0); only the name says Stage 3, and the values follow its October 1 and April 1 refreshes. |
+
+### Utilities not on the map yet
+
+Checked on 2026-10-21 and 2026-10-22, before writing any code for them. None allows its data on
+another public website without asking, so each needs written permission first.
+
+| Utility (states) | How it publishes | What its terms say | Status |
+| --- | --- | --- | --- |
+| Con Edison and Orange & Rockland (NY, NJ) | Public ArcGIS REST services, no key (`services.arcgis.com/ciPnsNFi1JLWVjva`), in the same Joint Utilities format as Central Hudson and National Grid | The hosting capacity page says the data is for information only. The website's General Terms of Service ask for express prior written consent to reproduce, distribute or systematically download content. | Permission requested from DGExpert@conEd.com on 2026-10-22. Not added until they reply. |
+| Pepco, Delmarva Power, Atlantic City Electric (DC, MD, DE, NJ) | Public map on Exelon's shared ArcGIS site | No terms of use found for the map data; the map carries a disclaimer that its accuracy is not guaranteed. | Permission requested from the Green Power Connection team, gpc-south@pepco.com, on 2026-10-22. Not added until they reply. |
+| NY Integrated Energy Data Resource (IEDR) | One platform for every New York utility | Personal or internal business use only; the data may not be reproduced or distributed, and robots are not allowed. | Not usable for a public map. |
+| Ameren Illinois (IL) | Public map; not offered for Missouri | Materials may not be reproduced, published or redistributed, and use on any other website is prohibited. | Only with written permission (renewablesillinois@ameren.com). |
+| Dominion Energy (VA, NC) | Public maps with REST services | Use of site material on any other website is prohibited, and public or commercial use is not allowed. | Only with written permission. |
+| National Grid (MA, RI) | Public REST services | Written consent needed to display its content or link to its portal. | Not requested. |
+| Eversource (MA, NH, CT) | Developer portal; its server rejects bulk requests | | Not usable. |
+| PG&E, San Diego Gas & Electric, NV Energy, Georgia Power, PSEG Long Island | Behind accounts | Sign-up and their terms required | Not usable. |
+| Xcel Energy (MN, CO) | Public map | Not checked yet | Open. |
+
+If a utility has not replied after about two weeks, send one short follow-up. When one agrees,
+keep its reply with the project records, add its terms to the table above, and add its
+disclaimer to `web/terms.html` before its data goes live.
 
 ## Running locally
 

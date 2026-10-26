@@ -1,0 +1,126 @@
+{
+  "source_id": "national_grid_ny_pv",
+  "old_snapshot": "2026-10-21.parquet",
+  "new_snapshot": "2026-10-26.parquet",
+  "old_rows": 452496,
+  "new_rows": 452342,
+  "added": 1366,
+  "removed": 1520,
+  "geometry_changed": 450976,
+  "capacity_increased": 562,
+  "capacity_decreased": 2063,
+  "newly_analyzed": 0,
+  "analysis_removed": 0,
+  "feeders_refreshed": 0,
+  "other_attributes_changed": 440884,
+  "most_changed_columns": {
+    "Shape_Length": 440706,
+    "primary_hc_thermal_from_gen": 5042,
+    "primary_hc_voltage_deviation": 4709,
+    "primary_hc_regulator_deviation": 3179,
+    "primary_hc_anti_islanding": 2716,
+    "gridforce_feeder_url": 2623,
+    "primary_hc_flicker": 2559,
+    "primary_hc_over_voltage": 2033,
+    "color": 1009
+  },
+  "feeders_losing_capacity": [
+    {
+      "feeder": "36_17_33153",
+      "sections": 603,
+      "largest_drop_mw": -0.1,
+      "median_change_mw": -0.1
+    },
+    {
+      "feeder": "36_14_29651",
+      "sections": 508,
+      "largest_drop_mw": -6.92,
+      "median_change_mw": -2.5
+    },
+    {
+      "feeder": "36_03_7656",
+      "sections": 457,
+      "largest_drop_mw": -0.1,
+      "median_change_mw": -0.1
+    },
+    {
+      "feeder": "36_37_23451",
+      "sections": 184,
+      "largest_drop_mw": -0.7,
+      "median_change_mw": -0.18
+    },
+    {
+      "feeder": "36_31_33458",
+      "sections": 143,
+      "largest_drop_mw": -8.76,
+      "median_change_mw": -6.0
+    },
+    {
+      "feeder": "36_16_32452",
+      "sections": 66,
+      "largest_drop_mw": -0.03,
+      "median_change_mw": -0.03
+    },
+    {
+      "feeder": "36_01_16161",
+      "sections": 52,
+      "largest_drop_mw": -0.8,
+      "median_change_mw": -0.8
+    },
+    {
+      "feeder": "36_10_1361",
+      "sections": 39,
+      "largest_drop_mw": -0.07,
+      "median_change_mw": -0.07
+    },
+    {
+      "feeder": "36_11_22359",
+      "sections": 8,
+      "largest_drop_mw": -3.6,
+      "median_change_mw": -3.6
+    },
+    {
+      "feeder": "36_35_50251",
+      "sections": 3,
+      "largest_drop_mw": -0.1,
+      "median_change_mw": -0.1
+    }
+  ],
+  "examples": {
+    "added": [
+      "1017768282#0",
+      "10400670#0",
+      "10400702#0",
+      "10400812#0",
+      "10400860#0"
+    ],
+    "removed": [
+      "1006077512#0",
+      "1006850894#0",
+      "1008974097#0",
+      "1035884793#0",
+      "1039740593#0"
+    ],
+    "geometry_changed": [
+      "4760583#0",
+      "5635481#0",
+      "6708431#0",
+      "6950521#0",
+      "7163997#0"
+    ],
+    "capacity_increased": [
+      "49132061#0",
+      "792957132#0",
+      "1091471115#0",
+      "627330920#0",
+      "847509685#0"
+    ],
+    "capacity_decreased": [
+      "7273851#0",
+      "18676518#0",
+      "40966143#0",
+      "276344157#0",
+      "282588805#0"
+    ]
+  }
+}

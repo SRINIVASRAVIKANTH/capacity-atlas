@@ -1,0 +1,186 @@
+{
+  "source_id": "central_hudson_ny_pv",
+  "snapshot": "2026-10-26.parquet",
+  "results": [
+    {
+      "rule_id": "duplicate_shape_conflicting_capacity",
+      "title": "Duplicate line sections report different capacity",
+      "severity": "error",
+      "explanation": "The same place has two different hosting capacity values.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_negative",
+      "title": "Capacity value is negative",
+      "severity": "error",
+      "explanation": "Hosting capacity cannot be below zero.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_min_above_max",
+      "title": "Minimum capacity is greater than maximum capacity",
+      "severity": "error",
+      "explanation": "The lower value is higher than the upper value, which cannot be right.",
+      "status": "ran",
+      "flagged": 0,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [],
+      "feeders": 0
+    },
+    {
+      "rule_id": "stale_analysis_with_new_der",
+      "title": "Analysis over 6 months old, with new solar connected since",
+      "severity": "warning",
+      "explanation": "At least 0.5 MW of new solar or other generation joined this feeder after the analysis, so the value may now be too high.",
+      "status": "ran",
+      "flagged": 30143,
+      "total": 306419,
+      "percent": 9.84,
+      "example_ids": [
+        19294,
+        19298,
+        19300,
+        19306,
+        19308
+      ],
+      "feeders": 31
+    },
+    {
+      "rule_id": "feeder_without_substation",
+      "title": "Feeder listed but substation missing",
+      "severity": "warning",
+      "explanation": "Every feeder starts at a substation, but the utility does not name it here.",
+      "status": "ran",
+      "flagged": 8716,
+      "total": 306419,
+      "percent": 2.84,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 22
+    },
+    {
+      "rule_id": "feeder_without_phase",
+      "title": "Feeder listed but phase missing",
+      "severity": "warning",
+      "explanation": "Every working line has a phase, which decides what kind of project can connect.",
+      "status": "ran",
+      "flagged": 1759,
+      "total": 306419,
+      "percent": 0.57,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 138
+    },
+    {
+      "rule_id": "feeder_without_capacity",
+      "title": "Feeder listed but capacity value missing",
+      "severity": "warning",
+      "explanation": "The line belongs to a named feeder, but the utility published no value for it.",
+      "status": "ran",
+      "flagged": 1370,
+      "total": 306419,
+      "percent": 0.45,
+      "example_ids": [
+        916,
+        1012,
+        3074,
+        5063,
+        5092
+      ],
+      "feeders": 14
+    },
+    {
+      "rule_id": "duplicate_shape",
+      "title": "Same line section published more than once",
+      "severity": "warning",
+      "explanation": "The same stretch of line appears more than once in the utility's data.",
+      "status": "ran",
+      "flagged": 70,
+      "total": 306419,
+      "percent": 0.02,
+      "example_ids": [
+        19234,
+        19236,
+        19286,
+        19288,
+        19298
+      ],
+      "feeders": 22
+    },
+    {
+      "rule_id": "substation_without_feeder",
+      "title": "Substation listed but feeder missing",
+      "severity": "warning",
+      "explanation": "A line that names its substation should also name its feeder.",
+      "status": "ran",
+      "flagged": 5,
+      "total": 306419,
+      "percent": 0.0,
+      "example_ids": [
+        67247,
+        67250,
+        119647,
+        144817,
+        144818
+      ],
+      "feeders": 0
+    },
+    {
+      "rule_id": "no_analysis_published",
+      "title": "Line section has no hosting capacity analysis",
+      "severity": "info",
+      "explanation": "Shown as a dashed gray line on the map. This is about coverage, not an error.",
+      "status": "ran",
+      "flagged": 139293,
+      "total": 306419,
+      "percent": 45.46,
+      "example_ids": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "feeders": 0
+    },
+    {
+      "rule_id": "capacity_exactly_zero",
+      "title": "Published capacity is exactly 0 MW",
+      "severity": "info",
+      "explanation": "This can mean there is no room, or that the line was not analyzed. The data does not say which.",
+      "status": "ran",
+      "flagged": 102896,
+      "total": 306419,
+      "percent": 33.58,
+      "example_ids": [
+        19410,
+        19428,
+        19439,
+        19552,
+        19554
+      ],
+      "feeders": 225
+    }
+  ]
+}

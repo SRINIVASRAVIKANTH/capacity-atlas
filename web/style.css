@@ -490,7 +490,7 @@ a:hover { color: var(--strong); }
 .trend-spark .h-line { stroke-width: 2.5; }
 .trend-text { display: flex; flex-direction: column; min-width: 0; }
 .trend-text strong { font-weight: 500; }
-.trend-text span { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trend-text span { color: var(--muted); font-size: 12.5px; text-wrap: balance; } /* wraps to a second line rather than cutting the date off */
 .trend-text .h-dir-1 { color: var(--chg-less); }
 .trend-text .h-dir1 { color: var(--chg-more); }
 .trend-action { color: var(--accent); font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }

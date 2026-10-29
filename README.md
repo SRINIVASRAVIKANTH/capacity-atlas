@@ -73,6 +73,17 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
   <br><b>Figure 3.</b> Data quality highlight around Poughkeepsie. Lines with issues stay in color, the rest turn gray, and the panel lists the feeders with the most problems.
 </p>
 
+On October 26, National Grid's data changed for the first time since tracking began. 2,063
+line sections lost capacity and 562 gained, and 1,366 were added and 1,520 removed where the
+utility redrew parts of its network. No feeder's analysis date changed, so these new values
+show up only by comparing one week with the next. The full list is in
+[`reports/national_grid_ny_pv/changes/`](reports/national_grid_ny_pv/changes/).
+
+<p align="center">
+  <img src="docs/images/changes.png" alt="Changed lines east of Troy, with a National Grid feeder whose highest capacity fell from 8.8 MW to 0 MW on October 26" width="900">
+  <br><b>Figure 4.</b> The week of October 26, east of Troy. Orange lines lost capacity since the week before. This feeder's best spot fell from 8.8 MW to 0 MW, and its history chart shows the drop.
+</p>
+
 ---
 
 ## ✨ Features
@@ -94,27 +105,27 @@ and every check is explained in [docs/data-quality.md](docs/data-quality.md).
 
 <p align="center">
   <img src="docs/images/detail.png" alt="A selected National Grid section with its feeder outlined, and the card naming voltage rise and overload as what limits the line" width="900">
-  <br><b>Figure 4.</b> One selected section. Its whole feeder is outlined, and the card shows the published values, what limits the line and any data issues.
+  <br><b>Figure 5.</b> One selected section. Its whole feeder is outlined, and the card shows the published values, what limits the line and any data issues.
 </p>
 
 <p align="center">
   <img src="docs/images/site-check.png" alt="Site check from the panel: a 3 MW project in Saratoga Springs is 0.1 miles from a line with room for it" width="900">
-  <br><b>Figure 5.</b> Site check from the panel. A 3 MW project in Saratoga Springs is 0.1 mi from a line that can take it, shown by the dashed link.
+  <br><b>Figure 6.</b> Site check from the panel. A 3 MW project in Saratoga Springs is 0.1 mi from a line that can take it, shown by the dashed link.
 </p>
 
 <p align="center">
   <img src="docs/images/assistant.png" alt="Volta answering Where near Albany can I connect 2 MW by filtering and moving the map" width="900">
-  <br><b>Figure 6.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
+  <br><b>Figure 7.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
 </p>
 
 <p align="center">
   <img src="docs/images/site-check-volta.png" alt="Volta answering Nearest line for 3 MW from Kingston with the distance and the line on the map" width="900">
-  <br><b>Figure 7.</b> Volta runs the same site check from a plain question. The nearest line with room for 3 MW is 0.2 mi from Kingston, on a Central Hudson feeder.
+  <br><b>Figure 8.</b> Volta runs the same site check from a plain question. The nearest line with room for 3 MW is 0.2 mi from Kingston, on a Central Hudson feeder.
 </p>
 
 <p align="center">
   <img src="docs/images/dark-mobile.png" alt="Capacity Atlas in the dark theme on a phone" width="300">
-  <br><b>Figure 8.</b> Dark theme on a phone.
+  <br><b>Figure 9.</b> Dark theme on a phone.
 </p>
 
 ---

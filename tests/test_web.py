@@ -1,6 +1,7 @@
 """Static checks for the web map: every referenced file exists and the colors stay in sync."""
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parents[1] / "web"
@@ -102,12 +103,37 @@ def _csp() -> dict[str, list[str]]:
     return {d.split()[0]: d.split()[1:] for d in (p.strip() for p in policy.split(";")) if d}
 
 
+class _InlineCode(HTMLParser):
+    """Finds script tags without a src and on... event attributes, the way a browser reads the page."""
+
+    def __init__(self):
+        super().__init__()
+        self.found: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        names = {name for name, _ in attrs}  # HTMLParser gives tag and attribute names in lowercase
+        if tag == "script" and "src" not in names:
+            self.found.append("<script> without src")
+        self.found += [f"<{tag} {name}=...>" for name in sorted(names) if name.startswith("on")]
+
+
 def test_pages_have_no_inline_scripts_so_the_policy_can_forbid_them():
     for page in PAGES:
-        html = (WEB / page).read_text(encoding="utf-8")
-        assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html), page
-        assert not re.search(r"\son[a-z]+=", html), f"inline event handler attribute in {page}"
+        finder = _InlineCode()
+        finder.feed((WEB / page).read_text(encoding="utf-8"))
+        assert not finder.found, f"inline code in {page}: {finder.found}"
     assert _csp()["script-src"] == ["'self'"]
+
+
+def test_the_inline_code_finder_catches_what_a_browser_would_run():
+    for bad in ("<script>x()</script>", "<SCRIPT >x()</SCRIPT>", '<img src="a" ONERROR="x()">',
+                "<script\ntype=module>x()</script>", '<button onclick="x()">'):
+        finder = _InlineCode()
+        finder.feed(bad)
+        assert finder.found, bad
+    finder = _InlineCode()
+    finder.feed('<script src="app.js" defer></script><a href="#" data-on="x">on</a>')
+    assert not finder.found
 
 
 def test_every_service_in_the_config_is_allowed_by_the_policy():

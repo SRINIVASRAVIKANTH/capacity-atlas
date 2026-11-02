@@ -93,6 +93,16 @@ by exact circuit ID, 225 of the 230 Central Hudson feeders and 1,605 of the 1,91
 feeders with a published capacity have solar on record. The list's own checks are in
 [`reports/installed_solar/quality.md`](reports/installed_solar/quality.md).
 
+<p align="center">
+  <img src="docs/images/built-so-far.png" alt="Built so far: one circle per ZIP code across New York, sized by the solar already connected, with the state totals in the panel" width="900">
+  <br><b>Figure 5.</b> Built so far. One circle per ZIP code, sized by the solar already connected, with a darker center for the last 12 months. Long Island, the Hudson Valley and the Capital Region stand out.
+</p>
+
+<p align="center">
+  <img src="docs/images/built-zip-card.png" alt="ZIP code 12603 in Poughkeepsie selected: 16 MW from 1,448 systems, main utility Central Hudson" width="900">
+  <br><b>Figure 6.</b> ZIP code 12603 in Poughkeepsie: 16 MW from 1,448 systems, 1.5 MW of it in the last 12 months. "See room to connect here" opens the capacity map at the same place.
+</p>
+
 ---
 
 ## ✨ Features
@@ -115,27 +125,32 @@ feeders with a published capacity have solar on record. The list's own checks ar
 
 <p align="center">
   <img src="docs/images/detail.png" alt="A selected National Grid section with its feeder outlined, and the card naming voltage rise and overload as what limits the line" width="900">
-  <br><b>Figure 5.</b> One selected section. Its whole feeder is outlined, and the card shows the published values, what limits the line and any data issues.
+  <br><b>Figure 7.</b> One selected section. Its whole feeder is outlined, and the card shows the published values, what limits the line and any data issues.
+</p>
+
+<p align="center">
+  <img src="docs/images/solar-on-feeder.png" alt="A Central Hudson section near Poughkeepsie whose card shows 0.31 MW of solar already connected on its feeder, from 42 systems" width="900">
+  <br><b>Figure 8.</b> The two views meet on the card. This section's feeder already has 0.31 MW of solar from 42 systems, matched by the feeder ID in NYSERDA's list.
 </p>
 
 <p align="center">
   <img src="docs/images/site-check.png" alt="Site check from the panel: a 3 MW project in Saratoga Springs is 0.1 miles from a line with room for it" width="900">
-  <br><b>Figure 6.</b> Site check from the panel. A 3 MW project in Saratoga Springs is 0.1 mi from a line that can take it, shown by the dashed link.
+  <br><b>Figure 9.</b> Site check from the panel. A 3 MW project in Saratoga Springs is 0.1 mi from a line that can take it, shown by the dashed link.
 </p>
 
 <p align="center">
   <img src="docs/images/assistant.png" alt="Volta answering Where near Albany can I connect 2 MW by filtering and moving the map" width="900">
-  <br><b>Figure 7.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
+  <br><b>Figure 10.</b> Volta turns a question into map settings. Every number in the answer is counted from the data on screen, not written by the AI.
 </p>
 
 <p align="center">
   <img src="docs/images/site-check-volta.png" alt="Volta answering Nearest line for 3 MW from Kingston with the distance and the line on the map" width="900">
-  <br><b>Figure 8.</b> Volta runs the same site check from a plain question. The nearest line with room for 3 MW is 0.2 mi from Kingston, on a Central Hudson feeder.
+  <br><b>Figure 11.</b> Volta runs the same site check from a plain question. The nearest line with room for 3 MW is 0.2 mi from Kingston, on a Central Hudson feeder.
 </p>
 
 <p align="center">
   <img src="docs/images/dark-mobile.png" alt="Capacity Atlas in the dark theme on a phone" width="300">
-  <br><b>Figure 9.</b> Dark theme on a phone.
+  <br><b>Figure 12.</b> Dark theme on a phone.
 </p>
 
 ---

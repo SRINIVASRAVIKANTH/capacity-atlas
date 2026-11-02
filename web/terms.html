@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Data sources and terms · Capacity Atlas</title>
-  <meta name="description" content="Where Capacity Atlas gets its data, each utility's disclaimer in its own words, and the site's terms of use, privacy, copyright and security.">
+  <meta name="description" content="Where Capacity Atlas gets its data, each source's disclaimer in its own words, and the site's terms of use, privacy, copyright and security.">
   <meta name="theme-color" content="#171A21">
   <link rel="canonical" href="https://capacity-atlas.pages.dev/terms">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A21'/%3E%3Cpath d='M6 22 L13 13 L19 18 L26 9' stroke='%23FDB52E' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
@@ -45,8 +45,8 @@
     <div class="doc-hero-text">
       <p class="eyebrow">Legal and data</p>
       <h1 id="doc-title">Data sources and terms</h1>
-      <p class="doc-lede">Capacity Atlas shows hosting capacity data that utilities publish. This page says where each part of the map comes from, repeats each utility's disclaimer in its own words, and sets out how the site may be used and what it does with your information.</p>
-      <p class="doc-date">Last updated October 21, 2026</p>
+      <p class="doc-lede">Capacity Atlas shows hosting capacity data that utilities publish, and the solar already built from New York's statewide list. This page says where each part of the map comes from, repeats each source's disclaimer in its own words, and sets out how the site may be used and what it does with your information.</p>
+      <p class="doc-date">Last updated October 29, 2026</p>
     </div>
   </section>
 
@@ -87,6 +87,20 @@
             </dl>
           </article>
           <article class="source-card">
+            <p class="tag">Solar already built</p>
+            <h3>NYSERDA</h3>
+            <p>Every distributed solar project connected in New York since 2000, from the <a href="https://data.ny.gov/d/wgsj-jt5f" target="_blank" rel="noopener">Statewide Distributed Solar Projects</a> list on the state's open data portal. Shown on the Built so far page and in each line's card.</p>
+            <dl>
+              <dt>Read</dt><dd>Every Monday; NYSERDA updates it about every three months</dd>
+              <dt>Conditions</dt><dd>The OPEN-NY Terms of Use, summarized below</dd>
+            </dl>
+          </article>
+          <article class="source-card">
+            <p class="tag">ZIP code areas</p>
+            <h3>US Census Bureau</h3>
+            <p>Where each ZIP code sits on the Built so far page: the 2020 Census ZIP Code Tabulation Areas, read from the Bureau's TIGERweb service.</p>
+          </article>
+          <article class="source-card">
             <p class="tag">Basemap</p>
             <h3>OpenFreeMap</h3>
             <p>The streets, places and labels under the grid lines, from OpenMapTiles and <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
@@ -106,7 +120,7 @@
 
       <section class="doc-section" id="disclaimers" aria-labelledby="disclaimers-title">
         <h2 id="disclaimers-title"><span class="num" aria-hidden="true">02</span>Disclaimers</h2>
-        <p>Each utility's wording is copied exactly. It applies to that utility's lines on the map and to any file you download with them.</p>
+        <p>Each source's wording is copied exactly. It applies to that source's data on the map and to any file you download with it.</p>
 
         <article class="notice" id="source-national_grid_ny_pv" tabindex="-1">
           <h3>National Grid</h3>
@@ -120,6 +134,13 @@
           <h3>Central Hudson Gas &amp; Electric</h3>
           <p class="notice-from">Central Hudson's notice on its hosting capacity map page</p>
           <blockquote class="disclaimer">This data is being provided for informational purposes only and is not intended to be a substitute for the established interconnection application process.</blockquote>
+        </article>
+
+        <article class="notice" id="source-nyserda" tabindex="-1">
+          <h3>NYSERDA's list of connected solar</h3>
+          <p class="notice-from">The limitation NYSERDA publishes with the list</p>
+          <blockquote class="disclaimer">This dataset is a derivative product of publicly available information and as such NYSERDA does not vouch for the precision of the data from the public sources.</blockquote>
+          <p class="notice-note">The list is published on data.ny.gov under the OPEN-NY Terms of Use, which allow anyone to reuse the data, without attribution or approval, as long as the use is lawful. The State of New York and NYSERDA do not endorse this site, and it uses neither the State's seal nor NYSERDA's logo. The list holds built projects only, not projects waiting in a utility's queue. ZIP code areas are from the US Census Bureau, a work of the United States government.</p>
         </article>
 
         <article class="notice notice-own">
@@ -147,7 +168,7 @@
         <div class="privacy-grid">
           <div class="privacy-item">
             <h3>Stays in your browser</h3>
-            <p>Your display settings, whether you have seen the first-visit tip, and the chat with Volta. Downloads and share links are also made in your browser. None of it is sent to the site.</p>
+            <p>Your display settings, whether you have seen the first-visit tip, and the chat with Volta. Downloads, share links and the ZIP code search on the Built so far page also run in your browser. None of it is sent to the site.</p>
           </div>
           <div class="privacy-item">
             <h3>Place search</h3>
@@ -169,6 +190,7 @@
         <ul class="doc-list">
           <li><strong>Capacity Atlas.</strong> Code and site content © 2026 Srinivas Ravikanth, released under the <a href="https://github.com/SRINIVASRAVIKANTH/capacity-atlas/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</li>
           <li><strong>Utility data.</strong> The hosting capacity data belongs to each utility. It is not covered by the MIT License.</li>
+          <li><strong>Solar already built.</strong> NYSERDA's Statewide Distributed Solar Projects list, used under the OPEN-NY Terms of Use. ZIP code areas from the US Census Bureau, which are in the public domain. Neither is covered by the MIT License.</li>
           <li><strong>Basemap and search.</strong> Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, with tiles from OpenMapTiles and OpenFreeMap. Place search by Photon from komoot.</li>
           <li><strong>Software and fonts.</strong> The map is drawn with MapLibre GL JS and PMTiles, both under the BSD 3-Clause License. The fonts, Space Grotesk, Inter and JetBrains Mono, are under the SIL Open Font License.</li>
           <li><strong>Names.</strong> Utility and company names belong to their owners and are used only to say where data comes from.</li>

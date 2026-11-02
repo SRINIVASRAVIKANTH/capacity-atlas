@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Built so far | Capacity Atlas</title>
+  <meta name="description" content="Solar already connected to New York's grid, by ZIP code: every distributed solar project in NYSERDA's statewide list, with what was added in the last 12 months.">
+  <meta name="theme-color" content="#171A21">
+  <link rel="canonical" href="https://capacity-atlas.pages.dev/solar.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Capacity Atlas">
+  <meta property="og:title" content="Capacity Atlas: solar already built in New York, by ZIP code">
+  <meta property="og:description" content="Every distributed solar project connected in New York since 2000, from NYSERDA's statewide list, next to where the grid still has room.">
+  <meta property="og:url" content="https://capacity-atlas.pages.dev/solar.html">
+  <meta property="og:image" content="https://capacity-atlas.pages.dev/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Capacity Atlas map of New York">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A21'/%3E%3Cpath d='M6 22 L13 13 L19 18 L26 9' stroke='%23FDB52E' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="solar.css">
+</head>
+<body class="solar-page">
+  <div id="map" role="region" aria-label="Map of solar already built, by ZIP code"></div>
+
+  <aside class="panel" id="panel" aria-label="Map key, search and totals">
+    <button class="sheet-handle" id="sheet-toggle" type="button" aria-expanded="true" aria-controls="panel-body">
+      <span class="sheet-grip" aria-hidden="true"></span>
+      <span class="visually-hidden">Show or hide the panel</span>
+    </button>
+
+    <header class="panel-head">
+      <div class="title-row">
+        <h1>Capacity Atlas</h1>
+        <button class="icon-button" id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body" title="Collapse panel">
+          <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="visually-hidden" id="panel-toggle-label">Collapse panel</span>
+        </button>
+      </div>
+
+      <!-- Two views of the same map. Each link keeps the place and zoom (kit.js). -->
+      <nav class="modes" aria-label="Map views">
+        <a href="./"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 17l5-6 4 3 4-6 5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Room to connect</a>
+        <a href="solar.html" aria-current="page"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Built so far</a>
+      </nav>
+
+      <!-- Searches the ZIP codes on this map, in the browser: nothing is sent anywhere. -->
+      <form class="search" id="search" role="search" autocomplete="off">
+        <label class="visually-hidden" for="search-input">Search for a ZIP code or town</label>
+        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="search-input" type="search" placeholder="Search a ZIP code or town" enterkeyhint="search" inputmode="search" aria-controls="search-results">
+        <ul class="search-results" id="search-results" hidden></ul>
+      </form>
+
+      <section class="key" aria-labelledby="legend-title">
+        <h2 id="legend-title">Solar already connected</h2>
+        <p class="key-sub">One circle per ZIP code. The bigger the circle, the more solar is connected there.</p>
+        <div class="solar-key">
+          <svg class="solar-key-art" viewBox="0 0 56 40" width="56" height="40" aria-hidden="true">
+            <circle class="sk-total" cx="20" cy="20" r="17"/>
+            <circle class="sk-recent" cx="20" cy="20" r="8"/>
+          </svg>
+          <ul class="solar-key-list">
+            <li><span class="sk-swatch sk-swatch-total" aria-hidden="true"></span>All solar connected</li>
+            <li><span class="sk-swatch sk-swatch-recent" aria-hidden="true"></span>Connected in the last 12 months</li>
+          </ul>
+        </div>
+      </section>
+    </header>
+
+    <div class="panel-body" id="panel-body">
+      <div class="intro">
+        <p class="lede">Hosting capacity shows where the grid has room. This view shows the other half: the solar already connected, from New York's statewide list of distributed solar projects.</p>
+        <p class="updated" id="updated"></p>
+      </div>
+
+      <section class="block" aria-labelledby="glance-title">
+        <h2 id="glance-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>New York at a glance</h2>
+        <dl class="stats" id="stats" aria-live="polite"></dl>
+        <p class="note insight" id="insight"></p>
+      </section>
+
+      <section class="block" aria-labelledby="years-title">
+        <h2 id="years-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 20V12M10 20V8M15 20V11M20 20V4" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>Connected each year</h2>
+        <div class="years" id="years"></div>
+      </section>
+
+      <section class="block" aria-labelledby="utilities-title">
+        <h2 id="utilities-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>By utility</h2>
+        <ul class="ubars" id="ubars"></ul>
+        <p class="note" id="ubars-note"></p>
+      </section>
+
+      <section class="block" aria-labelledby="match-title">
+        <h2 id="match-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Linked to the capacity map</h2>
+        <p class="note">Each project lists the circuit it connects to. Where that ID is exactly a feeder ID on the capacity map, the feeder's card shows the solar already on it. Nothing is matched by guesswork.</p>
+        <div id="match"></div>
+      </section>
+
+      <section class="block" aria-labelledby="quality-title">
+        <h2 id="quality-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Data quality</h2>
+        <p class="note" id="quality-note">Every row of the list is run through the same kind of checks as the utility data.</p>
+        <div id="quality"></div>
+      </section>
+
+      <footer class="panel-foot">
+        <p>Built projects only. Projects still waiting in a utility's queue are not in this list. Circles mark ZIP code areas, not project addresses.</p>
+        <nav class="foot-links" aria-label="About this site">
+          <a href="terms.html#source-nyserda" target="_blank" rel="noopener">Data sources and terms</a>
+          <a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a>
+        </nav>
+        <p class="foot-copy">© 2026 Capacity Atlas</p>
+      </footer>
+    </div>
+  </aside>
+  <script src="fold.js"></script>
+
+  <div class="toolbar" id="toolbar">
+    <div class="display">
+      <button class="icon-button tool-button" id="display-toggle" type="button" aria-expanded="false" aria-controls="display-menu" title="Display settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+        <span class="visually-hidden">Display settings</span>
+      </button>
+      <div class="popover display-menu" id="display-menu" hidden>
+        <fieldset class="segmented" id="theme-choice">
+          <legend>Theme</legend>
+          <label><input type="radio" name="theme" value="auto"><span>System</span></label>
+          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+        </fieldset>
+        <p class="note">Circle size carries the numbers, so the map reads the same in either theme and in grayscale.</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected ZIP code details">
+    <button class="detail-close" id="detail-close" type="button" aria-label="Close details">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div id="detail-body"></div>
+  </section>
+
+  <div class="status" id="status" role="status" hidden></div>
+
+  <script src="config.js" defer></script>
+  <script src="kit.js" defer></script>
+  <script src="vendor/maplibre-gl.js" defer></script>
+  <script src="built.js" defer></script>
+  <script src="solar.js" defer></script>
+</body>
+</html>

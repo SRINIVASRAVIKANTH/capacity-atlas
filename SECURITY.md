@@ -17,6 +17,7 @@ then **Report a vulnerability**. Please do not open a public issue for a securit
 | Map data on Cloudflare R2 | The bucket's CORS policy allows only `https://capacity-atlas.pages.dev`, so other websites cannot load the data from it. |
 | Data from utilities | Treated as untrusted: every value is escaped before it is shown. |
 | Capacity history file | Public data only (feeder names and MW values). The site checks its shape before drawing and shows nothing if anything is off; the chart is built from numbers alone. |
+| Solar already built files | Public data only (NYSERDA's published totals by ZIP code and by feeder). The pages check each file's shape and show nothing from a malformed entry; town and utility names are shown as plain text. The ZIP code search runs in the browser and sends nothing anywhere. |
 | Shared site check links | A link holds only a spot and a project size. It is read strictly (two plain numbers inside New York, a size from 0.1 to 10,000 MW) and anything else is ignored, so a link cannot run code or change the page. It needs no expiry: there is nothing private in it. |
 | Downloads | Made in the browser from the map data anyone can already see. Files carry the published values in words, never internal codes, keys or service addresses. Text that a spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) is written as plain text. |
 | Test-only URL options | `?data=` and `?basemap=` work only on a local copy, so nobody can link to the live site showing other data. |

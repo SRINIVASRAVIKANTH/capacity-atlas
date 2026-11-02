@@ -46,3 +46,38 @@ line section. Floating point comparisons use a tolerance of 0.005 MW.
 
 Current results are in [`reports/LATEST.md`](../reports/LATEST.md), with one folder of
 weekly reports per utility.
+
+## Solar already built (NYSERDA's list)
+
+The "Built so far" page and the "Solar connected" row in each line's card come from NYSERDA's
+statewide list of connected distributed solar (`capacity_atlas/installed.py`). Every row of the
+list is checked the same way, and the result is committed to
+[`reports/installed_solar/quality.md`](../reports/installed_solar/quality.md) and shown in the
+page's panel. Rows are counted as published; a flag never removes a row.
+
+| Check | Level | What it catches |
+|---|---|---|
+| No system size | Error | No size, or a size of zero or less. The project counts as a system but adds nothing to the MW totals |
+| Connected after the data-through date | Error | A connection date later than the date the list says it covers |
+| No connection date | Warning | Missing from the by-year chart |
+| ZIP code is not five digits | Warning | Cannot be placed on the map |
+| ZIP code is outside New York | Warning | A valid ZIP code, but not one used in New York |
+| County is not a New York county | Warning | Not one of the state's 62 counties |
+| No circuit ID | Info | Cannot be matched to a line; still in the ZIP and state totals |
+| No metering method | Info | Cannot tell community solar from a home or business system |
+| Project ID used more than once | Info | The same ID on more than one row |
+| No Census ZIP area for this ZIP code | Info | Often a ZIP code for post office boxes or one building; counted in the state totals, not drawn |
+
+### Findings (data through August 31, 2026)
+
+Checked on 280,745 rows (280,944 systems, 6,342 MW):
+
+* 1 row has no size, 2 have a ZIP code that is not five digits, and 1 is listed in Bennington
+  County, which is in Vermont.
+* 508 rows have no metering method and 301 have no circuit ID.
+* 77 rows share 38 project IDs. For example, LDG-00014 appears once for Con Edison and once for
+  Orange & Rockland.
+* About 0.1% of rows have a ZIP code with no Census ZIP area; they are in the state totals but
+  not on the map.
+* Matching by exact circuit ID: 225 of the 230 Central Hudson feeders and 1,605 of the 1,913
+  National Grid feeders with a published capacity (October 26 snapshot) have solar on record.

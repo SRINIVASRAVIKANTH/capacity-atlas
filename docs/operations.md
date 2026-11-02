@@ -12,9 +12,17 @@ What to check after a run:
 * A release named `snapshot-YYYY-MM-DD` holds one parquet file per source.
 * The site's panel shows the new "Data as of" date.
 * `reports/history/feeder_capacity.json` lists the new date (the run commits it with the reports).
+* The step "Build the solar already built" is green, and the "Built so far" page shows NYSERDA's
+  "data through" date. `reports/installed_solar/quality.md` changes only when NYSERDA publishes
+  new data, about every three months.
 
 The feeder capacity history rebuilds itself: if the file is deleted or damaged, the next run
 starts it again from every snapshot in the releases.
+
+If data.ny.gov or the Census service is down, only the solar step fails: the capacity map,
+reports and snapshots still publish, the site keeps last week's solar files, and the run is
+marked failed. If NYSERDA renames or drops a column, the step stops with the column's name;
+update `COLUMNS` in `capacity_atlas/installed.py` and its test.
 
 If a utility's server is down, that source shows `FAILED` in `LATEST.md`, the others still
 publish, and the map keeps that utility's previous snapshot. The same happens when a server
@@ -42,6 +50,7 @@ push), confirm the feature works, then delete the old key.
 | Cloudflare Pages and Functions | Free plan | Free |
 | Cloudflare R2 | Standard storage, under the free tier | Free (budget alert set at $1) |
 | OpenFreeMap basemaps, Photon search | Public services | Free, fair use |
+| data.ny.gov (NYSERDA's list), Census TIGERweb | Public services, read once a week by the pipeline | Free, no key |
 | Claude API | Prepaid credit, auto reload off | A small fraction of a cent per question |
 
 ## Adding a utility
@@ -72,6 +81,13 @@ Utilities checked and not used (with the reason) are listed in the docstring of
 | --- | --- | --- |
 | National Grid NY | The REST API Access Form; its disclaimer on any map showing the layers; a list of map users on request. Its portal terms also ask for written consent before its content is displayed for other purposes or its portal is linked to. | Disclaimer shown word for word on the terms page, linked from the map's credits and every National Grid card. No links to its portal. Asked National Grid on 2026-10-21 whether a public map with no sign-in, the downloads and the GitHub snapshot archive are acceptable. Form not submitted until they reply, since we cannot keep a user list. |
 | Central Hudson | Its Solar PV Hosting Capacity Map page invites use of the service "within your own maps" and notes the data is for information only, not a substitute for the interconnection application process. Its website has no terms of use page, only a copyright line. Checked 2026-10-21. | Notice shown word for word on the terms page, linked from every Central Hudson card. The page links to the same service we read (`Hosting_Capacity_Stage3`, layer 0); only the name says Stage 3, and the values follow its October 1 and April 1 refreshes. |
+
+### Other data on the site
+
+| Source | What its terms ask | Status |
+| --- | --- | --- |
+| NYSERDA, Statewide Distributed Solar Projects (data.ny.gov, `wgsj-jt5f`) | The OPEN-NY Terms of Use (checked 2026-10-29, version on data.ny.gov updated 2026-09-30): reuse is allowed without attribution or approval, as long as the use is lawful. The State's seal and logos may not be used. The State may ask a user to stop if the terms are broken. | Used. NYSERDA is credited on the map, the page and every card anyway, and its published limitation is quoted word for word on the terms page (a test holds it). No State seal or NYSERDA logo is used. |
+| US Census Bureau, 2020 ZIP Code Tabulation Areas (TIGERweb) | A work of the United States government, in the public domain. | Used for the ZIP code points, credited on the map and the terms page. |
 
 ### Utilities not on the map yet
 
@@ -119,5 +135,8 @@ in `web/config.js`. The assistant only works when deployed, because it needs the
   address, or previewing `web/` locally against the live data, needs that origin added in
   the bucket's settings (R2, the bucket, Settings, CORS Policy).
 * Photon and OpenFreeMap are free public services without a service level agreement.
+* NYSERDA's list holds built projects only, updated about every three months, so "Built so far"
+  can be up to a few months behind. Each project is placed by ZIP code, not its address, and is
+  matched to a feeder only where its circuit ID is exactly the feeder's ID.
 * The assistant's rate limit is kept in memory per Cloudflare instance, so it is best effort.
   Prepaid credit is the hard spending cap.

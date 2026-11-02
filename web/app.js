@@ -8,15 +8,11 @@
   "use strict";
 
   const cfg = window.ATLAS_CONFIG;
-  // Test overrides (?data=...&basemap=...) work only on a local copy of the site. On the public
-  // site they are ignored, so nobody can share a link that shows someone else's data here.
-  const LOCAL = ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
-  const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const DATA_URL = (params.get("data") || cfg.dataUrl).replace(/\/+$/, "");
-  const BASEMAP_OVERRIDE = params.get("basemap"); // for testing: one style for both themes
+  const kit = window.AtlasKit; // shared with the "Built so far" page (kit.js)
+  const DATA_URL = kit.dataUrl(cfg);
+  const BASEMAP_OVERRIDE = kit.basemapOverride(); // for testing on a local copy: one style for both themes
   const SOURCE = "atlas";
   const LAYER = "lines";
-  const PREFS_KEY = "capacity-atlas-display";
 
   // Capacity bands, darkest = no room, brightest = most room. Both scales stay readable with
   // common color blindness; cividis is tuned for red-green color blindness and keeps its order
@@ -68,7 +64,7 @@
   };
   const fmtDay = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const fmtDate = (iso) => new Date(iso + (iso.length === 10 ? "T12:00:00Z" : "")).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const escapeHtml = kit.escapeHtml;
   const colors = () => PALETTES[state.prefs.palette] || PALETTES.plasma;
   const look = () => THEMES[state.theme];
 
@@ -95,48 +91,18 @@
   // Panels fold away with a short animation instead of vanishing. While one is leaving it
   // counts as closed, and opening it again cancels the fold. People who ask their system for
   // reduced motion get the instant version.
-  const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const isShown = (el) => !el.hidden && !el.classList.contains("is-leaving");
-  function showSoftly(el) {
-    el.classList.remove("is-leaving");
-    el.hidden = false;
-  }
-  function hideSoftly(el) {
-    if (!isShown(el)) return;
-    if (reduceMotion()) { el.hidden = true; return; }
-    el.classList.add("is-leaving");
-    const done = () => {
-      el.removeEventListener("animationend", onEnd);
-      if (!el.classList.contains("is-leaving")) return; // reopened meanwhile
-      el.classList.remove("is-leaving");
-      el.hidden = true;
-    };
-    const onEnd = (e) => { if (e.target === el && !e.pseudoElement) done(); }; // not the light or anything inside
-    el.addEventListener("animationend", onEnd);
-    setTimeout(done, 400); // in case the browser skips the animation
-  }
+  const { reduceMotion, isShown, showSoftly, hideSoftly } = kit;
 
   // ---------- display preferences (theme and color scale), remembered in this browser only ----------
   function loadPrefs() {
-    const defaults = { theme: "auto", palette: "plasma" };
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}");
-      return {
-        theme: ["auto", "light", "dark"].includes(saved.theme) ? saved.theme : defaults.theme,
-        palette: saved.palette in PALETTES ? saved.palette : defaults.palette,
-      };
-    } catch {
-      return defaults;
-    }
+    const saved = kit.readPrefs();
+    return {
+      theme: ["auto", "light", "dark"].includes(saved.theme) ? saved.theme : "auto",
+      palette: Object.prototype.hasOwnProperty.call(PALETTES, saved.palette) ? saved.palette : "plasma",
+    };
   }
 
-  function savePrefs() {
-    try {
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify(state.prefs));
-    } catch {
-      /* private windows can block storage; the choice still applies for this visit */
-    }
-  }
+  const savePrefs = () => kit.savePrefs(state.prefs);
 
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
   const resolveTheme = () => (state.prefs.theme === "auto" ? (systemDark.matches ? "dark" : "light") : state.prefs.theme);
@@ -152,71 +118,8 @@
   }
 
   // ---------- basemap ----------
-  const styleCache = new Map();
-
-  async function loadBasemap(theme) {
-    const url = BASEMAP_OVERRIDE || cfg.basemapStyles[theme];
-    if (!styleCache.has(url)) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        styleCache.set(url, await response.json());
-      } catch (err) {
-        console.warn("Basemap unavailable, using a plain background:", err);
-        return {
-          version: 8, sources: {},
-          layers: [{ id: "background", type: "background", paint: { "background-color": THEMES[theme].fallbackGround } }],
-        };
-      }
-    }
-    const style = structuredClone(styleCache.get(url));
-    tuneBasemap(style, theme);
-    return style;
-  }
-
-  // Keep roads and land quiet so the grid stands out, but keep place names easy to read.
-  const DARK_PLACE_COLORS = {
-    place_city_large: "#eceef3", place_city: "#e1e4ea", place_town: "#c4c8d2",
-    place_village: "#a3a8b5", place_suburb: "#a3a8b5", place_other: "#9097a5",
-    place_state: "#a9aebb", place_country_major: "#a9aebb", place_country_minor: "#a9aebb", place_country_other: "#a9aebb",
-  };
-
-  function tuneBasemap(style, theme) {
-    for (const layer of style.layers || []) {
-      const paint = (layer.paint = layer.paint || {});
-      if (theme === "dark") {
-        if (layer.type === "line") paint["line-opacity"] = 0.5;
-        if (layer.type === "raster") paint["raster-opacity"] = 0.35;
-        if (layer.type !== "symbol") continue;
-        paint["icon-opacity"] = 0.6;
-        const halo = "rgba(10, 11, 14, 0.92)";
-        if (layer["source-layer"] === "place") {
-          paint["text-color"] = DARK_PLACE_COLORS[layer.id] || "#a3a8b5";
-          paint["text-halo-color"] = halo;
-          paint["text-halo-width"] = 1.6;
-        } else if (layer["source-layer"] === "transportation_name") {
-          paint["text-color"] = "#8f94a1";
-          paint["text-halo-color"] = halo;
-          paint["text-halo-width"] = 1.4;
-        } else if (layer["source-layer"] === "water_name") {
-          paint["text-color"] = "#7088b3";
-          paint["text-halo-color"] = halo;
-          paint["text-halo-width"] = 1.2;
-        }
-      } else if (layer.type === "symbol" && layer["source-layer"] === "place") {
-        paint["text-halo-width"] = 1.6; // light theme: keep the basemap's dark text, a little more halo over the lines
-      }
-    }
-  }
-
-  // Grid layers go under the basemap's labels, so city and street names stay on top.
-  function firstLabelLayer(map) {
-    const layer = map.getStyle().layers.find((l) => l.type === "symbol");
-    return layer ? layer.id : undefined;
-  }
+  const loadBasemap = (theme) => kit.loadBasemap(BASEMAP_OVERRIDE || cfg.basemapStyles[theme], theme, THEMES[theme].fallbackGround);
+  const firstLabelLayer = kit.firstLabelLayer; // grid layers go under the basemap's labels
 
   // ---------- map layers ----------
   // Two copies of every grid layer: "lines" (each section, zoom 11 and closer) and
@@ -444,74 +347,14 @@
       else if (state.closeAssistant && !$("assistant-panel").hidden) state.closeAssistant();
     });
 
-    // The panel folds down to its title and color key, on any screen size. It rolls up (on a
-    // phone, the sheet slides down) instead of jumping: the parts that disappear shrink while
-    // the panel's visible edge moves to where the folded panel ends.
-    const panelEl = $("panel");
-    let folding = [];
-    const markCollapsed = (collapsed) => {
-      for (const id of ["panel-toggle", "sheet-toggle"]) $(id).setAttribute("aria-expanded", String(!collapsed));
-      const label = collapsed ? "Expand panel" : "Collapse panel";
-      $("panel-toggle").title = label;
-      $("panel-toggle-label").textContent = label;
-      padForPanel(map);
-    };
-    const foldPanel = (collapsed) => {
-      folding.forEach((a) => a.cancel());
-      folding = [];
-      const phone = window.matchMedia("(max-width: 760px)").matches;
-      // Heights open and folded, measured in one go before the browser paints anything.
-      const wasCollapsed = panelEl.classList.contains("is-collapsed");
-      panelEl.classList.remove("is-collapsed");
-      const open = panelEl.offsetHeight;
-      const subs = [...panelEl.querySelectorAll(".key-sub, .key-none")];
-      const subSizes = subs.map((el) => { const cs = getComputedStyle(el); return [el.offsetHeight + "px", cs.marginTop, cs.marginBottom]; });
-      panelEl.classList.add("is-collapsed");
-      const shut = panelEl.offsetHeight;
-      panelEl.classList.toggle("is-collapsed", wasCollapsed);
-      const gap = Math.max(open - shut, 0);
-      const timing = { duration: 280, easing: "cubic-bezier(0.4, 0, 0.2, 1)" };
-      const ends = (from, to) => (collapsed ? [from, to] : [to, from]);
-      if (!collapsed) panelEl.classList.remove("is-collapsed");
-      const run = (el, frames, extra) => { const a = el.animate(frames, { ...timing, ...extra }); folding.push(a); return a; };
-      const main = phone
-        ? run(panelEl, ends({ transform: "translateY(0)" }, { transform: `translateY(${gap}px)` }))
-        : run(panelEl, ends({ clipPath: "inset(0 0 0 0 round 14px)" }, { clipPath: `inset(0 0 ${gap}px 0 round 14px)` }));
-      subs.forEach((el, i) => {
-        const [h, mt, mb] = subSizes[i];
-        run(el, ends({ height: h, marginTop: mt, marginBottom: mb, opacity: 1, overflow: "hidden" },
-          { height: "0px", marginTop: "0px", marginBottom: "0px", opacity: 0, overflow: "hidden" }));
-      });
-      run(panelEl.querySelector(".key"), ends({ marginTop: "16px" }, { marginTop: "10px" }));
-      run(panelEl.querySelector(".key .ramp-labels"), ends({ marginBottom: "8px" }, { marginBottom: "0px" }));
-      if (collapsed) run($("panel-body"), [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" });
-      main.onfinish = () => {
-        if (collapsed) panelEl.classList.add("is-collapsed");
-        folding.forEach((a) => a.cancel());
-        folding = [];
-        markCollapsed(collapsed);
-      };
-    };
-    const setCollapsed = (collapsed, animate = true) => {
-      if (panelEl.classList.contains("is-collapsed") === collapsed && !folding.length) return markCollapsed(collapsed);
-      if (!animate || reduceMotion() || !panelEl.animate) {
-        folding.forEach((a) => a.cancel());
-        folding = [];
-        panelEl.classList.toggle("is-collapsed", collapsed);
-        return markCollapsed(collapsed);
-      }
-      foldPanel(collapsed);
-    };
-    for (const id of ["panel-toggle", "sheet-toggle"]) {
-      $(id).addEventListener("click", () => {
-        const target = folding.length ? !panelState : !panelEl.classList.contains("is-collapsed");
-        panelState = target;
-        setCollapsed(target);
-      });
-    }
-    let panelState = panelEl.classList.contains("is-collapsed"); // where the panel is heading
-    state.setCollapsed = (collapsed) => { panelState = collapsed; setCollapsed(collapsed); };
-    if (window.matchMedia("(max-width: 760px)").matches) { panelState = true; setCollapsed(true, false); }
+    // The panel folds down to its title and color key, on any screen size (kit.js).
+    state.setCollapsed = kit.wirePanelFold({
+      panel: $("panel"), body: $("panel-body"),
+      buttons: [$("panel-toggle"), $("sheet-toggle")], label: $("panel-toggle"), labelText: $("panel-toggle-label"),
+      shrink: [".key-sub", ".key-none"],
+      tweaks: [[".key", { marginTop: "16px" }, { marginTop: "10px" }], [".key .ramp-labels", { marginBottom: "8px" }, { marginBottom: "0px" }]],
+      onChange: () => padForPanel(map),
+    });
 
     // First visit: offer the guide once.
     if (!readFlag(HINT_KEY)) $("hint").hidden = false;
@@ -546,7 +389,7 @@
 
   // Photon place lookup, shared by place search and AI search.
   // A signal that cancels a request after `ms`, where the browser supports it.
-  const withTimeout = (ms) => (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
+  const withTimeout = kit.withTimeout;
 
   async function geocode(query, limit) {
     const url = `${cfg.searchUrl}?q=${encodeURIComponent(query)}&limit=${limit}&lang=en&bbox=${NY_BBOX.join(",")}`;
@@ -1245,6 +1088,33 @@
   const feederKey = (p) => (p && p.feeder ? `${p.src}|${p.feeder}` : null);
   const shownFeeder = () => feederKey(state.selected && state.selected.properties);
 
+  // ---------- solar already connected on each feeder (NYSERDA's list, built by the weekly run) ----------
+  let builtLoad = null;
+  function loadBuilt() {
+    if (!builtLoad) {
+      builtLoad = fetch(DATA_URL + "/solar_feeders.json", { cache: "no-cache", signal: withTimeout(15000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch((err) => { console.warn("Connected solar list unavailable:", err); return null; });
+    }
+    return builtLoad;
+  }
+
+  // One more fact in the card, added when the list arrives, if the same feeder is still shown.
+  // Utilities the list does not cover get no row, rather than a misleading "none".
+  function fillBuilt(props, listId, onFeeder) {
+    const key = feederKey(props);
+    if (!key) return;
+    loadBuilt().then((data) => {
+      const list = $(listId);
+      if (!data || shownFeeder() !== key || !list || list.querySelector(".built-fact")) return;
+      const words = AtlasBuilt.feederWords(AtlasBuilt.feederFact(data, props.src, String(props.feeder)), fmtMW);
+      if (!words) return;
+      list.insertAdjacentHTML("beforeend",
+        `<dt class="built-fact">${onFeeder ? "Solar on feeder" : "Solar connected"}</dt>` +
+        `<dd class="built-fact">${escapeHtml(words.value)}<small>${escapeHtml(words.note)}</small></dd>`);
+    });
+  }
+
   // The trend arrives after the card is drawn; it is added only if the same feeder is still shown.
   function fillHistory(props, slot, fill) {
     const key = feederKey(props);
@@ -1289,7 +1159,7 @@
       <div class="d-utility">${escapeHtml(utilityName(props.src))}</div>
       <div class="d-capacity d-feeder">${props.feeder ? `Feeder <span class="code">${escapeHtml(props.feeder)}</span>` : "Lines without a feeder ID"}</div>
       <div class="d-caption">Hosting capacity along this feeder: <strong>${range}</strong></div>
-      <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <dl class="facts" id="feeder-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       <div class="d-history" id="feeder-history" hidden></div>
       <div class="d-key">
         <div><span class="key-feeder" aria-hidden="true"></span>Selected feeder</div>
@@ -1300,6 +1170,7 @@
     presentCard(refresh);
     wireShare();
     fillHistory(props, "feeder-history", feederHistoryHtml);
+    fillBuilt(props, "feeder-facts", false);
     const button = $("zoom-feeder");
     if (button) {
       button.addEventListener("click", () => {
@@ -1399,6 +1270,7 @@
       ${shareHtml(props.src)}`;
     presentCard(refresh);
     wireShare();
+    fillBuilt(props, "section-facts", true);
     // One line in the facts; clicking it opens the same chart as the feeder card, right here.
     fillHistory(props, "section-facts", (list, series, t) => {
       if (list.dataset.trend) return; // already added by an earlier, slower answer
@@ -1827,41 +1699,7 @@
   // the chat (a line's card stays; the credits open on top of it).
   const CREDITS_OPEN_MS = 30000;
 
-  // MapLibre writes every credit on one line joined by " | ", which wraps with a "|" at the start
-  // of a line. This puts each credit on its own line instead: the grid data, the basemap, then
-  // the link to the terms page. It moves MapLibre's own nodes (nothing is parsed again) and runs
-  // again whenever MapLibre rewrites the credits, for example after a theme change.
-  function tidyCredits(inner) {
-    if (!inner) return;
-    const tidy = () => {
-      if (!inner.firstChild || inner.querySelector(":scope > .credit-line")) return;
-      const lines = [[]];
-      for (const node of [...inner.childNodes]) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent.includes("|")) {
-          node.textContent.split("|").forEach((piece, i) => {
-            if (i > 0) lines.push([]);
-            if (piece.trim()) lines[lines.length - 1].push(document.createTextNode(piece));
-          });
-        } else {
-          lines[lines.length - 1].push(node);
-        }
-      }
-      const rows = lines.filter((nodes) => nodes.some((n) => n.textContent.trim())).map((nodes) => {
-        const row = document.createElement("span");
-        row.className = "credit-line";
-        nodes.forEach((n) => row.append(n));
-        row.normalize();
-        if (row.firstChild && row.firstChild.nodeType === Node.TEXT_NODE) row.firstChild.textContent = row.firstChild.textContent.trimStart();
-        if (row.lastChild && row.lastChild.nodeType === Node.TEXT_NODE) row.lastChild.textContent = row.lastChild.textContent.trimEnd();
-        return row;
-      });
-      // The link to the terms page goes last, under all the credits.
-      rows.sort((a, b) => Number(!!a.querySelector('a[href^="terms.html"]')) - Number(!!b.querySelector('a[href^="terms.html"]')));
-      inner.replaceChildren(...rows);
-    };
-    new MutationObserver(tidy).observe(inner, { childList: true });
-    tidy();
-  }
+  const tidyCredits = kit.tidyCredits; // one credit per line, the terms link last
   function introduceCredits(map) {
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
     if (!box) return; // wide screens without the compact box show the credits as plain text
@@ -1957,8 +1795,9 @@
     });
     wireClicks(map);
     wireControls(map);
+    kit.wireModes();
     openSharedSite(map);
-    map.once("idle", () => loadHistory()); // ready before most people click a line
+    map.once("idle", () => { loadHistory(); loadBuilt(); }); // ready before most people click a line
     window.atlasMap = map; // handy for debugging in the browser console
   }
 

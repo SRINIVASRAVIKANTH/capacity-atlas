@@ -26,6 +26,9 @@ class Source:
     batch_size: int = 500  # features per request; must not exceed the layer's max record count
     pause_seconds: float = 0.5  # polite wait between requests so we never overload a server
     columns: ColumnMap | None = None  # which of this utility's columns means what
+    # How NYSERDA's list of connected solar names this utility (capacity_atlas.installed), so
+    # each feeder's card can show the solar already built on it. None: not in that list.
+    nyserda_utility: str | None = None
 
 
 SOURCES: dict[str, Source] = {
@@ -39,6 +42,7 @@ SOURCES: dict[str, Source] = {
             "Hosting_Capacity_Stage3/FeatureServer/0"
         ),
         description="Central Hudson Stage 3 PV hosting capacity by line section (MW).",
+        nyserda_utility="Central Hudson",
         batch_size=1000,  # layer allows 2000; 1000 keeps each response a moderate size
         columns=ColumnMap(
             record_id="OBJECTID",
@@ -62,6 +66,7 @@ SOURCES: dict[str, Source] = {
             "NYSDP/Hosting_Capacity_Data/MapServer/2"
         ),
         description="National Grid New York primary level PV hosting capacity by line section (MW).",
+        nyserda_utility="National Grid",
         batch_size=1000,  # layer allows 2000; confirm with the diagnose script before collecting
         columns=ColumnMap(
             record_id="OBJECTID",

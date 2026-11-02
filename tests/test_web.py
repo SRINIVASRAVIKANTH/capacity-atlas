@@ -6,7 +6,7 @@ from pathlib import Path
 WEB = Path(__file__).resolve().parents[1] / "web"
 
 
-PAGES = ("index.html", "terms.html")
+PAGES = ("index.html", "solar.html", "terms.html")
 
 
 def test_every_local_file_referenced_by_the_pages_exists():
@@ -44,6 +44,18 @@ def test_every_palette_has_every_band():
     assert set(_palette(js, "cividis")) == keys
 
 
+def test_both_map_pages_switch_to_each_other_and_share_their_parts():
+    for page, here, there in (("index.html", "./", "solar.html"), ("solar.html", "solar.html", "./")):
+        html = (WEB / page).read_text(encoding="utf-8")
+        modes = re.search(r'<nav class="modes"[^>]*>(.*?)</nav>', html, re.S).group(1)
+        assert re.search(rf'<a href="{re.escape(here)}" aria-current="page">', modes), page
+        assert f'<a href="{there}">' in modes, page
+        scripts = re.findall(r'<script src="([^"]+)"', html)
+        assert scripts.index("config.js") < scripts.index("kit.js") < scripts.index("built.js"), page
+        assert re.findall(r'name="theme" value="(\w+)"', html) == ["auto", "light", "dark"], page
+    assert "assistant" not in (WEB / "solar.html").read_text(encoding="utf-8")   # Volta lives on the capacity map
+
+
 def test_display_choices_match_the_code():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
@@ -56,7 +68,7 @@ def test_display_choices_match_the_code():
 
 
 def test_site_text_follows_the_copy_rules():
-    for name in ("index.html", "app.js", "terms.html", "terms.js"):
+    for name in ("index.html", "app.js", "solar.html", "solar.js", "built.js", "kit.js", "terms.html", "terms.js"):
         assert "—" not in (WEB / name).read_text(encoding="utf-8"), f"em dash in {name}"
 
 
@@ -73,12 +85,15 @@ def test_search_service_is_https():
 
 
 def test_every_id_the_script_uses_exists_in_the_page():
-    html = (WEB / "index.html").read_text(encoding="utf-8")
-    js = (WEB / "app.js").read_text(encoding="utf-8")
-    ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
-    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history"}  # built inside the detail card at runtime
-    missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
-    assert not missing, f"ids used in app.js but missing from index.html: {missing}"
+    # ids the scripts build inside the detail card at runtime
+    created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history",
+                         "feeder-facts", "section-facts", "to-capacity"}
+    for page, script in (("index.html", "app.js"), ("solar.html", "solar.js")):
+        html = (WEB / page).read_text(encoding="utf-8")
+        js = (WEB / script).read_text(encoding="utf-8")
+        ids = set(re.findall(r'\$\("([a-z][a-z0-9-]*)"\)', js))
+        missing = sorted(i for i in ids - created_by_script if f'id="{i}"' not in html)
+        assert not missing, f"ids used in {script} but missing from {page}: {missing}"
 
 
 def _csp() -> dict[str, list[str]]:
@@ -114,9 +129,12 @@ def test_policy_blocks_framing_plugins_and_foreign_forms():
 
 
 def test_test_overrides_only_work_on_a_local_copy():
-    js = (WEB / "app.js").read_text(encoding="utf-8")
-    assert 'const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();' in js
-    assert js.count("window.location.search") == 1
+    kit = (WEB / "kit.js").read_text(encoding="utf-8")
+    assert 'const params = LOCAL ? new URLSearchParams(window.location.search) : new URLSearchParams();' in kit
+    assert kit.count("window.location.search") == 1
+    for page_script in ("app.js", "solar.js"):   # both pages read the overrides only through kit.js
+        js = (WEB / page_script).read_text(encoding="utf-8")
+        assert "params.get(" not in js and "kit.dataUrl(cfg)" in js and "kit.basemapOverride()" in js, page_script
 
 
 # National Grid's REST API terms require this exact text on any map that shows its hosting
@@ -145,10 +163,28 @@ def _notice(html: str, source_id: str) -> str:
     return " ".join(block.group(1).split())
 
 
+# The limitation NYSERDA publishes with its list of connected solar (data.ny.gov, wgsj-jt5f).
+NYSERDA_LIMITATION = (
+    "This dataset is a derivative product of publicly available information and as such NYSERDA does not "
+    "vouch for the precision of the data from the public sources."
+)
+
+
 def test_each_utility_disclaimer_is_on_the_terms_page_word_for_word():
     html = (WEB / "terms.html").read_text(encoding="utf-8")
     assert _notice(html, "national_grid_ny_pv") == NATIONAL_GRID_DISCLAIMER
     assert _notice(html, "central_hudson_ny_pv") == CENTRAL_HUDSON_NOTICE
+    assert _notice(html, "nyserda") == NYSERDA_LIMITATION
+
+
+def test_the_solar_page_credits_nyserda_and_links_to_its_note():
+    html = (WEB / "solar.html").read_text(encoding="utf-8")
+    js = (WEB / "solar.js").read_text(encoding="utf-8")
+    assert 'href="terms.html#source-nyserda" target="_blank" rel="noopener"' in html   # panel footer
+    assert js.count('href="terms.html#source-nyserda" target="_blank" rel="noopener"') == 2   # credits and every card
+    assert 'href="https://data.ny.gov/d/wgsj-jt5f"' in js
+    terms = (WEB / "terms.html").read_text(encoding="utf-8")
+    assert "OPEN-NY Terms of Use" in terms and "US Census Bureau" in terms
 
 
 def test_every_source_has_a_note_on_the_terms_page():

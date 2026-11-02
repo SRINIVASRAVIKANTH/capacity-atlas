@@ -1,9 +1,11 @@
 # Weekly run: download every utility, check quality, compare with last week, publish results.
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
-# The web map's data (atlas.pmtiles, summary.json and history.json) goes to Cloudflare R2.
-# Small reports (quality reports, change reports, metadata, LATEST.md, and the feeder capacity
-# history in reports/history/) are committed to the repository.
+# The web map's data (atlas.pmtiles, summary.json and history.json) goes to Cloudflare R2, and so
+# does the "Built so far" data (solar_summary.json, solar_zips.geojson, solar_feeders.json).
+# Small reports (quality reports, change reports, metadata, LATEST.md, the feeder capacity
+# history in reports/history/ and the solar list's check in reports/installed_solar/) are
+# committed to the repository.
 
 name: Weekly snapshot
 
@@ -98,6 +100,17 @@ jobs:
             --out reports/history/feeder_capacity.json
           cp reports/history/feeder_capacity.json data/tiles/history.json
 
+      - name: Build the solar already built (NYSERDA's statewide list, by ZIP code and by feeder)
+        id: installed
+        if: always()
+        continue-on-error: true   # the list is extra: a problem with it must not stop the capacity map
+        timeout-minutes: 20
+        run: |
+          python -m capacity_atlas.installed \
+            --out data/tiles \
+            --history reports/history/feeder_capacity.json \
+            --report reports/installed_solar
+
       - name: Restore tippecanoe (map tile tool) from cache
         id: tippecanoe-cache
         uses: actions/cache@v6
@@ -130,9 +143,11 @@ jobs:
 
       - name: Upload map data to Cloudflare R2
         id: upload-tiles
-        if: steps.tiles.outcome == 'success'
+        if: steps.tiles.outcome == 'success' || steps.installed.outcome == 'success'
         continue-on-error: true
         env:
+          TILES_OK: ${{ steps.tiles.outcome == 'success' }}
+          SOLAR_OK: ${{ steps.installed.outcome == 'success' }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -154,28 +169,29 @@ jobs:
             exit 1
           fi
           endpoint="https://${account}.r2.cloudflarestorage.com"
-          # The map file first, then the summary, so the site never describes tiles it can't load yet.
-          aws s3 cp data/tiles/atlas.pmtiles "s3://${R2_BUCKET}/atlas.pmtiles" \
-            --endpoint-url "$endpoint" \
-            --content-type application/octet-stream \
-            --cache-control "public, max-age=3600" \
-            --only-show-errors
-          aws s3 cp data/tiles/summary.json "s3://${R2_BUCKET}/summary.json" \
-            --endpoint-url "$endpoint" \
-            --content-type application/json \
-            --cache-control "public, max-age=300" \
-            --only-show-errors
-          # The capacity history is optional: the map works without it.
-          if [ -f data/tiles/history.json ]; then
-            aws s3 cp data/tiles/history.json "s3://${R2_BUCKET}/history.json" \
+          keys=""
+          upload() {   # file, content type, cache seconds
+            aws s3 cp "data/tiles/$1" "s3://${R2_BUCKET}/$1" \
               --endpoint-url "$endpoint" \
-              --content-type application/json \
-              --cache-control "public, max-age=300" \
+              --content-type "$2" \
+              --cache-control "public, max-age=$3" \
               --only-show-errors
+            keys="$keys $1"
+          }
+          if [ "$TILES_OK" = "true" ]; then
+            # The map file first, then the summary, so the site never describes tiles it can't load yet.
+            upload atlas.pmtiles application/octet-stream 3600
+            upload summary.json application/json 300
+            # The capacity history is optional: the map works without it.
+            [ -f data/tiles/history.json ] && upload history.json application/json 300
+          fi
+          if [ "$SOLAR_OK" = "true" ]; then
+            # The same order: the summary that describes the other two goes last.
+            upload solar_zips.geojson application/geo+json 3600
+            upload solar_feeders.json application/json 3600
+            upload solar_summary.json application/json 300
           fi
           echo "Uploaded. Checking the files now in R2:"
-          keys="atlas.pmtiles summary.json"
-          [ -f data/tiles/history.json ] && keys="$keys history.json"
           for key in $keys; do
             aws s3api head-object --bucket "$R2_BUCKET" --key "$key" \
               --endpoint-url "$endpoint" \
@@ -235,10 +251,12 @@ jobs:
         if: >-
           steps.pipeline.outcome == 'failure' ||
           steps.tiles.outcome == 'failure' ||
+          steps.installed.outcome == 'failure' ||
           steps.upload-tiles.outcome == 'failure'
         run: |
           echo "Pipeline: ${{ steps.pipeline.outcome }}"
           echo "Map tiles: ${{ steps.tiles.outcome }}"
+          echo "Solar already built: ${{ steps.installed.outcome }}"
           echo "Upload to R2: ${{ steps.upload-tiles.outcome }}"
           echo "See the failed step above and reports/LATEST.md."
           exit 1

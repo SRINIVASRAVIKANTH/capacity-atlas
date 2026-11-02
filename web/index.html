@@ -41,6 +41,12 @@
         </button>
       </div>
 
+      <!-- Two views of the same map. Each link keeps the place and zoom (kit.js). -->
+      <nav class="modes" aria-label="Map views">
+        <a href="./" aria-current="page"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 17l5-6 4 3 4-6 5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Room to connect</a>
+        <a href="solar.html"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Built so far</a>
+      </nav>
+
       <form class="search" id="search" role="search" autocomplete="off">
         <label class="visually-hidden" for="search-input">Search for a town, address or coordinates</label>
         <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -212,6 +218,7 @@
       <li><strong>Select a line.</strong> Zoomed out, a click selects the whole feeder and shows its capacity range. Zoomed in, a click selects one section and shows its exact value, and for National Grid lines, what limits it.</li>
       <li><strong>Check data quality.</strong> Turn on the highlight to see where the utility's data is missing, outdated or inconsistent before relying on it.</li>
       <li><strong>See what changed.</strong> Each week's data is compared with the week before. Turn on the change highlight to see where capacity went up or down, for example after new solar was connected.</li>
+      <li><strong>See what is already built.</strong> Switch to "Built so far" at the top of the panel for the solar already connected in each ZIP code. A line's card also shows the solar connected on its feeder.</li>
     </ol>
     <h3>Glossary</h3>
     <dl class="glossary">
@@ -294,11 +301,13 @@
   <div class="status" id="status" role="status" hidden></div>
 
   <script src="config.js" defer></script>
+  <script src="kit.js" defer></script>
   <script src="vendor/maplibre-gl.js" defer></script>
   <script src="vendor/pmtiles.js" defer></script>
   <script src="geo.js" defer></script>
   <script src="export.js" defer></script>
   <script src="history.js" defer></script>
+  <script src="built.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

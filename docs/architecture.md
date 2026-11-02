@@ -1,8 +1,9 @@
 # Architecture
 
 Capacity Atlas has three parts: a weekly pipeline that runs on GitHub Actions, a static
-web map hosted on Cloudflare Pages, and one small server function that connects the map's
-assistant to the Claude API.
+website hosted on Cloudflare Pages with two views of one map ("Room to connect" for hosting
+capacity and "Built so far" for solar already connected), and one small server function that
+connects the map's assistant to the Claude API.
 
 ```mermaid
 flowchart LR
@@ -18,15 +19,18 @@ flowchart LR
         S --> T[Build tiles<br>tippecanoe]
     end
 
+    NY[NYSERDA solar list<br>data.ny.gov SODA API] --> I[Solar already built<br>installed.py]
+    CB[Census ZIP areas<br>TIGERweb] --> I
+    I --> R2
     CH --> C
     NG --> C
     Q --> R[(reports/ in the repo)]
     D --> R
     S --> REL[(GitHub Release<br>parquet history)]
-    T --> R2[(Cloudflare R2<br>atlas.pmtiles, summary.json)]
+    T --> R2[(Cloudflare R2<br>atlas.pmtiles, summary.json,<br>solar_*.json)]
 
     subgraph CF[Cloudflare Pages]
-        W[Web map<br>MapLibre + PMTiles]
+        W[Web map<br>MapLibre + PMTiles<br>two views]
         F[/api/ask<br>Pages Function/]
     end
 
@@ -48,6 +52,7 @@ flowchart LR
 | Summarize the run | `capacity_atlas/pipeline.py` | `reports/LATEST.md` |
 | Add the week to the feeder capacity history | `capacity_atlas/history.py` | `reports/history/feeder_capacity.json`, uploaded as `history.json` |
 | Build the map data | `capacity_atlas/tiles.py` | `atlas.pmtiles`, `summary.json` |
+| Build the solar already built: NYSERDA's statewide list, checked, by ZIP code and by feeder | `capacity_atlas/installed.py` | `solar_summary.json`, `solar_zips.geojson`, `solar_feeders.json`, and `reports/installed_solar/quality.md` |
 
 One utility failing never stops the others, and one broken quality check never hides the
 results of the other checks. The run is marked failed at the end so the problem is visible in
@@ -67,6 +72,9 @@ failed that week.
 | `QualityRule` (abstract) | Each of the 14 checks is a subclass with `required_columns()` and `check()`. `QualityChecker` runs any list of them. |
 | `ChangeSummary` | The result of comparing two snapshots, written as the weekly change report. |
 | `FeederHistory` | Every feeder's highest capacity on each snapshot date, added to week by week and saved compactly. |
+| `SodaCollector` | Pages through a table on a Socrata open data portal (data.ny.gov) by its row id, so no row is skipped or repeated. |
+| `RowRule` | A `QualityRule` for any table, used for the checks on NYSERDA's list. |
+| `Built` | The three "Built so far" files and the quality report, written together. |
 
 Each utility publishes different column names. A `ColumnMap` in `capacity_atlas/sources.py`
 translates them, so the checks, the comparison and the map all work on one shared vocabulary.
@@ -121,11 +129,61 @@ the best spot a project could find on it.
   line and a Show button that opens the same chart in place. Both appear only from 4 dates on, because fewer is not a trend. The browser checks the file's shape and
   shows nothing if anything is off (`web/history.js`).
 
+## Solar already built
+
+Hosting capacity says how much more solar a line can take. `capacity_atlas/installed.py` adds
+how much is already connected, from NYSERDA's "Statewide Distributed Solar Projects: Beginning
+2000" on data.ny.gov (dataset `wgsj-jt5f`): every distributed solar project connected in New
+York, about 280,000 rows. It holds built projects only, and NYSERDA updates it about every three
+months, so everything shown carries its "data through" date.
+
+1. `SodaCollector` downloads the columns it needs, 50,000 rows a page, ordered by row id.
+2. `prepare()` turns the text values into numbers and dates. A bad value becomes empty, never an
+   error, and a size of zero or less is left out of the MW totals.
+3. Ten checks run on every row (see [data-quality.md](data-quality.md)). Each result also says how
+   many kW sit on the flagged rows.
+4. The Census Bureau's 2020 ZIP Code Tabulation Areas give each ZIP code one point: its
+   "internal point", which always lies inside the area. Points sized by MW read honestly; shading
+   whole ZIP areas by a total would make large rural ZIP codes look like they hold the most
+   solar just because they are big.
+5. Per ZIP code: MW, systems, community solar systems, battery storage, MW connected in the 12
+   months up to the data-through date, the latest connection, and the town, county and utility
+   named on most of its rows.
+6. Per feeder on the capacity map: projects are matched only where NYSERDA's circuit ID is exactly the
+   feeder ID in the utility's hosting capacity data (`Source.nyserda_utility` names the utility as
+   NYSERDA writes it). Nothing is matched by guesswork. The summary says, per utility, how many
+   feeders with a published capacity have solar on record and how much of the utility's solar
+   that covers.
+7. `reports/installed_solar/quality.md` holds no run date, so git records one version per
+   NYSERDA update.
+
+In the weekly run this step runs on its own, after the capacity history: if data.ny.gov or the
+Census service is down, the capacity map, reports and snapshots still publish, and the run is
+marked failed so the problem is visible.
+
 ## Web map
 
 Plain HTML, CSS and JavaScript with no build step. MapLibre GL JS and the PMTiles reader are
 bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
+* Two pages, one map. "Room to connect" (`index.html`, `app.js`) and "Built so far"
+  (`solar.html`, `solar.js`) share their look (`style.css`), the basemap, the tidy credits, the
+  panel fold, soft opening and closing, display settings and the local test overrides
+  (`kit.js`). A switch at the top of both panels moves between them and keeps the place and
+  zoom, which MapLibre keeps in the address (`#zoom/lat/lng`). Hosting capacity and built solar
+  never share a map, so nobody mixes up room left with solar already there.
+* "Built so far" draws one circle per ZIP code: circle area grows with the MW connected (radius
+  with its square root), and a solid core shows the MW connected in the last 12 months. Large
+  circles are drawn first, so a small ZIP code next to a large one stays visible. A click shows
+  the ZIP code's card, with a link to the capacity map at the same place when its utility is
+  there. Search runs over the ZIP codes in the page, by ZIP code or town, so nothing is sent
+  anywhere. The panel shows the state totals, the MW connected each year (the current year
+  drawn lighter, as it is not over), each utility, how the list links to the capacity map, and
+  the list's data checks.
+* On the capacity map, both line cards get a "Solar connected" row from `solar_feeders.json`,
+  loaded once after the map draws (`web/built.js` checks its shape): MW and systems on the
+  feeder and the list's date, or "None on record" for a feeder no project lists. A utility the
+  list does not cover gets no row.
 * Basemaps: OpenFreeMap (free, no key), one style per theme.
 * Place search: Photon over OpenStreetMap, called only when the person presses Enter.
 * Security headers and a Content Security Policy are set in `web/_headers`: scripts load only

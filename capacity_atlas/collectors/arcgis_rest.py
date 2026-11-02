@@ -110,6 +110,23 @@ class ArcGISRestCollector(Collector):
             raise ArcGISRestError(f"No 'features' key in response from {self.query_url}")
         return payload["features"]
 
+    def fetch_records(self, where: str, out_fields: Sequence[str]) -> pd.DataFrame:
+        """Attributes only (no shapes) of the features matching a where clause, in batches."""
+        payload = self._post({"where": where, "returnIdsOnly": "true", "f": "json"})
+        object_ids = sorted(payload.get("objectIds") or [])
+        rows: list[dict] = []
+        for number, batch in enumerate(_chunks(object_ids, self.batch_size), start=1):
+            if number > 1 and self.pause_seconds:
+                time.sleep(self.pause_seconds)
+            page = self._post({"objectIds": ",".join(str(i) for i in batch),
+                               "outFields": ",".join(out_fields), "returnGeometry": "false", "f": "json"})
+            features = page.get("features")
+            if features is None or len(features) != len(batch):
+                raise ArcGISRestError(f"Batch {number}: expected {len(batch)} records from {self.query_url}")
+            rows.extend(f.get("attributes", {}) for f in features)
+        logger.info("Found %d records matching the query at %s", len(rows), self.layer_url)
+        return pd.DataFrame(rows, columns=list(out_fields))
+
     def collect(self) -> gpd.GeoDataFrame:
         object_ids = self.fetch_object_ids()
         if not object_ids:

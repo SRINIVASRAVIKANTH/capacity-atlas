@@ -120,7 +120,9 @@ pytest -q
 python -m capacity_atlas.pipeline --all
 ```
 
-To lint the web code as the Tests workflow does: `npm ci`, then `npm run lint` and `npm test`.
+To lint the web code as the Tests workflow does: `npm ci`, then `npm run lint` and `npm test`
+(Node 20 or newer). `package.json` has an `overrides` entry for minimatch: see SECURITY.md before
+removing it.
 
 Building tiles needs tippecanoe, which runs on Linux and macOS (the weekly run installs it).
 To preview the site, serve `web/` with any static server; the map reads data from the R2 URL

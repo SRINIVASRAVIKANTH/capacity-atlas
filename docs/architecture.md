@@ -198,7 +198,10 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   out of their buttons and shrink back into them, Volta's chat does the same with its button, a
   line's card slides in and away, and the side panel rolls up to its title and color key (on a
   phone, the sheet slides down). The data credits glow once on load and fold away after 30
-  seconds. People who ask their system for reduced motion get none of it: everything switches
+  seconds. The fold is safe in a background tab, where browsers pause animation frames but keep
+  timers: every step is cancelled or checked when the fold ends, and opening the credits clears
+  whatever a fold left, so they never reopen squeezed. Pressing the "i" during a fold reopens
+  them. People who ask their system for reduced motion get none of it: everything switches
   at once.
 * The detail card and the "How to read this map" guide always stay left of the column of map
   buttons (zoom, home, the credits, Volta), so they never cover them or get drawn over. With the chat open, the card sits beside it with a 12px gap; on screens from 1090 to
@@ -228,7 +231,16 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   fixed map would hold every map control in its own layer under the panels. On phones the card
   still covers the lower screen, buttons included.
 * Volta's greeting waits while a line's card or the guide is open, since both reach its corner,
-  and opening the guide from the "?" button also retires the first-visit tip that offers it.
+  and opening the guide from the "?" button also retires the first-visit tip that offers it. On
+  a phone the open credits fill the same corner, so the greeting waits until they fold, and it
+  sits above the folded panel instead of over its title.
+* Closing the guide with its X puts keyboard focus back on the "?" button, so keyboard users
+  carry on where they were. Small print meets WCAG AA contrast (4.5:1) on every surface in both
+  themes, and an axe scan of both map pages and the terms page finds no issues.
+* Each data file is checked before the page uses it (`checkedSummary` in `app.js`,
+  `cleanSummary` and the other readers in `built.js`). A damaged or missing file leaves its part
+  of the panel empty, with a short note, and the map still starts; the panel says the data
+  checks could not be loaded rather than "no problems found".
 * The panel keeps the search and color key fixed at the top. The introduction and coverage
   line scroll with the sections below, so the sections get more room, and each section title
   has a small line icon so the long panel is quick to scan.

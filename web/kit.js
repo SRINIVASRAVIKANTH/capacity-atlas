@@ -163,25 +163,41 @@
   // them sooner (MapLibre's own behavior). Both pages use this, so they behave the same.
   //   onOpen  called when the person opens the credits, so the page can close what they would cover
   // Returns a function that folds the credits now (a page calls it when a card or menu opens).
+  //
+  // The fold pins the box's size, then shrinks it on the next frame and finishes on a timer.
+  // A browser pauses frames in a background tab but keeps its timers, so a fold that starts
+  // while the person is in another tab finishes before its frame runs. Every step is therefore
+  // cancelled or checked when the fold ends, and opening the box always clears what a fold left,
+  // so the box can never reopen at its folded size.
   const CREDITS_OPEN_MS = 30000;
+  const FOLD_MS = 650;
   function introduceCredits(map, { onOpen } = {}) {
     const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
     if (!box) return () => {}; // wide screens without the compact box show the credits as plain text
+    const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
+    const button = box.querySelector(".maplibregl-ctrl-attrib-button");
     box.classList.add("credits-intro");
-    tidyCredits(box.querySelector(".maplibregl-ctrl-attrib-inner"));
-    let touched = false, closing = false;
-    box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
-    box.addEventListener("toggle", () => { if (box.open && onOpen) onOpen(); });
+    tidyCredits(inner);
+    let touched = false, closing = false, frame = 0, timer = 0;
+    const isOpen = () => box.classList.contains("maplibregl-compact-show");
+
+    // Stops a fold wherever it is and clears everything it set.
+    const settle = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      frame = timer = 0;
+      closing = false;
+      box.classList.remove("credits-folding");
+      if (inner) { inner.style.maxWidth = ""; inner.style.maxHeight = ""; }
+    };
+    const close = () => {
+      settle();
+      box.classList.remove("maplibregl-compact-show");
+      box.removeAttribute("open");
+    };
     const fold = () => {
       box.classList.remove("credits-intro");
-      if (closing || !box.classList.contains("maplibregl-compact-show")) return;
-      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
-      const close = () => {
-        if (inner) { inner.style.maxWidth = ""; inner.style.maxHeight = ""; }
-        box.classList.remove("credits-folding", "maplibregl-compact-show");
-        box.removeAttribute("open");
-        closing = false;
-      };
+      if (closing || !isOpen()) return;
       if (!inner || reduceMotion()) return close();
       // The text fades and the box closes into the "i" instead of vanishing at once. Its size is
       // pinned first, so the wrapped lines cannot reflow while it narrows.
@@ -189,12 +205,35 @@
       inner.style.maxWidth = inner.offsetWidth + "px";
       inner.style.maxHeight = inner.offsetHeight + "px";
       box.classList.add("credits-folding");
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        inner.style.maxWidth = "0px";
-        inner.style.maxHeight = "18px";
-      }));
-      setTimeout(close, 650);
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (!closing) return; // the fold already ended (a background tab runs timers first)
+          inner.style.maxWidth = "0px";
+          inner.style.maxHeight = "18px";
+        });
+      });
+      timer = setTimeout(close, FOLD_MS);
     };
+
+    // The "i" during a fold means "show them": the fold stops and MapLibre's own click opens the
+    // box again. This listener runs first (capture), before MapLibre's.
+    if (button) {
+      button.addEventListener("click", () => {
+        touched = true;
+        box.classList.remove("credits-intro");
+        if (closing) {
+          settle();
+          box.classList.remove("maplibregl-compact-show"); // closed, so MapLibre's click opens it
+          box.setAttribute("open", "");
+        }
+      }, true);
+    }
+    box.addEventListener("toggle", () => {
+      if (!isOpen()) return;
+      if (!closing) settle(); // whatever happened before, an open box is never left squeezed
+      if (onOpen) onOpen();
+    });
     setTimeout(() => { if (!touched) fold(); }, CREDITS_OPEN_MS);
     return fold;
   }

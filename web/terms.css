@@ -35,15 +35,15 @@ body.doc { height: auto; min-height: 100%; overflow: auto; font-size: 15px; line
 @keyframes draw-line { to { stroke-dashoffset: 0; } }
 @keyframes run-pulse { 0% { stroke-dashoffset: 4; opacity: 0; } 6% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { stroke-dashoffset: -96; opacity: 0; } }
 .doc-hero-text { position: relative; max-width: 1120px; margin: 0 auto; padding: 56px 20px 150px; }
-.eyebrow { color: var(--accent); font: 600 12px/1 var(--font-text); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+.eyebrow { color: var(--accent-text); font: 600 12px/1 var(--font-text); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
 .doc-hero h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 16px; }
 .doc-lede { max-width: 680px; color: var(--muted); font-size: 17px; text-wrap: pretty; }
-.doc-date { margin-top: 14px; color: var(--faint); font-size: 13px; }
+.doc-date { margin-top: 14px; color: var(--muted); font-size: 13px; }
 
 /* Contents on the left, reading column on the right */
 .doc-layout { max-width: 1120px; margin: 0 auto; padding: 40px 20px 24px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; }
 .doc-toc { position: sticky; top: 84px; align-self: start; }
-.toc-title { color: var(--faint); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+.toc-title { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
 .doc-toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
 .doc-toc a {
   display: block; padding: 6px 0 6px 14px; margin-left: -1px; border-left: 2px solid transparent;
@@ -56,7 +56,7 @@ body.doc { height: auto; min-height: 100%; overflow: auto; font-size: 15px; line
 .doc-section { padding-bottom: 48px; margin-bottom: 48px; border-bottom: 1px solid var(--line); scroll-margin-top: 84px; }
 .doc-section:last-child { border-bottom: 0; margin-bottom: 0; }
 .doc-section h2 { display: flex; align-items: baseline; gap: 12px; font-size: 26px; letter-spacing: -0.015em; margin-bottom: 12px; }
-.doc-section h2 .num { font: 500 13px/1 var(--font-code); color: var(--accent); }
+.doc-section h2 .num { font: 500 13px/1 var(--font-code); color: var(--accent-text); }
 .doc-section > p { color: var(--muted); max-width: 680px; }
 
 /* Sources */

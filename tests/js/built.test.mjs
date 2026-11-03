@@ -90,3 +90,27 @@ test("utility names read the way people know them", () => {
   assert.equal(b.utilityName(undefined), "Not stated");
   assert.equal(b.utilityName("toString"), "toString");
 });
+
+test("the summary keeps only its well-formed parts, and never breaks the page", () => {
+  const good = {
+    data_through: "2026-08-31", rows: 10,
+    totals: { systems: 5, kw: 100, community_systems: 1, community_kw: 40 },
+    last_12_months: { systems: 2, kw: 30 }, unplaced: { systems: 1, kw: 2 },
+    by_year: [{ year: 2025, kw: 60, systems: 3 }, { year: 2024, kw: 40, systems: 2 }, { year: "x", kw: 1 }, null, 7],
+    by_utility: [{ name: "Central Hudson", kw: 100, systems: 5 }, { name: "", kw: 1, systems: 1 }, { name: "X", kw: -1, systems: 1 }],
+    feeders: { central_hudson_ny_pv: { nyserda_name: "Central Hudson", feeders_with_capacity: 3, feeders_with_solar: 2, kw_matched: 80, kw_utility: 100 }, bad: { nyserda_name: 5 } },
+    checks: [{ status: "ran", severity: "error", flagged: 1, title: "No size", explanation: "..." }, { status: "ran", severity: "nope", flagged: 1, title: "x" }],
+  };
+  const s = b.cleanSummary(good);
+  assert.deepEqual(s.by_year.map((y) => y.year), [2024, 2025]);   // sorted, odd rows dropped
+  assert.deepEqual(s.by_utility.map((u) => u.name), ["Central Hudson"]);
+  assert.deepEqual(Object.keys(s.feeders), ["central_hudson_ny_pv"]);
+  assert.equal(s.checks.length, 1);
+  assert.equal(s.data_through, "2026-08-31");
+  for (const bad of [null, "x", [], {}, { totals: "x" }, { totals: { systems: -1, kw: 5 } }, { totals: { systems: 1, kw: "5" } }]) {
+    assert.equal(b.cleanSummary(bad), null, JSON.stringify(bad));
+  }
+  const odd = b.cleanSummary({ totals: { systems: 1, kw: 1 }, data_through: "<b>", by_year: "y", checks: 5, feeders: [1], last_12_months: "z" });
+  assert.equal(odd.data_through, null);
+  assert.deepEqual([odd.by_year, odd.checks, odd.feeders, odd.last_12_months], [[], [], {}, { systems: 0, kw: 0 }]);
+});

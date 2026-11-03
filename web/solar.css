@@ -47,7 +47,7 @@
 .ubars { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ub-head { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .ub-name { font-weight: 500; }
-.ub-tag { font-size: 11px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; padding: 0 7px; line-height: 17px; white-space: nowrap; }
+.ub-tag { font-size: 11px; color: var(--accent-text); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 999px; padding: 0 7px; line-height: 17px; white-space: nowrap; }
 .ub-value { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text); }
 .ub-bar { height: 6px; border-radius: 3px; background: rgba(127, 131, 145, 0.14); margin-top: 5px; overflow: hidden; }
 .ub-bar span { display: block; height: 100%; border-radius: 3px; background: var(--solar); }

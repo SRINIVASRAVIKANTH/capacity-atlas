@@ -16,9 +16,10 @@
   --line: rgba(232, 230, 225, 0.1);
   --text: #e8e6e1;
   --muted: #9a9fad;
-  --faint: #6b7080;
+  --faint: #888e9f;           /* small print: at least 4.5:1 on every dark surface */
   --accent: #6e76f0;          /* selection and focus only */
   --accent-fill: #5860e0;     /* filled buttons with white text: 5:1 contrast */
+  --accent-text: #8e95ff;     /* small accent text on the page background: 6.6:1 */
   --strong: #ffffff;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   --control-icon: invert(0.9);
@@ -58,13 +59,14 @@
 :root[data-theme="light"] {
   --ring: #4f57d6;
   color-scheme: light;
+  --accent-text: #4f57d6;     /* 5.3:1 on the light background */
   --ground: #eef0f3;
   --surface: rgba(255, 255, 255, 0.95);
   --raised: #e8eaf0;
   --line: rgba(27, 30, 38, 0.12);
   --text: #1b1e26;
   --muted: #555b6a;
-  --faint: #7c8191;
+  --faint: #646979;           /* small print: at least 4.5:1 on every light surface */
   --strong: #000000;
   --shadow: 0 10px 32px rgba(27, 30, 38, 0.16);
   --control-icon: none;
@@ -516,7 +518,7 @@ a:hover { color: var(--strong); }
 .trend-row[aria-expanded="true"] .trend-text > span { display: none; }
 .trend-text .h-dir-1 { color: var(--chg-less); }
 .trend-text .h-dir1 { color: var(--chg-more); }
-.trend-action { color: var(--accent); font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+.trend-action { color: var(--accent-text); font-weight: 500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
 .trend-action::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 0.15s; }
 .trend-row[aria-expanded="true"] .trend-action::after { transform: rotate(-135deg) translate(-2px, -1px); }
 .d-history-inline { border-top: 0; margin-top: 10px; padding-top: 0; }
@@ -713,7 +715,7 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
   .detail { top: auto; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; max-height: 60vh; }
   .maplibregl-ctrl-bottom-right { bottom: 270px; z-index: 2; } /* the card covers the lower screen, buttons included */
   .assistant { bottom: 204px; right: var(--gap); }
-  .greeting { width: 220px; right: 62px; bottom: -36px; }
+  .greeting { width: 220px; right: 62px; bottom: 54px; } /* above the folded sheet, clear of the map buttons */
   .assistant-launcher { width: 52px; height: 52px; }
   .assistant-panel { position: fixed; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; height: min(560px, calc(100vh - 2 * var(--gap))); }
   body.assistant-open .detail { right: var(--gap); }

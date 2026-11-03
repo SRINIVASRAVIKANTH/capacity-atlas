@@ -87,7 +87,9 @@
       return;
     }
     const t = s.totals;
-    $("updated").textContent = `NYSERDA data through ${B.fmtDay(s.data_through)}. NYSERDA updates the list about every three months.`;
+    $("updated").textContent = s.data_through
+      ? `NYSERDA data through ${B.fmtDay(s.data_through)}. NYSERDA updates the list about every three months.`
+      : "NYSERDA updates the list about every three months.";
     const recent = s.last_12_months || { kw: 0, systems: 0 };
     $("stats").innerHTML = [
       [fmtPower(t.kw), "connected"],
@@ -100,8 +102,8 @@
 
     // Connected each year. The data-through year is not over yet, so its bar is lighter.
     const years = s.by_year || [];
-    const through = String(s.data_through);
-    const partial = through.endsWith("-12-31") ? null : Number(through.slice(0, 4));
+    const through = s.data_through || "";
+    const partial = !through || through.endsWith("-12-31") ? null : Number(through.slice(0, 4));
     if (years.length) {
       const peak = years.reduce((a, y) => (y.kw > a.kw ? y : a), years[0]);
       $("years").innerHTML = `
@@ -139,10 +141,15 @@
     const findings = (s.checks || []).filter((c) => c.status === "ran" && c.flagged > 0)
       .sort((a, b) => order[a.severity] - order[b.severity] || b.flagged - a.flagged);
     const ran = (s.checks || []).filter((c) => c.status === "ran").length;
+    if (!ran) { // never claim "no problems" when the checks themselves are missing
+      $("quality-note").textContent = "The results of the data checks could not be loaded. Try refreshing in a minute.";
+      $("quality").innerHTML = "";
+      return;
+    }
     $("quality-note").textContent = `All ${fmtInt(s.rows)} rows of NYSERDA's list go through ${ran} checks. A flag marks a row worth a closer look, not a confirmed error. Flagged rows still count in the totals, as published.`;
     $("quality").innerHTML = findings.length ? `<ul class="findings">${findings.map((c) => `
-        <li title="${escapeHtml(c.explanation)}"><span class="dot sev-${c.severity}" aria-hidden="true"></span>
-          <span>${escapeHtml(c.title)}<span class="visually-hidden"> (${c.severity}). ${escapeHtml(c.explanation)}</span></span>
+        <li title="${escapeHtml(c.explanation || "")}"><span class="dot sev-${c.severity}" aria-hidden="true"></span>
+          <span>${escapeHtml(c.title)}<span class="visually-hidden"> (${c.severity}). ${escapeHtml(c.explanation || "")}</span></span>
           <span class="n">${fmtInt(c.flagged)}</span></li>`).join("")}</ul>`
       : '<p class="note"><span class="dot sev-ok" aria-hidden="true"></span> No problems found.</p>';
   }
@@ -387,7 +394,10 @@
     systemDark.addEventListener("change", () => { if (state.prefs.theme === "auto") applyTheme(map); });
     $("display-toggle").addEventListener("click", () => setPopover("display", !isOpen("display")));
     $("help-toggle").addEventListener("click", () => setPopover("help", !isOpen("help")));
-    $("help-close").addEventListener("click", () => setPopover("help", false));
+    $("help-close").addEventListener("click", () => {
+      setPopover("help", false);
+      $("help-toggle").focus({ preventScroll: true }); // keyboard users carry on from the "?" button
+    });
     document.addEventListener("click", (e) => { if (isOpen("display") && !e.target.closest(".display")) setPopover("display", false); });
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
@@ -429,9 +439,15 @@
     applyPageTheme(state.theme);
 
     const [style, summary, zips] = await Promise.all([loadBasemap(state.theme), loadJson("solar_summary.json"), loadJson("solar_zips.geojson")]);
-    state.summary = summary;
+    state.summary = B.cleanSummary(summary); // only the well-formed parts (built.js)
     state.features = B.zipFeatures(zips);
-    renderSummary(summary);
+    // The panel never stops the map: if drawing it fails, the map still starts and says so.
+    try {
+      renderSummary(state.summary);
+    } catch (err) {
+      console.warn("Could not draw the panel:", err);
+      renderSummary(null);
+    }
     if (!state.features.length) showStatus("The solar data could not be loaded. Try refreshing in a minute.");
 
     // Same address rules as the capacity map: a refresh starts at the start view, a link keeps its place.

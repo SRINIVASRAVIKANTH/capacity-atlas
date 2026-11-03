@@ -330,7 +330,10 @@
       if (!isOpen("help")) dismissHint(); // the first-visit tip offers this guide, so it has done its job
       setPopover("help", !isOpen("help"));
     });
-    $("help-close").addEventListener("click", () => setPopover("help", false));
+    $("help-close").addEventListener("click", () => {
+      setPopover("help", false);
+      $("help-toggle").focus({ preventScroll: true }); // keyboard users carry on from the "?" button
+    });
     document.addEventListener("click", (e) => {
       if (isOpen("display") && !e.target.closest(".display")) setPopover("display", false);
     });
@@ -649,10 +652,28 @@
     let greeted = false;
     try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch { /* ignore */ }
     if (!greeted) {
-      setTimeout(() => { if (panel.hidden) greeting.hidden = false; }, 1500);
       // The greeting sits over the map's zoom buttons, so it steps aside on its own: after a
       // short while, or as soon as the person starts using the map.
-      setTimeout(() => { if (!greeting.hidden) hideGreeting(); }, 12000);
+      let shown = false;
+      const greet = () => {
+        if (shown || !panel.hidden) return;
+        shown = true;
+        greeting.hidden = false;
+        setTimeout(() => { if (!greeting.hidden) hideGreeting(); }, 12000);
+      };
+      // On a phone the open credits fill the same corner, so the greeting waits until they fold.
+      const phone = () => window.matchMedia("(max-width: 760px)").matches;
+      const credits = () => map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact-show");
+      setTimeout(() => {
+        if (!phone() || !credits()) return greet();
+        const box = credits();
+        const watch = new MutationObserver(() => {
+          if (box.classList.contains("maplibregl-compact-show")) return;
+          watch.disconnect();
+          setTimeout(greet, 400);
+        });
+        watch.observe(box, { attributes: true, attributeFilter: ["class"] });
+      }, 1500);
       for (const type of ["mousedown", "touchstart", "wheel"]) {
         map.getCanvasContainer().addEventListener(type, () => { if (!greeting.hidden) hideGreeting(); }, { passive: true });
       }
@@ -899,6 +920,38 @@
       console.warn("Summary unavailable:", err);
       return null;
     }
+  }
+
+  // The weekly summary, reduced to the parts that are well formed, so a damaged file can only
+  // leave something out, never stop the map. A source that is not well formed is dropped (its
+  // lines still draw; their card names the source by its ID); no usable source means null.
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const isCount = (v) => Number.isInteger(v) && v >= 0;
+  const isText = (v) => typeof v === "string" && v.length > 0 && v.length <= 300;
+  const isSeverity = (v) => Object.prototype.hasOwnProperty.call(SEVERITY_ORDER, v);
+  function checkedSummary(summary) {
+    if (!summary || typeof summary !== "object" || !Array.isArray(summary.sources)) return null;
+    const rows = (v, keep) => (Array.isArray(v) ? v.filter((x) => x && typeof x === "object" && keep(x)) : []);
+    const changes = (c) => {
+      if (c === null || typeof c !== "object") return null;
+      const out = { since: typeof c.since === "string" && DATE.test(c.since) ? c.since : null };
+      for (const key of ["less", "more", "new", "unpublished", "removed", "feeders"]) out[key] = isCount(c[key]) ? c[key] : 0;
+      return out;
+    };
+    const sources = rows(summary.sources, (x) => isText(x.source_id) && isText(x.utility) && isCount(x.sections) &&
+      isCount(x.analyzed) && typeof x.snapshot_date === "string" && DATE.test(x.snapshot_date) &&
+      Array.isArray(x.checks)).map((x) => {
+      const out = { ...x, checks: rows(x.checks, (c) => isText(c.id) && isSeverity(c.severity) && isCount(c.flagged) && isText(c.title)) };
+      if ("changes" in x) out.changes = changes(x.changes);
+      return out;
+    });
+    if (!sources.length) return null;
+    return {
+      ...summary,
+      sources,
+      flags: rows(summary.flags, (f) => isCount(f.bit) && f.bit > 0 && isText(f.id) && isSeverity(f.severity) && isText(f.title)),
+      limits: rows(summary.limits, (l) => isCount(l.bit) && l.bit > 0 && isText(l.title) && typeof l.explanation === "string"),
+    };
   }
 
   function renderSummary(summary) {
@@ -1713,8 +1766,15 @@
     applyPageTheme(state.theme);
     applyPagePalette();
     const [style, summary] = await Promise.all([loadBasemap(state.theme), loadSummary()]);
-    state.summary = summary;
-    renderSummary(summary);
+    state.summary = checkedSummary(summary);
+    // The panel never stops the map: if drawing it fails, the map still starts and says so.
+    try {
+      renderSummary(state.summary);
+    } catch (err) {
+      console.warn("Could not draw the panel:", err);
+      state.summary = null;
+      renderSummary(null);
+    }
 
     // A link saved while the map could still be tilted ends in /bearing/pitch, and MapLibre
     // ignores such a link entirely now that tilting is off, opening the start view instead.

@@ -109,7 +109,46 @@
     return `<svg class="year-chart" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Solar built each year, ${rows[0].year} to ${rows[rows.length - 1].year}">${bars}</svg>`;
   }
 
-  const api = { fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars };
+  // The statewide summary (solar_summary.json), reduced to the parts that are well formed. A part
+  // that is missing or odd comes back empty, so the panel leaves it out instead of failing; the
+  // map works either way. Returns null when the totals themselves are unusable.
+  const count = (v) => Number.isInteger(v) && v >= 0;
+  const amount = (v) => Number.isFinite(v) && v >= 0;
+  const text = (v) => typeof v === "string" && v.length > 0 && v.length <= 200;
+  const list = (v, keep) => (Array.isArray(v) ? v.filter((x) => x && typeof x === "object" && keep(x)) : []);
+  const SEVERITIES = ["error", "warning", "info"];
+  function cleanSummary(s) {
+    if (!s || typeof s !== "object" || Array.isArray(s)) return null;
+    const t = s.totals;
+    if (!t || typeof t !== "object" || !count(t.systems) || !amount(t.kw)) return null;
+    const recent = s.last_12_months;
+    const unplaced = s.unplaced;
+    const feeders = {};
+    if (s.feeders && typeof s.feeders === "object" && !Array.isArray(s.feeders)) {
+      for (const [id, m] of Object.entries(s.feeders)) {
+        if (m && typeof m === "object" && text(m.nyserda_name) && count(m.feeders_with_capacity) && count(m.feeders_with_solar) &&
+          amount(m.kw_matched) && amount(m.kw_utility)) feeders[id] = m;
+      }
+    }
+    return {
+      data_through: typeof s.data_through === "string" && fmtDay(s.data_through) ? s.data_through : null,
+      rows: count(s.rows) ? s.rows : 0,
+      totals: {
+        systems: t.systems, kw: t.kw,
+        community_systems: count(t.community_systems) ? t.community_systems : 0,
+        community_kw: amount(t.community_kw) ? t.community_kw : 0,
+      },
+      last_12_months: recent && count(recent.systems) && amount(recent.kw) ? { systems: recent.systems, kw: recent.kw } : { systems: 0, kw: 0 },
+      unplaced: unplaced && count(unplaced.systems) && amount(unplaced.kw) ? { systems: unplaced.systems, kw: unplaced.kw } : { systems: 0, kw: 0 },
+      by_year: list(s.by_year, (y) => Number.isInteger(y.year) && y.year > 1900 && y.year < 2200 && amount(y.kw)).sort((a, b) => a.year - b.year),
+      by_utility: list(s.by_utility, (u) => text(u.name) && amount(u.kw) && count(u.systems)),
+      feeders,
+      checks: list(s.checks, (c) => text(c.status) && SEVERITIES.includes(c.severity) && count(c.flagged) && text(c.title) &&
+        (c.explanation === undefined || typeof c.explanation === "string")),
+    };
+  }
+
+  const api = { fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars, cleanSummary };
   root.AtlasBuilt = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -249,3 +249,34 @@ def test_both_pages_have_a_guide():
     for page in ("index.html", "solar.html"):
         html = (WEB / page).read_text(encoding="utf-8")
         assert 'id="help-toggle"' in html and 'id="help"' in html and '<ol class="steps">' in html, page
+
+
+def test_the_credits_fold_cannot_leave_the_box_squeezed():
+    """A background tab runs the fold's timer before its animation frame. The frame must check that
+    the fold is still going, the end must cancel it, and opening the box must clear what is left."""
+    kit = (WEB / "kit.js").read_text(encoding="utf-8")
+    fold = kit[kit.index("function introduceCredits("):kit.index("// ---------- folding the side panel")]
+    assert "cancelAnimationFrame(frame)" in fold and "if (!closing) return;" in fold
+    assert 'box.addEventListener("toggle"' in fold and "settle();" in fold
+
+
+def _contrast(fg: str, bg: str) -> float:
+    def lum(hex_color: str) -> float:
+        r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+        return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    hi, lo = sorted((lum(fg), lum(bg)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_small_text_colors_meet_wcag_aa_on_both_themes():
+    css = (WEB / "style.css").read_text(encoding="utf-8")
+    dark = css[css.index(":root {"):css.index(":root[data-theme=\"light\"]")]
+    light = css[css.index(":root[data-theme=\"light\"]"):]
+    def var(block: str, name: str) -> str:
+        return re.search(rf"--{name}:\s*(#[0-9a-fA-F]{{6}})", block).group(1)
+    for block in (dark, light):
+        for text in ("muted", "faint", "accent-text"):
+            for ground in ("ground", "raised"):
+                ratio = _contrast(var(block, text), var(block, ground))
+                assert ratio >= 4.5, f"--{text} on --{ground}: {ratio:.2f}"

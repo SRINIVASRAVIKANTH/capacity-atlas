@@ -111,9 +111,10 @@ feeders with a published capacity have solar on record. The list's own checks ar
 |---|---|---|
 | 🗺️ | **One map, two utilities** | 758,915 line sections on one color scale, filtered by minimum capacity and by utility |
 | 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
-| 🔗 | **Share and download** | Copy a link that reopens a site check for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
+| 🔗 | **Share and download** | Copy a link that reopens a site check or a ZIP code's card for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues, and the solar already connected on its feeder |
 | 🌞 | **Built so far** | A second view of the same map: the solar already connected in each ZIP code, with an inner circle for what was connected in the last 12 months, state totals, a year by year chart, the list's own data checks and a short guide. A switch at the top of the panel moves between the two views and keeps the place |
+| ▶️ | **Growth year by year** | Press play and every ZIP code's circle grows from the first year on record to today, with the statewide total counting up and the year chart marking the year shown. Pause or drag the slider to stop at any year |
 | 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes, and says so when the cap is something the utility does not publish |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
@@ -220,7 +221,7 @@ Pages, and it reads only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (120 tests, 90% coverage), Node test runner (45 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (48 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
 
 ---
 

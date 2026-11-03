@@ -52,7 +52,7 @@ flowchart LR
 | Summarize the run | `capacity_atlas/pipeline.py` | `reports/LATEST.md` |
 | Add the week to the feeder capacity history | `capacity_atlas/history.py` | `reports/history/feeder_capacity.json`, uploaded as `history.json` |
 | Build the map data | `capacity_atlas/tiles.py` | `atlas.pmtiles`, `summary.json` |
-| Build the solar already built: NYSERDA's statewide list, checked, by ZIP code and by feeder | `capacity_atlas/installed.py` | `solar_summary.json`, `solar_zips.geojson`, `solar_feeders.json`, and `reports/installed_solar/quality.md` |
+| Build the solar already built: NYSERDA's statewide list, checked, by ZIP code and by feeder | `capacity_atlas/installed.py` | `solar_summary.json`, `solar_zips.geojson`, `solar_feeders.json`, `solar_years.json`, and `reports/installed_solar/quality.md` |
 
 One utility failing never stops the others, and one broken quality check never hides the
 results of the other checks. The run is marked failed at the end so the problem is visible in
@@ -183,6 +183,20 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   the list's data checks. A "?" guide explains the circles, the card and the link to the
   capacity map, the same way as on the capacity map; the guide, the display menu and the card
   take turns on the right side.
+* The time-lapse ("Watch the growth since 2000") plays `solar_years.json`: the solar connected by
+  the end of each year, per ZIP code on the map and statewide, in whole kW. Only projects with a
+  size and a connection date count, so the last year can sit a little below today's totals (the
+  file says by how much, as `undated_kw`). Playing it sizes the circles from feature state set
+  each frame (about 1,700 small updates, a few milliseconds), blending between years so the
+  circles grow smoothly; the inner circle shows what each year added. While a past year is
+  shown, cards and hover are off, the key and the year chart follow the year, a search or
+  Escape returns to today, and a theme change keeps the year. People who ask for reduced motion
+  get whole years, one at a time. The file loads after the map, and without it (or with a
+  damaged one) the button and its guide step simply do not appear.
+* A ZIP code's card copies a link (`solar.html?zip=12601#zoom/lat/lng`) that opens the same
+  card. Only five digits are accepted; the page then drops `zip` from the address, so a reload
+  starts clean, the same rule as a shared site check. Both pages copy links with one helper in
+  `kit.js`.
 * On the capacity map, both line cards get a "Solar already connected" row ("Solar already on
   this feeder" on a section's card) from `solar_feeders.json`,
   loaded once after the map draws (`web/built.js` checks its shape): MW and systems on the

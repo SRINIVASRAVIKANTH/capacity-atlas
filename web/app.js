@@ -1257,15 +1257,7 @@
     });
   }
 
-  // Copies a link and says so on the button; where the clipboard is blocked, shows the link.
-  async function copyLink(button, url) {
-    try {
-      await navigator.clipboard.writeText(url);
-      button.textContent = "Link copied";
-    } catch {
-      window.prompt("Copy this link:", url);
-    }
-  }
+  const copyLink = kit.copyLink; // shared with the Built so far page
 
   // Shows the card that was just filled in. A new card folds the credits (the card would cut
   // their text off) and closes the guide or display menu. A refresh (the theme or colors

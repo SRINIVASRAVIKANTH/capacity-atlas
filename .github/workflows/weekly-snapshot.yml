@@ -2,7 +2,8 @@
 #
 # Big data files (GeoParquet snapshots) go to a GitHub Release.
 # The web map's data (atlas.pmtiles, summary.json and history.json) goes to Cloudflare R2, and so
-# does the "Built so far" data (solar_summary.json, solar_zips.geojson, solar_feeders.json).
+# does the "Built so far" data (solar_summary.json, solar_zips.geojson, solar_feeders.json,
+# solar_years.json).
 # Small reports (quality reports, change reports, metadata, LATEST.md, the feeder capacity
 # history in reports/history/ and the solar list's check in reports/installed_solar/) are
 # committed to the repository.
@@ -189,6 +190,7 @@ jobs:
             # The same order: the summary that describes the other two goes last.
             upload solar_zips.geojson application/geo+json 3600
             upload solar_feeders.json application/json 3600
+            [ -f data/tiles/solar_years.json ] && upload solar_years.json application/json 3600
             upload solar_summary.json application/json 300
           fi
           echo "Uploaded. Checking the files now in R2:"

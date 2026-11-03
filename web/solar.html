@@ -64,8 +64,8 @@
             <circle class="sk-recent" cx="20" cy="20" r="8"/>
           </svg>
           <ul class="solar-key-list">
-            <li><span class="sk-swatch sk-swatch-total" aria-hidden="true"></span><span><strong>Outer circle:</strong> all solar connected</span></li>
-            <li><span class="sk-swatch sk-swatch-recent" aria-hidden="true"></span><span><strong>Inner circle:</strong> connected in the last 12 months</span></li>
+            <li><span class="sk-swatch sk-swatch-total" aria-hidden="true"></span><span><strong>Outer circle:</strong> <span id="sk-total-text">all solar connected</span></span></li>
+            <li><span class="sk-swatch sk-swatch-recent" aria-hidden="true"></span><span><strong>Inner circle:</strong> <span id="sk-recent-text">connected in the last 12 months</span></span></li>
           </ul>
         </div>
       </section>
@@ -86,6 +86,11 @@
       <section class="block" aria-labelledby="years-title">
         <h2 id="years-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 20V12M10 20V8M15 20V11M20 20V4" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>Connected each year</h2>
         <div class="years" id="years"></div>
+        <!-- Shown once the yearly file has loaded (solar.js). -->
+        <button class="tl-start" id="tl-start" type="button" hidden>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>
+          <span id="tl-start-label">Watch the growth year by year</span>
+        </button>
       </section>
 
       <section class="block" aria-labelledby="utilities-title">
@@ -153,6 +158,7 @@
       <li><strong>Details.</strong> Click a circle to see that ZIP code's systems, community solar, storage and primary utility.</li>
       <li><strong>Search.</strong> Type a ZIP code or town to jump to it.</li>
       <li><strong>Room to connect.</strong> Use "See room to connect here", or the switch at the top of the panel, to see how much room the nearby lines still have.</li>
+      <li id="help-growth" hidden><strong>Growth.</strong> Under "Connected each year", press play to watch the circles grow from the first year on record to today. Drag the slider to stop at any year.</li>
     </ol>
     <h3>Glossary</h3>
     <dl class="glossary">
@@ -161,6 +167,25 @@
       <dt>Feeder</dt><dd>One circuit leaving a substation, with all its branches. Projects on the same feeder share its capacity.</dd>
     </dl>
     <p class="note">NYSERDA lists projects by ZIP code, not by address, so each circle sits at the center of its ZIP code area. Where the data comes from: <a href="terms.html#source-nyserda" target="_blank" rel="noopener">Data sources and terms</a>.</p>
+  </section>
+
+  <!-- The time-lapse player: circles grow year by year (solar.js). -->
+  <section class="timelapse" id="timelapse" hidden aria-label="Solar connected year by year">
+    <button class="icon-button tl-play" id="tl-play" type="button" aria-label="Pause">
+      <svg class="tl-icon-pause" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5h3v14H8zM13 5h3v14h-3z" fill="currentColor"/></svg>
+      <svg class="tl-icon-play" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>
+    </button>
+    <div class="tl-main">
+      <div class="tl-head">
+        <span class="tl-year" id="tl-year"></span>
+        <span class="tl-total"><span id="tl-total"></span><span class="tl-where"> in New York</span></span>
+      </div>
+      <input class="tl-slider" id="tl-slider" type="range" min="0" max="1" step="1" value="0" aria-label="Year">
+    </div>
+    <button class="icon-button tl-close" id="tl-close" type="button" aria-label="Back to today" title="Back to today">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <p class="visually-hidden" id="tl-live" aria-live="polite"></p>
   </section>
 
   <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected ZIP code details">

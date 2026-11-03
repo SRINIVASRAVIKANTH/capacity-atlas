@@ -118,6 +118,35 @@ def test_one_point_per_zip_with_its_totals(built):
     assert features["12601"]["geometry"] == {"type": "Point", "coordinates": [-73.5, 41.0]}
 
 
+def test_solar_connected_by_the_end_of_each_year(built):
+    y = built.years
+    assert y["years"] == list(range(2008, 2027)) and y["data_through"] == "2026-08-31"
+    assert len(y["state"]) == len(y["years"]) and y["state"] == sorted(y["state"])      # cumulative, never falls
+    assert y["state"][0] == 6                                                          # the 2008 project, 6 kW
+    assert y["state"][-1] == 1419                                                      # every dated, sized project
+    assert sorted(y["zips"]) == sorted(PLACED)                                        # only ZIP codes on the map
+    assert all(len(v) == len(y["years"]) for v in y["zips"].values())
+    at = dict(zip(y["years"], y["zips"]["12601"], strict=True))
+    assert at[2025] == 0 and at[2026] == 51                                            # all six projects came in 2026
+    old = dict(zip(y["years"], y["zips"]["10956"], strict=True))
+    assert old[2015] == 0 and old[2016] == 133 and old[2026] == 133                   # one project in Dec 2016
+    assert y["zips"]["12928"] == [0] * len(y["years"])                                # no size published
+    assert y["undated_kw"] == 0.0
+
+
+def test_the_time_lapse_leaves_out_undated_and_future_rows():
+    from capacity_atlas.installed import by_zip_year, prepare
+    raw = sample()
+    raw.loc[0, "interconnection_date"] = ""            # 4.18 kW with no date
+    raw.loc[1, "interconnection_date"] = "2027-01-05"  # 3.04 kW after the data-through date
+    df = prepare(raw)
+    zips = {"features": [{"properties": {"zip": "12601"}}]}
+    y = by_zip_year(df, zips, pd.Timestamp("2026-08-31"))
+    assert y["undated_kw"] == 7.2 and y["zips"]["12601"][-1] == 43                   # 50.6 - 4.18 - 3.04
+    empty = by_zip_year(df.iloc[0:0], zips, pd.Timestamp("2026-08-31"))
+    assert empty["years"] == [] and empty["zips"] == {}
+
+
 def test_feeders_use_the_exact_circuit_id_and_only_our_utilities(built):
     ch = built.feeders["central_hudson_ny_pv"]
     assert ch["6011"] == [4.2, 1, "2026-08"] and ch["7054"] == [499.0, 1, "2026-03"]
@@ -148,7 +177,9 @@ def test_our_feeders_are_the_ones_with_a_value_on_the_latest_date(tmp_path):
 def test_files_for_the_website_and_the_report(built, tmp_path):
     paths = built.write(tmp_path / "tiles", tmp_path / "report")
     names = sorted(p.name for p in paths)
-    assert names == ["quality.md", "solar_feeders.json", "solar_summary.json", "solar_zips.geojson"]
+    assert names == ["quality.md", "solar_feeders.json", "solar_summary.json", "solar_years.json", "solar_zips.geojson"]
+    years = json.loads((tmp_path / "tiles" / "solar_years.json").read_text(encoding="utf-8"))
+    assert years["years"][0] == 2008 and years["years"][-1] == 2026
     feeders = json.loads((tmp_path / "tiles" / "solar_feeders.json").read_text(encoding="utf-8"))
     assert feeders["data_through"] == "2026-08-31" and "central_hudson_ny_pv" in feeders["sources"]
     report = (tmp_path / "report" / "quality.md").read_text(encoding="utf-8")

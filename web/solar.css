@@ -68,3 +68,50 @@
 @media (max-width: 760px) {
   .stats dd { font-size: 17px; }
 }
+
+/* ---------- Time-lapse: circles grow year by year ---------- */
+.tl-start {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+  padding: 7px 14px 7px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text); font: 500 13px/1.2 var(--font-text);
+}
+.tl-start svg { color: var(--accent-text); }
+.tl-start:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.tl-start[hidden] { display: none; }
+.year-chart .yb-now { fill: var(--solar-recent); }
+
+/* The player floats at the top of the map, between the panel and the map buttons. */
+.timelapse {
+  position: absolute; z-index: 3; top: var(--gap);
+  left: calc(var(--gap) + var(--panel-w) + var(--gap)); right: calc(var(--gap) + 108px);
+  max-width: 460px; margin-inline: auto;
+  display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px;
+  background: var(--surface); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+}
+.timelapse[hidden] { display: none; }
+.tl-main { flex: 1; min-width: 0; }
+.tl-head { display: flex; align-items: baseline; gap: 10px; }
+.tl-year { font: 600 22px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.tl-total { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-slider { width: 100%; margin: 6px 0 0; accent-color: var(--accent); cursor: pointer; }
+.tl-play { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.tl-play .tl-icon-play { display: none; }
+.tl-play.is-paused .tl-icon-play { display: block; }
+.tl-play.is-paused .tl-icon-pause { display: none; }
+.tl-close { flex: none; }
+/* While it plays, the circles show a year, not today: no hover ring, no cards. */
+.timelapse-on #map canvas { cursor: default; }
+
+@media (max-width: 760px) {
+  .timelapse { left: var(--gap); right: calc(var(--gap) + 100px); margin: 0; padding: 8px; gap: 8px; }
+  .tl-year { font-size: 19px; }
+  .tl-where { display: none; } /* the number alone fits a phone */
+  .tl-play { width: 36px; height: 36px; }
+}
+.timelapse:not([hidden]) { animation: tl-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.05); }
+.timelapse.is-leaving { animation: tl-out 0.24s cubic-bezier(0.5, 0, 0.75, 0) forwards; pointer-events: none; }
+@keyframes tl-in { from { opacity: 0; translate: 0 -14px; } to { opacity: 1; translate: 0 0; } }
+@keyframes tl-out { to { opacity: 0; translate: 0 -14px; } }

@@ -313,6 +313,17 @@
     return (collapsed) => { heading = collapsed; set(collapsed); };
   }
 
+  // ---------- sharing ----------
+  // Copies a link and says so on the button; where the clipboard is blocked, shows the link.
+  async function copyLink(button, url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      button.textContent = "Link copied";
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+  }
+
   // ---------- the switch between the two pages ----------
   // Each page answers one question about the same map. Switching keeps the place and zoom:
   // MapLibre keeps them in the address (#zoom/lat/lng), and the link carries them over.
@@ -334,5 +345,6 @@
     reduceMotion, isShown, showSoftly, hideSoftly,
     readPrefs, savePrefs,
     loadBasemap, tuneBasemap, firstLabelLayer, tidyCredits, introduceCredits, wirePanelFold, pageLink, wireModes,
+    copyLink,
   };
 })(window);

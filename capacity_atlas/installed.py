@@ -25,6 +25,8 @@ Outputs, written next to the map data and uploaded to R2 by the weekly run:
                          last (latest connection YYYY-MM)
     solar_feeders.json   per utility and feeder: [kW built, systems, latest connection YYYY-MM],
                          for the line cards on the main map
+    solar_years.json     solar connected by the end of each year, statewide and per ZIP code on
+                         the map, for the time-lapse on the "Built so far" page
 
 and reports/installed_solar/quality.md, committed to the repository. It changes only when
 NYSERDA publishes new data, so git keeps one version per update.
@@ -288,6 +290,34 @@ def by_zip(df: pd.DataFrame, points: pd.DataFrame, through: pd.Timestamp) -> tup
     return {"type": "FeatureCollection", "features": features}, unplaced
 
 
+def by_zip_year(df: pd.DataFrame, zips: dict, through: pd.Timestamp) -> dict:
+    """Solar connected by the end of each year, statewide and per ZIP code on the map.
+
+    Only projects with a size and a connection date on or before the data-through date count,
+    so each ZIP code's last value can be a little below its total on the map; the difference is
+    reported as undated_kw. Values are whole kW, cumulative, one per year in "years".
+    """
+    dated = df[df["date"].notna() & (df["date"] <= through) & df["kw"].notna()]
+    undated_kw = _kw(df["kw"].sum() - dated["kw"].sum())
+    if dated.empty:
+        return {"data_through": through.strftime("%Y-%m-%d"), "years": [], "state": [], "zips": {}, "undated_kw": undated_kw}
+    years = list(range(int(dated["date"].dt.year.min()), through.year + 1))
+    year = dated["date"].dt.year
+    state = dated.groupby(year)["kw"].sum().reindex(years, fill_value=0).cumsum()
+    placed = {f["properties"]["zip"] for f in zips["features"]}
+    on_map = dated[dated["zip"].isin(placed)]
+    table = (on_map.groupby([on_map["zip"], on_map["date"].dt.year])["kw"].sum()
+             .unstack(fill_value=0).reindex(index=sorted(placed), columns=years, fill_value=0)  # every ZIP on the map
+             .fillna(0).cumsum(axis=1))
+    return {
+        "data_through": through.strftime("%Y-%m-%d"),
+        "years": years,
+        "state": [int(round(float(v))) for v in state],
+        "zips": {str(z): [int(round(float(v))) for v in row] for z, row in table.sort_index().iterrows()},
+        "undated_kw": undated_kw,
+    }
+
+
 def summarize(df: pd.DataFrame, through: pd.Timestamp, zips: dict, unplaced: dict, checks: list[dict],
               match: dict[str, dict], generated: datetime | None = None) -> dict:
     community = (df["metering"] == COMMUNITY_SOLAR).fillna(False).astype(bool)
@@ -401,6 +431,7 @@ class Built:
     summary: dict
     zips: dict
     feeders: dict
+    years: dict
 
     def write(self, out_dir: Path, report_dir: Path | None = None) -> list[Path]:
         through = self.summary["data_through"]
@@ -409,6 +440,7 @@ class Built:
             _write_json(out_dir / "solar_zips.geojson", self.zips),
             _write_json(out_dir / "solar_feeders.json", {"generated_utc": self.summary["generated_utc"],
                                                          "data_through": through, "sources": self.feeders}),
+            _write_json(out_dir / "solar_years.json", self.years),
         ]
         if report_dir is not None:
             report_dir.mkdir(parents=True, exist_ok=True)
@@ -428,7 +460,7 @@ def build(raw: pd.DataFrame, points: pd.DataFrame, history: dict[str, set[str]] 
     feeders = by_feeder(df)
     match = feeder_match(df, feeders, history or {})
     summary = summarize(df, through, zips, unplaced, checks, match, generated)
-    return Built(summary, zips, feeders)
+    return Built(summary, zips, feeders, by_zip_year(df, zips, through))
 
 
 def main() -> None:

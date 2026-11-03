@@ -32,7 +32,8 @@
     },
   };
 
-  const state = { theme: null, prefs: null, summary: null, features: [], selected: null, cardTucked: false, setCollapsed: null, foldCredits: null };
+  const state = { theme: null, prefs: null, summary: null, features: [], selected: null, cardTucked: false, setCollapsed: null, foldCredits: null,
+    timelapse: null };
 
   // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
@@ -157,10 +158,19 @@
   // ---------- map layers ----------
   // Circle area grows with the amount of solar (radius with its square root), so a ZIP code with
   // four times the MW looks four times as big, not sixteen. Sizes grow with the zoom.
-  function radius(prop) {
-    const size = (k, min) => ["max", min, ["*", k, ["sqrt", ["/", ["coalesce", ["get", prop], 0], 1000]]]];
+  //   value     the kW to size by: today's total from the file, or a year of the time-lapse
+  //   hideZero  draw nothing where the value is 0 (the time-lapse, before a ZIP code's first project)
+  function radius(value, hideZero = false) {
+    const kw = ["coalesce", value, 0];
+    const size = (k, min) => {
+      const r = ["max", min, ["*", k, ["sqrt", ["/", kw, 1000]]]];
+      return hideZero ? ["case", [">", kw, 0], r, 0] : r;
+    };
     return ["interpolate", ["linear"], ["zoom"], 5, size(1.7, 1.2), 8, size(3.4, 1.8), 11, size(8, 2.6), 14, size(18, 3.5)];
   }
+  const TODAY = { total: ["get", "kw"], recent: ["get", "r12"] };
+  const recentFilter = [">", ["coalesce", ["get", "r12"], 0], 0];
+  const strokeOpacity = () => ["case", hovered, 1, look().strokeOpacity];
 
   const hovered = ["boolean", ["feature-state", "hover"], false];
 
@@ -173,25 +183,25 @@
       id: "zip-total", type: "circle", source: SOURCE,
       layout: { "circle-sort-key": ["-", 0, ["get", "kw"]] },
       paint: {
-        "circle-radius": radius("kw"),
+        "circle-radius": radius(TODAY.total),
         "circle-color": t.total, "circle-opacity": t.totalOpacity,
         "circle-stroke-color": t.stroke,
-        "circle-stroke-opacity": ["case", hovered, 1, t.strokeOpacity],
+        "circle-stroke-opacity": strokeOpacity(),
         // A zoom curve must be the outermost part of a style value, so the hover case sits inside it.
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 5, ["case", hovered, 1.6, 0.6], 10, ["case", hovered, 2.4, 1.2]],
       },
     }, before);
     map.addLayer({
       id: "zip-recent", type: "circle", source: SOURCE,
-      filter: [">", ["coalesce", ["get", "r12"], 0], 0],
+      filter: recentFilter,
       layout: { "circle-sort-key": ["-", 0, ["get", "kw"]] },
-      paint: { "circle-radius": radius("r12"), "circle-color": t.recent, "circle-opacity": 0.95 },
+      paint: { "circle-radius": radius(TODAY.recent), "circle-color": t.recent, "circle-opacity": 0.95 },
     }, before);
     map.addLayer({
       id: "zip-selected", type: "circle", source: SOURCE,
       filter: ["==", ["get", "zip"], state.selected ? state.selected.properties.zip : ""],
       paint: {
-        "circle-radius": radius("kw"), "circle-color": "rgba(0,0,0,0)",
+        "circle-radius": radius(TODAY.total), "circle-color": "rgba(0,0,0,0)",
         "circle-stroke-color": t.selected, "circle-stroke-width": 2.5,
       },
     }, before);
@@ -200,6 +210,7 @@
   function onStyleLoad(map) {
     if (map.getSource(SOURCE)) return;
     addLayers(map);
+    if (state.timelapse && state.timelapse.active) state.timelapse.redraw(); // a theme change mid-play
   }
 
   async function applyTheme(map) {
@@ -215,6 +226,206 @@
   function applyPageTheme(theme) {
     document.documentElement.dataset.theme = theme;
     document.querySelector('meta[name="theme-color"]').setAttribute("content", THEMES[theme].chrome);
+  }
+
+  // ---------- time-lapse: the circles grow year by year ----------
+  // solar_years.json holds, for each ZIP code on the map, the solar connected by the end of each
+  // year. Playing it sizes the circles from values kept per ZIP code as feature state, updated
+  // each frame, instead of today's totals in the GeoJSON, so nothing is sent to the map again.
+  // While it runs the circles show a past year, not today, so cards and hover are off until it
+  // ends; the panel's key and year chart follow the year shown.
+  const YEAR_MS = 700;      // one year of growth while playing
+  const FRAME_MS = 40;      // at most 25 updates a second
+  const STEP_MS = 900;      // reduced motion: one year at a time, no blending
+
+  class TimeLapse {
+    constructor(map, data) {
+      this.map = map;
+      this.data = data;
+      this.active = false;
+      this.playing = false;
+      this.t = 0;
+      this.shownYear = -1;
+      this.frame = 0;
+      this.stepTimer = 0;
+      this.last = 0;
+    }
+
+    get end() { return this.data.years.length - 1; }
+
+    start() {
+      if (this.active) return;
+      clearSelection(this.map);
+      closePopovers();
+      if (state.foldCredits) state.foldCredits();
+      // On a phone the panel would hide the map it is about.
+      if (phone() && state.setCollapsed) state.setCollapsed(true);
+      this.active = true;
+      document.body.classList.add("timelapse-on");
+      $("tl-slider").max = String(this.end);
+      $("tl-start").setAttribute("aria-expanded", "true");
+      this.applyStyle();
+      this.render(0);
+      showSoftly($("timelapse"));
+      this.play();
+      $("tl-play").focus({ preventScroll: true });
+    }
+
+    stop() {
+      if (!this.active) return;
+      const fromPlayer = $("timelapse").contains(document.activeElement);
+      this.pause(false);
+      this.active = false;
+      this.shownYear = -1;
+      document.body.classList.remove("timelapse-on");
+      this.restoreStyle();
+      $("sk-total-text").textContent = "all solar connected";
+      $("sk-recent-text").textContent = "connected in the last 12 months";
+      document.querySelectorAll("#years .yb-now").forEach((bar) => bar.classList.remove("yb-now"));
+      $("tl-start").setAttribute("aria-expanded", "false");
+      hideSoftly($("timelapse"));
+      if (fromPlayer) $("tl-start").focus({ preventScroll: true });
+    }
+
+    play() {
+      if (this.t >= this.end) this.render(0); // at the end, play means from the start
+      this.playing = true;
+      this.mark();
+      if (kit.reduceMotion()) {
+        this.stepTimer = setInterval(() => {
+          const next = Math.floor(this.t) + 1;
+          this.render(Math.min(next, this.end));
+          if (next >= this.end) this.pause();
+        }, STEP_MS);
+        return;
+      }
+      this.last = performance.now();
+      const tick = (now) => {
+        if (!this.playing) return;
+        if (now - this.last >= FRAME_MS) {
+          // A slow device still plays at full speed; a tab back from the background does not jump ahead.
+          const dt = Math.min(now - this.last, 250);
+          this.last = now;
+          const t = this.t + dt / YEAR_MS;
+          if (t >= this.end) {
+            this.render(this.end);
+            this.pause();
+            return;
+          }
+          this.render(t);
+        }
+        this.frame = requestAnimationFrame(tick);
+      };
+      this.frame = requestAnimationFrame(tick);
+    }
+
+    pause(announce = true) {
+      this.playing = false;
+      cancelAnimationFrame(this.frame);
+      clearInterval(this.stepTimer);
+      this.frame = this.stepTimer = 0;
+      this.mark();
+      if (announce) this.announce();
+    }
+
+    // The slider: stop and show that year.
+    seek(index) {
+      if (this.playing) this.pause(false);
+      this.render(index);
+      this.announce();
+    }
+
+    // After a theme change the map rebuilds its layers with today's sizes: put the year back.
+    redraw() {
+      this.applyStyle();
+      this.render(this.t);
+    }
+
+    applyStyle() {
+      const map = this.map;
+      if (!map.getLayer("zip-total")) return;
+      const total = ["feature-state", "k"];
+      map.setPaintProperty("zip-total", "circle-radius", radius(total, true));
+      map.setPaintProperty("zip-total", "circle-stroke-opacity", ["case", [">", ["coalesce", total, 0], 0], look().strokeOpacity, 0]);
+      map.setFilter("zip-recent", null);
+      map.setPaintProperty("zip-recent", "circle-radius", radius(["feature-state", "a"], true));
+    }
+
+    restoreStyle() {
+      const map = this.map;
+      if (map.getLayer("zip-total")) {
+        map.setPaintProperty("zip-total", "circle-radius", radius(TODAY.total));
+        map.setPaintProperty("zip-total", "circle-stroke-opacity", strokeOpacity());
+        map.setFilter("zip-recent", recentFilter);
+        map.setPaintProperty("zip-recent", "circle-radius", radius(TODAY.recent));
+      }
+      if (map.getSource(SOURCE)) map.removeFeatureState({ source: SOURCE });
+    }
+
+    render(t) {
+      this.t = Math.min(Math.max(t, 0), this.end);
+      if (this.map.getSource(SOURCE)) {
+        for (const [zip, values] of this.data.zips) {
+          const v = B.yearValues(values, this.t);
+          this.map.setFeatureState({ source: SOURCE, id: zip }, { k: v.total, a: v.added });
+        }
+      }
+      $("tl-total").textContent = fmtPower(B.yearValues(this.data.state, this.t).total); // "in New York" follows in the page
+      const year = Math.round(this.t);
+      $("tl-slider").value = String(year);
+      if (year !== this.shownYear) this.showYear(year);
+    }
+
+    // The year in words, for the player, the slider, the key and the year chart.
+    yearWords(index) {
+      const y = this.data.years[index];
+      const through = this.data.through;
+      const partial = index === this.end && through && !through.endsWith("-12-31");
+      return { y, partial, by: partial ? `by ${B.fmtDay(through)}` : `by the end of ${y}`, during: partial ? `in ${y}, to ${B.fmtDay(through)}` : `during ${y}` };
+    }
+
+    showYear(index) {
+      this.shownYear = index;
+      const w = this.yearWords(index);
+      $("tl-year").textContent = String(w.y);
+      $("tl-slider").setAttribute("aria-valuetext", w.partial ? `${w.y}, to ${B.fmtDay(this.data.through)}` : String(w.y));
+      $("sk-total-text").textContent = `all solar connected ${w.by}`;
+      $("sk-recent-text").textContent = `connected ${w.during}`;
+      document.querySelectorAll("#years .yb-now").forEach((bar) => bar.classList.remove("yb-now"));
+      const bar = document.querySelector(`#years rect[data-year="${w.y}"]`);
+      if (bar) bar.classList.add("yb-now");
+    }
+
+    announce() {
+      const w = this.yearWords(Math.round(this.t));
+      const kw = this.data.state[Math.round(this.t)];
+      $("tl-live").textContent = `${fmtPower(kw)} of solar connected in New York ${w.by}.`;
+    }
+
+    mark() {
+      const button = $("tl-play");
+      button.classList.toggle("is-paused", !this.playing);
+      button.setAttribute("aria-label", this.playing ? "Pause" : "Play");
+      button.title = this.playing ? "Pause" : "Play";
+    }
+  }
+
+  // Loads the yearly file after the map is up. Without it (a site whose weekly run has not built
+  // it yet, or a damaged file) the button stays hidden and the page is exactly as before.
+  async function loadTimeLapse(map) {
+    const data = B.cleanYears(await loadJson("solar_years.json"));
+    if (!data) return;
+    const tl = new TimeLapse(map, data);
+    state.timelapse = tl;
+    $("tl-start-label").textContent = `Watch the growth since ${data.years[0]}`;
+    $("tl-start").setAttribute("aria-controls", "timelapse");
+    $("tl-start").setAttribute("aria-expanded", "false");
+    $("tl-start").hidden = false;
+    $("help-growth").hidden = false;
+    $("tl-start").addEventListener("click", () => (tl.active ? tl.stop() : tl.start()));
+    $("tl-play").addEventListener("click", () => (tl.playing ? tl.pause() : tl.play()));
+    $("tl-close").addEventListener("click", () => tl.stop());
+    $("tl-slider").addEventListener("input", (e) => tl.seek(Number(e.target.value)));
   }
 
   // ---------- the ZIP code card ----------
@@ -242,7 +453,8 @@
         <p>These figures cover every project in ZIP code ${escapeHtml(p.zip)}. NYSERDA lists projects by ZIP code, not by address, so the circle is placed at the center of the ZIP code area.</p>
         ${next}
       </div>
-      <div class="d-share"><p class="d-source">Data from NYSERDA${through ? `, through ${escapeHtml(through)}` : ""}. ZIP areas from the US Census Bureau. ` +
+      <div class="d-share"><button class="d-link" id="zip-link" type="button">Copy link to this ZIP code</button>
+      <p class="d-source">Data from NYSERDA${through ? `, through ${escapeHtml(through)}` : ""}. ZIP areas from the US Census Bureau. ` +
       `<a class="d-link" href="terms.html#source-nyserda" target="_blank" rel="noopener">About this data</a></p></div>`;
   }
 
@@ -257,6 +469,8 @@
     state.cardTucked = false;
     closePopovers();
     showSoftly($("detail"));
+    const share = $("zip-link");
+    share.addEventListener("click", () => kit.copyLink(share, zipLink(map, feature)));
     const button = $("to-capacity");
     if (button) {
       button.addEventListener("click", () => {
@@ -265,6 +479,13 @@
         window.location.href = kit.pageLink("./", `#${zoom}/${lat.toFixed(5)}/${lng.toFixed(5)}`);
       });
     }
+  }
+
+  // A link that opens this page on one ZIP code's card, for sharing with a colleague.
+  function zipLink(map, feature) {
+    const [lng, lat] = feature.geometry.coordinates;
+    const zoom = Math.max(map.getZoom(), 11).toFixed(2);
+    return `${location.origin}${location.pathname}?zip=${feature.properties.zip}#${zoom}/${lat.toFixed(5)}/${lng.toFixed(5)}`;
   }
 
   function clearSelection(map) {
@@ -302,15 +523,16 @@
       }
       return best;
     };
+    const playing = () => state.timelapse && state.timelapse.active;
     map.on("mousemove", (e) => {
-      if (!map.getLayer("zip-total")) return;
+      if (!map.getLayer("zip-total") || playing()) return;
       const f = pick(e.point);
       map.getCanvas().style.cursor = f ? "pointer" : "";
       setHover(f ? f.properties.zip : null);
     });
     map.on("mouseout", () => { map.getCanvas().style.cursor = ""; setHover(null); });
     map.on("click", (e) => {
-      if (!map.getLayer("zip-total")) return;
+      if (!map.getLayer("zip-total") || playing()) return;
       const f = pick(e.point);
       if (!f) return clearSelection(map);
       const full = state.features.find((x) => x.properties.zip === f.properties.zip) || f;
@@ -325,6 +547,7 @@
     const list = $("search-results");
     let hits = [];
     const go = (feature) => {
+      if (state.timelapse) state.timelapse.stop(); // a search answers with today's card
       list.hidden = true;
       input.value = feature.properties.place ? `${feature.properties.zip} ${feature.properties.place}` : feature.properties.zip;
       select(map, feature);
@@ -405,6 +628,7 @@
       if (anyPopover()) closePopovers();
       else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
+      else if (state.timelapse && state.timelapse.active) state.timelapse.stop();
     });
     state.setCollapsed = kit.wirePanelFold({
       panel: $("panel"), body: $("panel-body"),
@@ -432,6 +656,14 @@
   }
 
   // ---------- start ----------
+  function forgetZipLink() {
+    const query = new URLSearchParams(location.search);
+    if (!query.has("zip")) return;
+    query.delete("zip");
+    const rest = query.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+  }
+
   async function start() {
     const saved = kit.readPrefs();
     state.prefs = { theme: ["auto", "light", "dark"].includes(saved.theme) ? saved.theme : "auto" };
@@ -455,6 +687,12 @@
     if (nav && nav.type === "reload" && location.hash) history.replaceState(null, "", location.pathname + location.search);
     const view = location.hash.slice(1).split("/");
     if (view.length > 3) history.replaceState(null, "", location.pathname + location.search + "#" + view.slice(0, 3).join("/"));
+    // A shared link (?zip=12601) opens that ZIP code's card once; afterwards the address bar no
+    // longer carries it, so a reload starts clean (the same rule as a shared site check).
+    const sharedZip = B.parseZipLink(location.search);
+    const shared = sharedZip ? state.features.find((f) => f.properties.zip === sharedZip) : null;
+    const hasPlace = location.hash.slice(1).split("/").filter((x) => x !== "" && Number.isFinite(Number(x))).length === 3;
+    forgetZipLink();
 
     const map = new maplibregl.Map({
       container: "map", style,
@@ -474,7 +712,14 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
     // The credits open first, with the running light, then fold into the "i" (kit.js).
-    map.once("load", () => { state.foldCredits = kit.introduceCredits(map, { onOpen: closePopovers }); });
+    map.once("load", () => {
+      state.foldCredits = kit.introduceCredits(map, { onOpen: closePopovers });
+      if (shared) {
+        if (!hasPlace) map.jumpTo({ center: shared.geometry.coordinates, zoom: 11 });
+        select(map, shared);
+      }
+      loadTimeLapse(map); // a small file, after the map is up, so it never slows the first view
+    });
     map.on("style.load", () => onStyleLoad(map));
     if (map.isStyleLoaded()) onStyleLoad(map);
     wireClicks(map);

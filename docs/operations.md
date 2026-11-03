@@ -140,5 +140,8 @@ in `web/config.js`. The assistant only works when deployed, because it needs the
 * NYSERDA's list holds built projects only, updated about every three months, so "Built so far"
   can be up to a few months behind. Each project is placed by ZIP code, not its address, and is
   matched to a feeder only where its circuit ID is exactly the feeder's ID.
+* The time-lapse counts projects that have both a size and a connection date, so its last year can
+  sit slightly below today's totals; `solar_years.json` records the difference as `undated_kw`.
+  It appears only after a weekly run has built that file.
 * The assistant's rate limit is kept in memory per Cloudflare instance, so it is best effort.
   Prepaid credit is the hard spending cap.

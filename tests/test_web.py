@@ -88,7 +88,7 @@ def test_search_service_is_https():
 def test_every_id_the_script_uses_exists_in_the_page():
     # ids the scripts build inside the detail card at runtime
     created_by_script = {"zoom-feeder", "copy-link", "site-line", "site-share", "trend-toggle", "section-history",
-                         "feeder-facts", "section-facts", "to-capacity"}
+                         "feeder-facts", "section-facts", "to-capacity", "zip-link"}
     for page, script in (("index.html", "app.js"), ("solar.html", "solar.js")):
         html = (WEB / page).read_text(encoding="utf-8")
         js = (WEB / script).read_text(encoding="utf-8")

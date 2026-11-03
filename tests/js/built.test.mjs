@@ -114,3 +114,36 @@ test("the summary keeps only its well-formed parts, and never breaks the page", 
   assert.equal(odd.data_through, null);
   assert.deepEqual([odd.by_year, odd.checks, odd.feeders, odd.last_12_months], [[], [], {}, { systems: 0, kw: 0 }]);
 });
+
+test("the time-lapse file is checked before use", () => {
+  const good = { data_through: "2026-08-31", years: [2024, 2025, 2026], state: [10, 30, 60], undated_kw: 4.5,
+    zips: { 12601: [0, 5, 9], 12602: [1, 0, 2], abc: [1, 2, 3], 12603: [1, 2], 12604: [0, 0, 7] } };
+  const y = b.cleanYears(good);
+  assert.deepEqual([...y.zips.keys()], ["12601", "12604"]);   // falling, short or odd entries are left out
+  assert.equal(y.through, "2026-08-31");
+  assert.equal(y.undatedKw, 4.5);
+  for (const bad of [null, {}, { years: [2024, 2026], state: [1, 2], zips: { 12601: [1, 2] } },   // a gap in the years
+    { years: [2025, 2026], state: [5, 3], zips: { 12601: [1, 2] } },                              // the state total falls
+    { years: [2025, 2026], state: [1, 2], zips: { 12601: [1, 0] } },                              // no usable ZIP code
+    { years: [2026], state: [1], zips: { 12601: [1] } }]) {
+    assert.equal(b.cleanYears(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("the time-lapse blends between years and knows what each year added", () => {
+  const list = [0, 10, 40];
+  assert.deepEqual(b.yearValues(list, 0), { total: 0, added: 0 });
+  assert.deepEqual(b.yearValues(list, 1), { total: 10, added: 10 });
+  assert.deepEqual(b.yearValues(list, 1.5), { total: 25, added: 30 });   // halfway to the next year; it shows that year's growth
+  assert.deepEqual(b.yearValues(list, 2), { total: 40, added: 30 });
+  assert.deepEqual(b.yearValues(list, 9), { total: 40, added: 30 });     // past the end stays at the end
+  assert.deepEqual(b.yearValues(list, -3), { total: 0, added: 0 });
+});
+
+test("a shared ZIP link accepts five digits and nothing else", () => {
+  assert.equal(b.parseZipLink("?zip=12601"), "12601");
+  assert.equal(b.parseZipLink("?data=x&zip=14414"), "14414");
+  for (const bad of ["", "?zip=1260", "?zip=126011", "?zip=12601<script>", "?zip=%3Cb%3E", "?zip=", null]) {
+    assert.equal(b.parseZipLink(bad), null, String(bad));
+  }
+});

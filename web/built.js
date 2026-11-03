@@ -104,7 +104,7 @@
       const h = Math.max(1, (y.kw / max) * (height - 2));
       const x = (i * (w + gap)).toFixed(1);
       const cls = y.year === partialYear ? "yb yb-partial" : "yb";
-      return `<rect class="${cls}" x="${x}" y="${(height - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"><title>${y.year}: ${Math.round(y.kw / 1000)} MW</title></rect>`;
+      return `<rect class="${cls}" data-year="${y.year}" x="${x}" y="${(height - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"><title>${y.year}: ${Math.round(y.kw / 1000)} MW</title></rect>`;
     }).join("");
     return `<svg class="year-chart" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Solar built each year, ${rows[0].year} to ${rows[rows.length - 1].year}">${bars}</svg>`;
   }
@@ -148,7 +148,54 @@
     };
   }
 
-  const api = { fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars, cleanSummary };
+  // ---------- the time-lapse (solar_years.json) ----------
+  // Solar connected by the end of each year: { years: [2000, ...], state: [kW...], zips: { zip: [kW...] } },
+  // every list as long as "years", whole kW, never falling. Anything else means no time-lapse
+  // (null), and a ZIP code whose list is odd is left out of it.
+  function cleanYears(data) {
+    if (!data || typeof data !== "object" || !Array.isArray(data.years) || !Array.isArray(data.state)) return null;
+    const years = data.years;
+    const n = years.length;
+    const rising = (values) => Array.isArray(values) && values.length === n && values.every((v, i) => count(v) && (i === 0 || v >= values[i - 1]));
+    if (n < 2 || n > 200 || !years.every((y, i) => Number.isInteger(y) && (i === 0 || y === years[i - 1] + 1)) || !rising(data.state)) return null;
+    const zips = new Map();
+    if (data.zips && typeof data.zips === "object" && !Array.isArray(data.zips)) {
+      for (const [zip, values] of Object.entries(data.zips)) if (/^\d{5}$/.test(zip) && rising(values)) zips.set(zip, values);
+    }
+    if (!zips.size) return null;
+    return {
+      years: years.slice(), state: data.state.slice(), zips,
+      through: typeof data.data_through === "string" && fmtDay(data.data_through) ? data.data_through : null,
+      undatedKw: amount(data.undated_kw) ? data.undated_kw : 0,
+    };
+  }
+
+  // A point in time on the time-lapse: t runs from 0 (end of the first year) to years - 1, and
+  // a fraction blends two years, so circles grow smoothly. Returns what is connected by then,
+  // and what was connected during the year being shown (for the inner circle).
+  function yearValues(values, t) {
+    const last = values.length - 1;
+    const at = Math.min(Math.max(Number(t) || 0, 0), last);
+    const i = Math.floor(at);
+    const f = at - i;
+    const total = i >= last ? values[last] : values[i] + (values[i + 1] - values[i]) * f;
+    const year = Math.min(Math.round(at), last);
+    const added = year === 0 ? values[0] : values[year] - values[year - 1];
+    return { total, added };
+  }
+
+  // A shared link to one ZIP code: ?zip=12601. Only five digits are accepted; anything else
+  // in the link is ignored, so a link can never do more than open a card.
+  function parseZipLink(search) {
+    let value = null;
+    try { value = new URLSearchParams(String(search || "")).get("zip"); } catch { return null; }
+    return value && /^\d{5}$/.test(value) ? value : null;
+  }
+
+  const api = {
+    fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars, cleanSummary,
+    cleanYears, yearValues, parseZipLink,
+  };
   root.AtlasBuilt = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

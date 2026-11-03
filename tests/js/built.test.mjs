@@ -20,14 +20,14 @@ test("dates read the way the rest of the map writes them", () => {
 test("a feeder with solar on record", () => {
   const fact = b.feederFact(DATA, "central_hudson_ny_pv", "6011");
   assert.deepEqual(fact, { kw: 969.8, systems: 123, last: "2026-08", through: "2026-08-31" });
-  assert.deepEqual(b.feederWords(fact, fmtMW), { value: "0.97 MW, 123 systems", note: "NYSERDA list to Aug 31, 2026" });
+  assert.deepEqual(b.feederWords(fact, fmtMW), { value: "0.97 MW, 123 systems", note: "From NYSERDA's list, through Aug 31, 2026" });
 });
 
 test("one system, and a system whose size is not published", () => {
   assert.equal(b.feederWords(b.feederFact(DATA, "central_hudson_ny_pv", "4003"), fmtMW).value, "0.02 MW, 1 system");
   const unsized = b.feederWords(b.feederFact(DATA, "central_hudson_ny_pv", "7054"), fmtMW);
   assert.equal(unsized.value, "1 system, size not published");
-  assert.equal(unsized.note, "NYSERDA list to Aug 31, 2026");
+  assert.equal(unsized.note, "From NYSERDA's list, through Aug 31, 2026");
 });
 
 test("a covered utility's feeder with no project says so; an uncovered utility shows nothing", () => {

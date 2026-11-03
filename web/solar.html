@@ -64,8 +64,8 @@
             <circle class="sk-recent" cx="20" cy="20" r="8"/>
           </svg>
           <ul class="solar-key-list">
-            <li><span class="sk-swatch sk-swatch-total" aria-hidden="true"></span>All solar connected</li>
-            <li><span class="sk-swatch sk-swatch-recent" aria-hidden="true"></span>Connected in the last 12 months</li>
+            <li><span class="sk-swatch sk-swatch-total" aria-hidden="true"></span><span><strong>Outer circle:</strong> all solar connected</span></li>
+            <li><span class="sk-swatch sk-swatch-recent" aria-hidden="true"></span><span><strong>Inner circle:</strong> connected in the last 12 months</span></li>
           </ul>
         </div>
       </section>
@@ -73,7 +73,7 @@
 
     <div class="panel-body" id="panel-body">
       <div class="intro">
-        <p class="lede">Hosting capacity shows where the grid has room. This view shows the other half: the solar already connected, from New York's statewide list of distributed solar projects.</p>
+        <p class="lede">Hosting capacity shows where the grid still has room for new solar. This view shows the other half of the picture: the solar already connected, from NYSERDA's statewide list of distributed solar projects.</p>
         <p class="updated" id="updated"></p>
       </div>
 
@@ -96,18 +96,18 @@
 
       <section class="block" aria-labelledby="match-title">
         <h2 id="match-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Linked to the capacity map</h2>
-        <p class="note">Each project lists the circuit it connects to. Where that ID is exactly a feeder ID on the capacity map, the feeder's card shows the solar already on it. Nothing is matched by guesswork.</p>
+        <p class="note">Each project in NYSERDA's list names the feeder it connects to. Where that name exactly matches a feeder on the capacity map, the feeder's card shows the solar already on it. Only exact matches are used.</p>
         <div id="match"></div>
       </section>
 
       <section class="block" aria-labelledby="quality-title">
         <h2 id="quality-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Data quality</h2>
-        <p class="note" id="quality-note">Every row of the list is run through the same kind of checks as the utility data.</p>
+        <p class="note" id="quality-note">Every row of NYSERDA's list goes through checks like those on the utility data.</p>
         <div id="quality"></div>
       </section>
 
       <footer class="panel-foot">
-        <p>Built projects only. Projects still waiting in a utility's queue are not in this list. Circles mark ZIP code areas, not project addresses.</p>
+        <p>Connected projects only. Projects still waiting in a utility's queue are not included.</p>
         <nav class="foot-links" aria-label="About this site">
           <a href="terms.html#source-nyserda" target="_blank" rel="noopener">Data sources and terms</a>
           <a id="repo-link" href="#" target="_blank" rel="noopener">Source code and methodology</a>
@@ -119,6 +119,10 @@
   <script src="fold.js"></script>
 
   <div class="toolbar" id="toolbar">
+    <button class="icon-button tool-button" id="help-toggle" type="button" aria-expanded="false" aria-controls="help" title="How to read this map">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>
+      <span class="visually-hidden">How to read this map</span>
+    </button>
     <div class="display">
       <button class="icon-button tool-button" id="display-toggle" type="button" aria-expanded="false" aria-controls="display-menu" title="Display settings">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
@@ -135,6 +139,29 @@
       </div>
     </div>
   </div>
+
+  <section class="popover help" id="help" hidden aria-labelledby="help-title">
+    <div class="help-head">
+      <h2 id="help-title">How to read this map</h2>
+      <button class="icon-button" id="help-close" type="button" aria-label="Close guide">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <ol class="steps">
+      <li><strong>Circles.</strong> Each circle is a ZIP code, sized by the solar connected there.</li>
+      <li><strong>Inner circle.</strong> The smaller circle in the middle shows what was connected in the last 12 months. A large inner circle means recent growth.</li>
+      <li><strong>Details.</strong> Click a circle to see that ZIP code's systems, community solar, storage and primary utility.</li>
+      <li><strong>Search.</strong> Type a ZIP code or town to jump to it.</li>
+      <li><strong>Room to connect.</strong> Use "See room to connect here", or the switch at the top of the panel, to see how much room the nearby lines still have.</li>
+    </ol>
+    <h3>Glossary</h3>
+    <dl class="glossary">
+      <dt>System</dt><dd>One solar project in NYSERDA's list, from a rooftop array to a solar farm.</dd>
+      <dt>Community solar</dt><dd>A shared solar farm that homes and businesses subscribe to instead of installing panels themselves.</dd>
+      <dt>Feeder</dt><dd>One circuit leaving a substation, with all its branches. Projects on the same feeder share its capacity.</dd>
+    </dl>
+    <p class="note">NYSERDA lists projects by ZIP code, not by address, so each circle sits at the center of its ZIP code area. Where the data comes from: <a href="terms.html#source-nyserda" target="_blank" rel="noopener">Data sources and terms</a>.</p>
+  </section>
 
   <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected ZIP code details">
     <button class="detail-close" id="detail-close" type="button" aria-label="Close details">

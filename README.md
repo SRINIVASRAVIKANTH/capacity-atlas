@@ -95,7 +95,7 @@ feeders with a published capacity have solar on record. The list's own checks ar
 
 <p align="center">
   <img src="docs/images/built-so-far.png" alt="Built so far: one circle per ZIP code across New York, sized by the solar already connected, with the state totals in the panel" width="900">
-  <br><b>Figure 5.</b> Built so far. One circle per ZIP code, sized by the solar already connected, with a darker center for the last 12 months. Long Island, the Hudson Valley and the Capital Region stand out.
+  <br><b>Figure 5.</b> Built so far. One circle per ZIP code, sized by the solar already connected, with an inner circle for what was connected in the last 12 months. Long Island, the Hudson Valley and the Capital Region stand out.
 </p>
 
 <p align="center">
@@ -113,7 +113,7 @@ feeders with a published capacity have solar on record. The list's own checks ar
 | 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
 | 🔗 | **Share and download** | Copy a link that reopens a site check for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues, and the solar already connected on its feeder |
-| 🌞 | **Built so far** | A second view of the same map: the solar already connected in each ZIP code, with a bright core for what was added in the last 12 months, state totals, a year by year chart and the list's own data checks. A switch at the top of the panel moves between the two views and keeps the place |
+| 🌞 | **Built so far** | A second view of the same map: the solar already connected in each ZIP code, with an inner circle for what was connected in the last 12 months, state totals, a year by year chart, the list's own data checks and a short guide. A switch at the top of the panel moves between the two views and keeps the place |
 | 🧭 | **What limits each line** | For National Grid, the card names the criterion that caps the line (voltage rise, overload, flicker and others) in plain words, worked out from the separate values the utility publishes, and says so when the cap is something the utility does not publish |
 | ✅ | **Weekly validation** | 14 checks, from impossible values to analyses that new solar has made outdated |
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
@@ -220,7 +220,7 @@ Pages, and it reads only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (116 tests, 90% coverage), Node test runner (44 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (118 tests, 90% coverage), Node test runner (44 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
 
 ---
 

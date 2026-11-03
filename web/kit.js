@@ -157,6 +157,48 @@
     tidy();
   }
 
+  // The data credits (the "i" box) open when a page loads, with a light running around their
+  // edge so people notice where the data comes from. After 30 seconds they fold shut into the
+  // "i", unless the person has opened or closed them in the meantime. Dragging the map closes
+  // them sooner (MapLibre's own behavior). Both pages use this, so they behave the same.
+  //   onOpen  called when the person opens the credits, so the page can close what they would cover
+  // Returns a function that folds the credits now (a page calls it when a card or menu opens).
+  const CREDITS_OPEN_MS = 30000;
+  function introduceCredits(map, { onOpen } = {}) {
+    const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
+    if (!box) return () => {}; // wide screens without the compact box show the credits as plain text
+    box.classList.add("credits-intro");
+    tidyCredits(box.querySelector(".maplibregl-ctrl-attrib-inner"));
+    let touched = false, closing = false;
+    box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
+    box.addEventListener("toggle", () => { if (box.open && onOpen) onOpen(); });
+    const fold = () => {
+      box.classList.remove("credits-intro");
+      if (closing || !box.classList.contains("maplibregl-compact-show")) return;
+      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
+      const close = () => {
+        if (inner) { inner.style.maxWidth = ""; inner.style.maxHeight = ""; }
+        box.classList.remove("credits-folding", "maplibregl-compact-show");
+        box.removeAttribute("open");
+        closing = false;
+      };
+      if (!inner || reduceMotion()) return close();
+      // The text fades and the box closes into the "i" instead of vanishing at once. Its size is
+      // pinned first, so the wrapped lines cannot reflow while it narrows.
+      closing = true;
+      inner.style.maxWidth = inner.offsetWidth + "px";
+      inner.style.maxHeight = inner.offsetHeight + "px";
+      box.classList.add("credits-folding");
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        inner.style.maxWidth = "0px";
+        inner.style.maxHeight = "18px";
+      }));
+      setTimeout(close, 650);
+    };
+    setTimeout(() => { if (!touched) fold(); }, CREDITS_OPEN_MS);
+    return fold;
+  }
+
   // ---------- folding the side panel ----------
   // The panel folds down to its header, on any screen size. It rolls up (on a phone, the sheet
   // slides down) instead of jumping: the parts that disappear shrink while the panel's visible
@@ -252,6 +294,6 @@
     LOCAL, dataUrl, basemapOverride, escapeHtml, withTimeout,
     reduceMotion, isShown, showSoftly, hideSoftly,
     readPrefs, savePrefs,
-    loadBasemap, tuneBasemap, firstLabelLayer, tidyCredits, wirePanelFold, pageLink, wireModes,
+    loadBasemap, tuneBasemap, firstLabelLayer, tidyCredits, introduceCredits, wirePanelFold, pageLink, wireModes,
   };
 })(window);

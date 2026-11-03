@@ -167,22 +167,26 @@ Plain HTML, CSS and JavaScript with no build step. MapLibre GL JS and the PMTile
 bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
 * Two pages, one map. "Room to connect" (`index.html`, `app.js`) and "Built so far"
-  (`solar.html`, `solar.js`) share their look (`style.css`), the basemap, the tidy credits, the
-  panel fold, soft opening and closing, display settings and the local test overrides
+  (`solar.html`, `solar.js`) share their look (`style.css`), the basemap, the credits (one per line, a glow on load,
+  folding away after 30 seconds), the panel fold, soft opening and closing, display settings and the local test overrides
   (`kit.js`). A switch at the top of both panels moves between them and keeps the place and
   zoom, which MapLibre keeps in the address (`#zoom/lat/lng`). Hosting capacity and built solar
   never share a map, so nobody mixes up room left with solar already there.
 * "Built so far" draws one circle per ZIP code: circle area grows with the MW connected (radius
-  with its square root), and a solid core shows the MW connected in the last 12 months. Large
+  with its square root), and an inner circle shows the MW connected in the last 12 months. Large
   circles are drawn first, so a small ZIP code next to a large one stays visible. A click shows
-  the ZIP code's card, with a link to the capacity map at the same place when its utility is
+  the ZIP code's card, which explains that NYSERDA lists projects by ZIP code, not by address,
+  so the circle sits at the center of the ZIP code area, with a link to the capacity map at the same place when its utility is
   there. Search runs over the ZIP codes in the page, by ZIP code or town, so nothing is sent
   anywhere. The panel shows the state totals, the MW connected each year (the current year
   drawn lighter, as it is not over), each utility, how the list links to the capacity map, and
-  the list's data checks.
-* On the capacity map, both line cards get a "Solar connected" row from `solar_feeders.json`,
+  the list's data checks. A "?" guide explains the circles, the card and the link to the
+  capacity map, the same way as on the capacity map; the guide, the display menu and the card
+  take turns on the right side.
+* On the capacity map, both line cards get a "Solar already connected" row ("Solar already on
+  this feeder" on a section's card) from `solar_feeders.json`,
   loaded once after the map draws (`web/built.js` checks its shape): MW and systems on the
-  feeder and the list's date, or "None on record" for a feeder no project lists. A utility the
+  feeder, with the list's date on its own line under the row, or "None on record" for a feeder no project lists. A utility the
   list does not cover gets no row.
 * Basemaps: OpenFreeMap (free, no key), one style per theme.
 * Place search: Photon over OpenStreetMap, called only when the person presses Enter.

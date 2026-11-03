@@ -49,7 +49,7 @@
   // fmtMW is the page's own number format, so it reads like the rest of the card.
   function feederWords(fact, fmtMW) {
     if (!fact) return null;
-    const note = `NYSERDA list to ${fmtDay(fact.through)}`;
+    const note = `From NYSERDA's list, through ${fmtDay(fact.through)}`;
     if (fact.none) return { value: "None on record", note };
     const count = `${fact.systems.toLocaleString("en-US")} ${fact.systems === 1 ? "system" : "systems"}`;
     return { value: fact.kw > 0 ? `${fmtMW(fact.kw / 1000)} MW, ${count}` : `${count}, size not published`, note };

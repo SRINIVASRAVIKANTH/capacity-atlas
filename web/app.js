@@ -1110,8 +1110,9 @@
       const words = AtlasBuilt.feederWords(AtlasBuilt.feederFact(data, props.src, String(props.feeder)), fmtMW);
       if (!words) return;
       list.insertAdjacentHTML("beforeend",
-        `<dt class="built-fact">${onFeeder ? "Solar on feeder" : "Solar connected"}</dt>` +
-        `<dd class="built-fact">${escapeHtml(words.value)}<small>${escapeHtml(words.note)}</small></dd>`);
+        `<dt class="built-fact">${onFeeder ? "Solar already on this feeder" : "Solar already connected"}</dt>` +
+        `<dd class="built-fact">${escapeHtml(words.value)}</dd>` +
+        `<dd class="built-fact built-note">${escapeHtml(words.note)}</dd>`);
     });
   }
 
@@ -1690,53 +1691,17 @@
     update();
   }
 
-  // The data credits (the "i" box) open when the page loads, with a light running around
-  // their edge so people notice where the data comes from. After 30 seconds they fold shut
-  // into the "i", unless the person has opened or closed them in the meantime. Dragging the
-  // map closes them sooner (MapLibre's own behavior).
+  // The data credits (the "i" box) open when the page loads and fold after 30 seconds (kit.js).
   // The lower right corner holds one thing at a time: opening a card, Volta's chat, the guide or
   // the display menu folds the credits, and opening the credits closes the guide, the menu and
   // the chat (a line's card stays; the credits open on top of it).
-  const CREDITS_OPEN_MS = 30000;
-
-  const tidyCredits = kit.tidyCredits; // one credit per line, the terms link last
   function introduceCredits(map) {
-    const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
-    if (!box) return; // wide screens without the compact box show the credits as plain text
-    box.classList.add("credits-intro");
-    tidyCredits(box.querySelector(".maplibregl-ctrl-attrib-inner"));
-    let touched = false, closing = false;
-    box.addEventListener("click", () => { touched = true; box.classList.remove("credits-intro"); }, { once: true });
-    box.addEventListener("toggle", () => {
-      if (!box.open) return;
-      if (state.closePopovers) state.closePopovers();
-      if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant(); // the chat would cover them
+    state.foldCredits = kit.introduceCredits(map, {
+      onOpen: () => {
+        if (state.closePopovers) state.closePopovers();
+        if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant(); // the chat would cover them
+      },
     });
-    const shut = () => {
-      box.classList.remove("credits-intro");
-      if (closing || !box.classList.contains("maplibregl-compact-show")) return;
-      const inner = box.querySelector(".maplibregl-ctrl-attrib-inner");
-      const close = () => {
-        if (inner) { inner.style.maxWidth = ""; inner.style.maxHeight = ""; }
-        box.classList.remove("credits-folding", "maplibregl-compact-show");
-        box.removeAttribute("open");
-        closing = false;
-      };
-      if (!inner || reduceMotion()) return close();
-      // Fold: the text fades and the box closes into the "i" instead of vanishing at once. Its
-      // size is pinned first, so the wrapped lines cannot reflow while it narrows.
-      closing = true;
-      inner.style.maxWidth = inner.offsetWidth + "px";
-      inner.style.maxHeight = inner.offsetHeight + "px";
-      box.classList.add("credits-folding");
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        inner.style.maxWidth = "0px";
-        inner.style.maxHeight = "18px";
-      }));
-      setTimeout(close, 650);
-    };
-    setTimeout(() => { if (!touched) shut(); }, CREDITS_OPEN_MS);
-    state.foldCredits = shut;
   }
 
   // ---------- start ----------

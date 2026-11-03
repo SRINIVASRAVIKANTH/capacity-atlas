@@ -233,3 +233,19 @@ def test_terms_page_does_not_link_to_national_grid():
     """National Grid's portal terms ask for written consent before anyone links to it."""
     html = (WEB / "terms.html").read_text(encoding="utf-8")
     assert "nationalgrid" not in " ".join(re.findall(r'href="([^"]+)"', html)).lower()
+
+
+def test_both_pages_introduce_their_credits_through_the_shared_kit():
+    """The credits glow and fold the same way on both pages, so the code lives once, in kit.js."""
+    kit = (WEB / "kit.js").read_text(encoding="utf-8")
+    assert "function introduceCredits(" in kit and "credits-folding" in kit
+    for script in ("app.js", "solar.js"):
+        js = (WEB / script).read_text(encoding="utf-8")
+        assert "kit.introduceCredits(map" in js, script
+        assert "credits-folding" not in js and "CREDITS_OPEN_MS" not in js, f"{script} has its own copy"
+
+
+def test_both_pages_have_a_guide():
+    for page in ("index.html", "solar.html"):
+        html = (WEB / page).read_text(encoding="utf-8")
+        assert 'id="help-toggle"' in html and 'id="help"' in html and '<ol class="steps">' in html, page

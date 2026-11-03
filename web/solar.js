@@ -32,7 +32,7 @@
     },
   };
 
-  const state = { theme: null, prefs: null, summary: null, features: [], selected: null, cardTucked: false, setCollapsed: null };
+  const state = { theme: null, prefs: null, summary: null, features: [], selected: null, cardTucked: false, setCollapsed: null, foldCredits: null };
 
   // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
@@ -110,7 +110,7 @@
           ${B.yearBars(years, 300, 72, partial)}
         </div>
         <div class="h-dates" aria-hidden="true"><span>${years[0].year}</span><span>${years[years.length - 1].year}</span></div>
-        ${partial ? `<p class="note">The ${partial} bar runs to ${escapeHtml(B.fmtDay(through))}, so it is drawn lighter.</p>` : ""}`;
+        ${partial ? `<p class="note">${partial} is drawn lighter because the data runs only to ${escapeHtml(B.fmtDay(through))}.</p>` : ""}`;
     }
 
     // By utility, largest first. Utilities on the capacity map are marked.
@@ -125,21 +125,21 @@
       </li>`).join("");
     const unplaced = s.unplaced || { systems: 0 };
     $("ubars-note").textContent = unplaced.systems
-      ? `${fmtInt(unplaced.systems)} systems (${fmtPower(unplaced.kw)}) have no usable ZIP code or no Census ZIP area, so they count here but are not drawn.`
+      ? `${fmtInt(unplaced.systems)} systems (${fmtPower(unplaced.kw)}) have no ZIP code, or one that cannot be placed on the map. They are included in the totals but not drawn.`
       : "";
 
     $("match").innerHTML = Object.values(s.feeders || {}).map((m) => `
       <div class="match-row">
         <div class="ub-head"><span class="ub-name">${escapeHtml(B.utilityName(m.nyserda_name))}</span><span class="ub-value">${pct(m.kw_matched, m.kw_utility)}</span></div>
         <div class="ub-bar ub-bar-match" aria-hidden="true"><span style="width:${m.kw_utility > 0 ? Math.min(100, (100 * m.kw_matched) / m.kw_utility).toFixed(1) : 0}%"></span></div>
-        <div class="ub-sub">${fmtInt(m.feeders_with_solar)} of ${fmtInt(m.feeders_with_capacity)} feeders with a published capacity have solar on record, holding ${escapeHtml(fmtPower(m.kw_matched))} of the utility's ${escapeHtml(fmtPower(m.kw_utility))}.</div>
+        <div class="ub-sub">${fmtInt(m.feeders_with_solar)} of its ${fmtInt(m.feeders_with_capacity)} feeders with a published capacity have solar connected, holding ${escapeHtml(fmtPower(m.kw_matched))} of the ${escapeHtml(fmtPower(m.kw_utility))} NYSERDA lists for the utility.</div>
       </div>`).join("");
 
     const order = { error: 0, warning: 1, info: 2 };
     const findings = (s.checks || []).filter((c) => c.status === "ran" && c.flagged > 0)
       .sort((a, b) => order[a.severity] - order[b.severity] || b.flagged - a.flagged);
     const ran = (s.checks || []).filter((c) => c.status === "ran").length;
-    $("quality-note").textContent = `${fmtInt(s.rows)} rows, ${ran} checks. Flags mean worth checking, not proof of an error. Rows are counted as published.`;
+    $("quality-note").textContent = `All ${fmtInt(s.rows)} rows of NYSERDA's list go through ${ran} checks. A flag marks a row worth a closer look, not a confirmed error. Flagged rows still count in the totals, as published.`;
     $("quality").innerHTML = findings.length ? `<ul class="findings">${findings.map((c) => `
         <li title="${escapeHtml(c.explanation)}"><span class="dot sev-${c.severity}" aria-hidden="true"></span>
           <span>${escapeHtml(c.title)}<span class="visually-hidden"> (${c.severity}). ${escapeHtml(c.explanation)}</span></span>
@@ -214,12 +214,12 @@
   function cardHtml(p) {
     const where = [p.place, p.county ? `${p.county} County` : ""].filter(Boolean).join(", ");
     const facts = [
-      ["Systems", fmtInt(p.n)],
-      Number.isFinite(p.r12) ? ["Last 12 months", p.r12 > 0 ? `${fmtPower(p.r12)} (${pct(p.r12, p.kw)})` : "None"] : null,
+      ["Solar systems", fmtInt(p.n)],
+      Number.isFinite(p.r12) ? ["Connected in the last 12 months", p.r12 > 0 ? `${fmtPower(p.r12)} (${pct(p.r12, p.kw)} of total)` : "None"] : null,
       Number.isInteger(p.cn) ? ["Community solar", p.cn ? `${fmtInt(p.cn)} ${p.cn === 1 ? "system" : "systems"}` : "None"] : null,
       Number.isFinite(p.st) && p.st > 0 ? ["Battery storage", fmtPower(p.st)] : null,
-      B.fmtMonth(p.last) ? ["Latest connection", B.fmtMonth(p.last)] : null,
-      p.u ? ["Main utility", escapeHtml(B.utilityName(p.u))] : null,
+      B.fmtMonth(p.last) ? ["Most recent connection", B.fmtMonth(p.last)] : null,
+      p.u ? ["Primary utility", escapeHtml(B.utilityName(p.u))] : null,
     ].filter(Boolean);
     const covered = p.u && coveredUtilities().has(p.u);
     const next = covered
@@ -232,7 +232,7 @@
       <div class="d-caption"><span class="d-swatch d-swatch-solar" aria-hidden="true"></span>Solar connected${where ? ` in ${escapeHtml(where)}` : " in this ZIP code"}</div>
       <dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       <div class="d-key">
-        <p>Totals for the whole ZIP code. The circle marks the ZIP code area, not where each project is.</p>
+        <p>These figures cover every project in ZIP code ${escapeHtml(p.zip)}. NYSERDA lists projects by ZIP code, not by address, so the circle is placed at the center of the ZIP code area.</p>
         ${next}
       </div>
       <div class="d-share"><p class="d-source">Data from NYSERDA${through ? `, through ${escapeHtml(through)}` : ""}. ZIP areas from the US Census Bureau. ` +
@@ -246,8 +246,9 @@
     $("detail-body").innerHTML = cardHtml(feature.properties);
     // On a phone the open panel and the card would share the lower screen: the panel steps aside.
     if (phone() && state.setCollapsed && !$("panel").classList.contains("is-collapsed")) state.setCollapsed(true);
-    foldCredits(map);
-    closeMenu();
+    if (state.foldCredits) state.foldCredits();
+    state.cardTucked = false;
+    closePopovers();
     showSoftly($("detail"));
     const button = $("to-capacity");
     if (button) {
@@ -346,25 +347,29 @@
     document.addEventListener("click", (e) => { if (!e.target.closest("#search")) list.hidden = true; });
   }
 
-  // ---------- display menu, panel, credits, keys ----------
-  const isMenuOpen = () => isShown($("display-menu"));
-  function setMenu(open) {
+  // ---------- guide, display menu, panel, credits, keys ----------
+  // The right side shows one thing at a time, as on the capacity map: opening the guide or the
+  // display menu folds the credits and tucks the ZIP code card away. The card comes back, with
+  // its selection, when the guide or menu closes.
+  const POPOVERS = { display: ["display-toggle", "display-menu"], help: ["help-toggle", "help"] };
+  const isOpen = (name) => isShown($(POPOVERS[name][1]));
+  function setPopover(name, open) {
     if (open) {
+      if (state.foldCredits) state.foldCredits();
       if (isShown($("detail"))) { state.cardTucked = true; hideSoftly($("detail")); }
-      showSoftly($("display-menu"));
-    } else {
-      hideSoftly($("display-menu"));
-      if (state.cardTucked && state.selected) { state.cardTucked = false; showSoftly($("detail")); }
+    } else if (state.cardTucked && state.selected) {
+      state.cardTucked = false;
+      showSoftly($("detail"));
     }
-    $("display-toggle").setAttribute("aria-expanded", String(open));
+    for (const [key, [button, panel]] of Object.entries(POPOVERS)) {
+      const show = key === name && open;
+      if (show) showSoftly($(panel));
+      else hideSoftly($(panel));
+      $(button).setAttribute("aria-expanded", String(show));
+    }
   }
-  const closeMenu = () => { if (isMenuOpen()) setMenu(false); };
-
-  const CREDITS_OPEN_MS = 30000;
-  function foldCredits(map) {
-    const box = map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact-show");
-    if (box) { box.classList.remove("maplibregl-compact-show"); box.removeAttribute("open"); }
-  }
+  const anyPopover = () => isOpen("display") || isOpen("help");
+  const closePopovers = () => { if (anyPopover()) setPopover(null, false); };
 
   function padForPanel(map) {
     const wide = window.matchMedia("(min-width: 761px)").matches;
@@ -380,12 +385,14 @@
       applyTheme(map);
     });
     systemDark.addEventListener("change", () => { if (state.prefs.theme === "auto") applyTheme(map); });
-    $("display-toggle").addEventListener("click", () => setMenu(!isMenuOpen()));
-    document.addEventListener("click", (e) => { if (isMenuOpen() && !e.target.closest(".display")) setMenu(false); });
+    $("display-toggle").addEventListener("click", () => setPopover("display", !isOpen("display")));
+    $("help-toggle").addEventListener("click", () => setPopover("help", !isOpen("help")));
+    $("help-close").addEventListener("click", () => setPopover("help", false));
+    document.addEventListener("click", (e) => { if (isOpen("display") && !e.target.closest(".display")) setPopover("display", false); });
     $("detail-close").addEventListener("click", () => clearSelection(map));
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      if (isMenuOpen()) setMenu(false);
+      if (anyPopover()) closePopovers();
       else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
     });
@@ -450,10 +457,8 @@
     map.addControl(new HomeControl(), "bottom-right");
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
-    map.once("load", () => {
-      kit.tidyCredits(map.getContainer().querySelector(".maplibregl-ctrl-attrib-inner"));
-      setTimeout(() => foldCredits(map), CREDITS_OPEN_MS); // the credits show first, then fold into the "i"
-    });
+    // The credits open first, with the running light, then fold into the "i" (kit.js).
+    map.once("load", () => { state.foldCredits = kit.introduceCredits(map, { onOpen: closePopovers }); });
     map.on("style.load", () => onStyleLoad(map));
     if (map.isStyleLoaded()) onStyleLoad(map);
     wireClicks(map);

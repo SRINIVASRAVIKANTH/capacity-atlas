@@ -1,0 +1,29 @@
+{
+  "source_id": "national_grid_ny_pv",
+  "old_snapshot": "2026-11-03.parquet",
+  "new_snapshot": "2026-11-04.parquet",
+  "old_rows": 452342,
+  "new_rows": 452342,
+  "added": 0,
+  "removed": 0,
+  "geometry_changed": 3,
+  "capacity_increased": 0,
+  "capacity_decreased": 0,
+  "newly_analyzed": 0,
+  "analysis_removed": 0,
+  "feeders_refreshed": 0,
+  "other_attributes_changed": 0,
+  "most_changed_columns": {},
+  "feeders_losing_capacity": [],
+  "examples": {
+    "added": [],
+    "removed": [],
+    "geometry_changed": [
+      "281712815#0",
+      "281712805#0",
+      "354388618#0"
+    ],
+    "capacity_increased": [],
+    "capacity_decreased": []
+  }
+}

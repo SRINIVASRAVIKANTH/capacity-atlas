@@ -740,12 +740,15 @@
     const c = name.replace(/,\s*(new york|ny|usa)\s*$/i, "").match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
     if (c && Math.abs(c[1]) <= 90 && Math.abs(c[2]) <= 180) return near([Number(c[2]), Number(c[1])], `${c[1]}, ${c[2]}`);
     try {
-      const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=5&lang=en&bbox=${NY_BBOX.join(",")}`;
+      // The search is limited to New York, so ", New York" is left out: with it, Photon also
+      // offers New York City for a name it does not know.
+      const asked = name.replace(/,\s*(new york|ny)\s*$/i, "");
+      const url = `${cfg.searchUrl}?q=${encodeURIComponent(asked)}&limit=5&lang=en&bbox=${NY_BBOX.join(",")}`;
       const response = await fetch(url, { signal: withTimeout(10000) });
       if (!response.ok) throw new Error("HTTP " + response.status);
-      const place = B.pickPlace((await response.json()).features, name);
+      const place = B.pickPlace((await response.json()).features, asked);
       if (!place) return null;
-      const label = place.name || name.replace(/,\s*(new york|ny)\s*$/i, "");
+      const label = place.name || asked;
       if (place.extent) {
         const bounds = place.extent;
         map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 60, maxZoom: 11, duration: 1200 });
@@ -792,7 +795,11 @@
     const lead = escapeHtml(where.charAt(0).toUpperCase() + where.slice(1));
     return `<p>${lead}: <strong>${fmtPower(sum("kw"))}</strong> from <strong>${plural(sum("n"), "system", "systems")}</strong> in ` +
       `${plural(fs.length, "ZIP code", "ZIP codes")}, with <strong>${fmtPower(sum("r12"))}</strong> connected in the last 12 months.</p>` +
-      (fs.length > 1 ? topList(`Most solar ${where}`, top) : topList("ZIP code", top));
+      (fs.length > 1 ? topList(`Most solar ${where}`, top) : topList("ZIP code", top)) +
+      // A town is the ZIP codes whose projects give its mailing address, which reach past the
+      // town line (Rochester's take in parts of Gates, Greece and Henrietta).
+      (area && area.zips && !area.exact && fs.length > 1
+        ? `<p class="msg-sub">These are the ZIP codes with a ${escapeHtml(area.name)} mailing address, which can include parts of nearby towns.</p>` : "");
   }
 
   // The ZIP codes in view that lead by one measure. With a year (and the time-lapse file), the

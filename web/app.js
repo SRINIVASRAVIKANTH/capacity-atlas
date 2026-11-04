@@ -733,11 +733,14 @@
       const named = plan.place.replace(/,\s*(new york|ny)\s*$/i, "");
       let missing = `I could not find ${escapeHtml(named)}, so the answer is about the current view.`;
       try {
-        const [place] = await geocode(plan.place, 1);
+        // The search is limited to New York, so ", New York" is left out; a result counts only
+        // when it is the place asked about (built.js, pickPlace).
+        const place = AtlasBuilt.pickPlace(await geocode(named, 5), named);
         if (place) {
-          const [lng, lat] = place.geometry.coordinates;
+          const [lng, lat] = place.center;
+          const e = place.extent; // [west, south, east, north]; the map takes Photon's order
           spot = [lng, lat];
-          state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
+          state.flyToPlace(lng, lat, e ? [e[0], e[3], e[2], e[1]] : null, 12.5);
           missing = "";
         }
       } catch (err) {

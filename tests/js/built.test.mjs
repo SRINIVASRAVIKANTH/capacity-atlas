@@ -206,20 +206,37 @@ test("on Long Island, in Albany", () => {
   assert.equal(b.onOrIn("Albany"), "in");
 });
 
-test("the place search's best result for an area question", () => {
+test("the place search's best result is the place asked about, or nothing", () => {
   const pt = (x, y, props) => ({ type: "Feature", geometry: { type: "Point", coordinates: [x, y] }, properties: props });
   const poi = pt(-73.8, 42.7, { name: "Capital Region Welcome Center", osm_key: "tourism", type: "house", extent: [-73.81, 42.71, -73.79, 42.69] });
   const city = pt(-73.75, 42.65, { name: "Albany", osm_key: "place", type: "city", extent: [-73.9, 42.8, -73.7, 42.6] });
+  const nyc = pt(-74, 40.7, { name: "New York", osm_key: "place", type: "city", extent: [-74.3, 40.9, -73.7, 40.5] });
   // an area beats a landmark listed first, and its extent becomes [west, south, east, north]
   assert.deepEqual(b.pickPlace([poi, city], "Albany"), { center: [-73.75, 42.65], extent: [-73.9, 42.6, -73.7, 42.8], name: "Albany" });
-  // a landmark alone is a point: its tiny extent is not used
-  assert.deepEqual(b.pickPlace([poi], "welcome center"), { center: [-73.8, 42.7], extent: null, name: "Capital Region Welcome Center" });
-  // an address wins when the question has a street number
+  assert.equal(b.pickPlace([city], "Albany, New York").name, "Albany");
+  // a landmark named in full is a point: its tiny extent is not used
+  assert.deepEqual(b.pickPlace([poi], "capital region welcome center"), { center: [-73.8, 42.7], extent: null, name: "Capital Region Welcome Center" });
+  // Photon's loose matches are not the place: a name it does not know, a shop, a path
+  assert.equal(b.pickPlace([nyc, poi], "Qwertyville"), null);
+  assert.equal(b.pickPlace([nyc], "Qwertyville, New York"), null);
+  // a landmark that has every word asked is honest about what it found: it is named in the answer
+  assert.equal(b.pickPlace([poi], "Capital Region").name, "Capital Region Welcome Center");
+  const shop = pt(-74, 40.7, { name: "Narnia", osm_key: "shop", osm_value: "clothes", type: "house" });
+  const path = pt(-74.2, 42.2, { name: "Narnia", osm_key: "highway", osm_value: "path", type: "street" });
+  assert.equal(b.pickPlace([shop, path], "Narnia"), null);
+  // a landmark whose name has every word asked
+  const garden = pt(-74.08, 41.74, { name: "SUNY New Paltz Student Garden", osm_key: "leisure", type: "other" });
+  assert.equal(b.pickPlace([garden], "SUNY New Paltz").name, "SUNY New Paltz Student Garden");
+  // a town named in part ("Saratoga" for Saratoga Springs), a region Photon knows
+  assert.ok(b.pickPlace([pt(-73.78, 43.08, { name: "Saratoga Springs", osm_key: "place", type: "city" })], "Saratoga"));
+  assert.ok(b.pickPlace([pt(-73.9, 41.7, { name: "Hudson Valley", osm_key: "place", osm_value: "region", type: "other" })], "Hudson Valley"));
+  // an address wins over the town when the question has a number or a street word
   const house = pt(-73.76, 42.66, { name: "100 State St", type: "house", housenumber: "100" });
-  assert.equal(b.pickPlace([poi, house], "100 State St, Albany").name, "100 State St");
+  assert.equal(b.pickPlace([city, poi, house], "100 State St, Albany").name, "100 State St");
+  assert.equal(b.pickPlace([path], "Narnia Road").name, "Narnia");
   // broken results are skipped, nothing usable is null
   assert.equal(b.pickPlace([pt(NaN, 1, {}), { geometry: { type: "Polygon" } }, null], "x"), null);
   assert.equal(b.pickPlace(null, "x"), null);
-  assert.deepEqual(b.pickPlace([pt(-74, 41, null)], "x"), { center: [-74, 41], extent: null, name: null });
-  assert.equal(b.pickPlace([pt(-74, 41, { type: "county", name: "Ulster County", extent: [1, 2, "x", 4] })], "x").extent, null);
+  assert.equal(b.pickPlace([pt(-74, 41, null)], "x"), null);
+  assert.equal(b.pickPlace([pt(-74, 41, { type: "county", name: "Ulster County", extent: [1, 2, "x", 4] })], "Ulster County").extent, null);
 });

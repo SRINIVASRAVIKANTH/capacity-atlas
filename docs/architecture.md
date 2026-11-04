@@ -325,7 +325,11 @@ settings (see below).
    changes only that highlight; "back to normal" clears every filter, highlight and site check.
    Asking what changed turns the data quality highlight off; asking for both at once keeps the
    data quality highlight. A place the search cannot find, or a search that is down, is said
-   plainly, and the answer is about the current view. In a week with nothing to
+   plainly, and the answer is about the current view. The place search (Photon) matches
+   loosely, so a result counts only when it is the place asked about: its name has every word
+   of the place ("Qwertyville" does not become New York City, and "Narnia" does not become a
+   clothing shop), or it is an address for a question with a street number. Towns and other
+   areas come first, and shops never count as places. In a week with nothing to
    highlight, the answer says so instead of the AI's sentence, and gives the reason for each
    utility in the panel's own words.
    Every answer also points the side panel at the section it is about: the data quality or
@@ -363,9 +367,11 @@ Island reaches over the Sound to Westchester, the Hudson Valley's takes in the C
 and most of Queens goes by its neighborhoods' postal names;
 "New York" on its own means the whole state (Manhattan is "Manhattan" or "New York County");
 a town's own ZIP codes; a county's (from NYSERDA's county field); the ZIP codes inside the
-area Photon returns for anything else (a town, county or other area is preferred over a landmark
-of a similar name); or those within about 9 km of a place Photon knows only as a point, such as
-an address or a landmark. Names match the way people write them: "St." and "Saint", "Mt" and "Mount", "the
+area Photon returns for anything else (checked the same way as on the capacity map, so a name
+Photon does not know is "not found" rather than a loose match); or those within about 9 km of a
+place Photon knows only as a point, such as an address or a landmark. A town is the ZIP codes
+whose projects give its mailing address, which can reach past the town line (Rochester's take
+in parts of Gates, Greece and Henrietta), and the answer says so. Names match the way people write them: "St." and "Saint", "Mt" and "Mount", "the
 Bronx", with or without periods and apostrophes. A ranking near a town reaches about 9 km past its ZIP codes,
 since "near Albany" means the area around it. Each answer names what it counted ("In
 Brooklyn", "On Long Island", "Most solar near Albany", "Most solar in view" when no place was

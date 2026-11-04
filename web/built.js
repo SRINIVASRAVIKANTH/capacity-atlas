@@ -268,18 +268,31 @@
   // "on Long Island", "in Albany".
   const onOrIn = (name) => (/^(long|staten|fire|shelter) island$/i.test(String(name)) ? "on" : "in");
 
-  // The best of the place search's results (Photon, over OpenStreetMap) for an area question:
-  // a town, county or other area first, then (when the question has a street number) an
-  // address, then whatever came first, such as a landmark. Only an area's own outline is used
-  // as its extent; anything else is a point, counted around it.
+  // The best of the place search's results (Photon, over OpenStreetMap) for a place Volta was
+  // asked about, or null when none is that place. Photon matches loosely: "Qwertyville, New
+  // York" returns New York City, and "Narnia" a clothing shop. So a result counts only when its
+  // name has every word that names the place (an address needs only a number or a street word), and
+  // shops do not count as places. Preferred: a town, county or other area, then an address,
+  // then a landmark ("SUNY New Paltz"). Only an area's own outline is used as its extent;
+  // anything else is a point, counted around it.
   const AREA_TYPES = ["city", "town", "village", "hamlet", "locality", "district", "county", "state", "suburb", "borough"];
+  const STREET = /\d|\b(street|st|road|rd|avenue|ave|lane|ln|drive|dr|boulevard|blvd|route|rte|highway|hwy|parkway|pkwy|turnpike|tpke)\b/i;
+  const GENERIC = new Set(["new", "york", "ny", "nys", "usa", "state", "county", "town", "city", "village", "of", "near", "in", "around"]);
   function pickPlace(features, query) {
     const points = (Array.isArray(features) ? features : []).filter((f) => f && f.geometry && f.geometry.type === "Point"
       && Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length >= 2 && f.geometry.coordinates.slice(0, 2).every(Number.isFinite));
     const props = (f) => (f.properties && typeof f.properties === "object" ? f.properties : {});
+    const wordsOf = (value) => placeKey(value).replace(/[^a-z0-9 ]/g, " ").split(" ").filter(Boolean);
+    const words = wordsOf(query).filter((w) => !GENERIC.has(w));
+    const named = (f) => {
+      const name = wordsOf(props(f).name);
+      return words.length > 0 && words.every((w) => name.some((n) => n.startsWith(w)));
+    };
     const isArea = (f) => AREA_TYPES.includes(props(f).type) || ["place", "boundary"].includes(props(f).osm_key);
     const isAddress = (f) => props(f).housenumber !== undefined || props(f).type === "street"; // landmarks are "house" too
-    const f = points.find(isArea) || (/\d/.test(String(query)) && points.find(isAddress)) || points[0];
+    const f = points.find((x) => isArea(x) && named(x))
+      || (STREET.test(String(query)) && points.find(isAddress))
+      || points.find((x) => named(x) && !isAddress(x) && props(x).osm_key !== "shop");
     if (!f) return null;
     const p = props(f);
     const e = p.extent;

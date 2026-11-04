@@ -183,7 +183,8 @@ test("the instructions cover spelling mistakes, going back to normal and asking 
   const res = await onRequest({ request: request({ question: "back to normal please" }), env: ENV });
   assert.equal((await res.json()).reset, true);
   const { system, tools } = calls[0].init.body;
-  for (const phrase of ["spelling mistakes", "reset: true", "unclear", "show_changes", "hide that"]) assert.ok(system.includes(phrase), phrase);
+  for (const phrase of ["spelling mistakes", "reset: true", "unclear", "show_changes", "hide that", "never say where they appear",
+    "reply never says that page is open"]) assert.ok(system.includes(phrase), phrase);
   assert.deepEqual(tools[0].input_schema.required.sort(), ["built", "min_mw", "nearest", "out_of_scope", "place", "reply", "reset", "section", "show_changes", "show_issues", "unclear", "utility"]);
 });
 
@@ -264,7 +265,8 @@ test("Built so far: the instructions keep numbers out of Claude's words and cove
   await onRequest({ request: request({ question: "hi", page: "built" }), env: ENV });
   const { system, tools } = calls[0].init.body;
   for (const phrase of ["Never state or guess any number", "spelling mistakes", "unclear", "out_of_scope", "Never guess a ZIP code",
-    "one at a time", "Room to connect", "timelapse \"stop\"", "Always write reply in English"]) assert.ok(system.includes(phrase), phrase);
+    "one at a time", "Room to connect", "timelapse \"stop\"", "Always write reply in English", "never say where the numbers appear",
+    "reply never says that page is open"]) assert.ok(system.includes(phrase), phrase);
   assert.deepEqual(tools[0].input_schema.required.sort(), Object.keys(BUILT).sort());
 });
 

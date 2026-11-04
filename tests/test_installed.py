@@ -162,6 +162,29 @@ def test_place_names_ignore_capitals_and_ties_are_stable():
     assert _most_common(pd.Series(["NEW CITY", "New City", "Nanuet"], dtype="string")) == "New City"
     assert _most_common(pd.Series(["Rye", "Harrison"], dtype="string")) == "Harrison"
     assert _most_common(pd.Series([None], dtype="string")) is None
+    # A short form and its full name are one place.
+    assert _most_common(pd.Series(["E HAMPTON", "East Hampton", "Sag Harbor"], dtype="string")) == "East Hampton"
+
+
+@pytest.mark.parametrize("raw, name", [
+    ("E Hampton", "East Hampton"), ("W Babylon", "West Babylon"), ("N Babylon", "North Babylon"), ("S Cairo", "South Cairo"),
+    ("Wappingrs Fls", "Wappingers Falls"), ("Pt Jeffersn", "Port Jefferson"), ("Pt Jeff Sta", "Port Jefferson Station"),
+    ("Pt Wash", "Port Washington"), ("Pt Lookout", "Point Lookout"), ("Rocky Pt", "Rocky Point"), ("Rockvle Ctr", "Rockville Centre"),
+    ("Guilderland Ctr", "Guilderland Center"), ("New Hyde Pk", "New Hyde Park"), ("Mt Sinai", "Mount Sinai"), ("Middle Is", "Middle Island"),
+    ("Thousand Isl Park", "Thousand Island Park"), ("C Moriches", "Center Moriches"), ("C Sprng Hbr", "Cold Spring Harbor"),
+    ("O Westbury", "Old Westbury"), ("Valley Strm", "Valley Stream"), ("Whampt Bch", "Westhampton Beach"), ("Olive Brdg", "Olivebridge"),
+    ("Cornwall-Hdsn", "Cornwall-on-Hudson"), ("Mc Lean", "McLean"), ("St James", "Saint James"), ("North pitcher", "North Pitcher"),
+    ("Greenvl", "Greenville"), ("Rensselaervl", "Rensselaerville"), ("Stormvl", "Stormville"), ("Brightwtrs", "Brightwaters"),
+    ("Farmngville", "Farmingville"), ("Hampt Bays", "Hampton Bays"), ("Islip Terr", "Islip Terrace"), ("Preston Holw", "Preston Hollow"),
+    ("Clinton Cors", "Clinton Corners"), ("Annandale On Hudson", "Annandale-on-Hudson"), ("Mcgraw", "McGraw"),
+    ("PAUL SMITH'S", "Paul Smiths"), ("CROTON-ON-HUDSON", "Croton-on-Hudson"), ("NEW CITY", "New City"), ("  Rye  ", "Rye"),
+    # names that are already right stay as they are
+    ("East Hampton", "East Hampton"), ("Fort Ann", "Fort Ann"), ("Van Buren Point", "Van Buren Point"), ("Penn Yan", "Penn Yan"),
+    ("Upper Jay", "Upper Jay"), ("Saint Albans", "Saint Albans"), ("De Kalb Junction", "De Kalb Junction"), ("S", "S"),
+])
+def test_place_names_spell_out_postal_short_forms(raw, name):
+    from capacity_atlas.installed import place_name
+    assert place_name(raw) == name
 
 
 def test_our_feeders_are_the_ones_with_a_value_on_the_latest_date(tmp_path):

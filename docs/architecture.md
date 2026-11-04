@@ -178,7 +178,9 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   the ZIP code's card, which explains that NYSERDA lists projects by ZIP code, not by address,
   so the circle sits at the center of the ZIP code area, with a link to the capacity map at the same place when its utility is
   there. Search runs over the ZIP codes in the page, by ZIP code or town, so nothing is sent
-  anywhere. The panel shows the state totals, the MW connected each year (the current year
+  anywhere. A ZIP code's town is the one most of its projects name. The list often uses the
+  Postal Service's short forms, cut to 13 characters ("E Hampton", "Wappingrs Fls"); the build
+  spells them out (East Hampton, Wappingers Falls), so names read and search the way people write them. The panel shows the state totals, the MW connected each year (the current year
   drawn lighter, as it is not over), each utility, how the list links to the capacity map, and
   the list's data checks. A "?" guide explains the circles, the card and the link to the
   capacity map, the same way as on the capacity map; the guide, the display menu and the card
@@ -313,13 +315,17 @@ settings (see below).
    sentence. The instructions tell the model to read through
    spelling mistakes and shorthand ("albny", "2mw", "erors") and give short worked examples.
    When it cannot tell what someone wants, it asks one short question back instead of guessing.
-3. The function cleans the result to known fields and values and returns it.
+3. The function cleans the result to known fields and values and returns it. The browser checks
+   it again the same way, so a wrong type or an unknown value can only be left out of an answer,
+   never break it.
 4. The browser applies the settings, flies to the place, waits for the map to render,
    then counts sections, miles and feeders from the data on screen, or, for a site check,
    measures the distance to the nearest line with room. A new place or size replaces the
    earlier settings; a question about a highlight alone ("any errors here?", "hide that")
    changes only that highlight; "back to normal" clears every filter, highlight and site check.
-   Asking what changed turns the data quality highlight off. In a week with nothing to
+   Asking what changed turns the data quality highlight off; asking for both at once keeps the
+   data quality highlight. A place the search cannot find, or a search that is down, is said
+   plainly, and the answer is about the current view. In a week with nothing to
    highlight, the answer says so instead of the AI's sentence, and gives the reason for each
    utility in the panel's own words.
    Every answer also points the side panel at the section it is about: the data quality or
@@ -345,18 +351,29 @@ On Built so far, Volta's tool is `set_built_view`: a place or a ZIP code, a rank
 codes near a place or in view (most solar, most connected in the last 12 months, most community solar, most
 battery storage), a year, the time-lapse (play or stop), a panel section (totals, years,
 utilities, the link to feeders, download, data quality), an offer of the capacity map for
-"where can I connect" questions, and back to today. The browser finds a town among the ZIP
-codes on the map first and asks Photon only for anything else (a county, a region, an
-address). It then counts everything from NYSERDA's files. A question about a place counts that
-place, not whatever else a wide or tall screen shows: a town's own ZIP codes; a county's (from
-NYSERDA's county field); a region's counties (Long Island is Nassau and Suffolk, New York City
-its five boroughs), since a search result's rectangle for Long Island reaches over the Sound to
-Westchester; the ZIP codes inside the area Photon returns for anything else; or those within
-about 9 km of a place Photon knows only as a point. A ranking near a town reaches about 9 km past its ZIP codes,
+"where can I connect" questions, and back to today. The browser finds a place among the ZIP
+codes on the map first and asks Photon only for anything else (an area the list does not name,
+an address). It then counts everything from NYSERDA's files. A question about a place counts that
+place, not whatever else a wide or tall screen shows: a region's or borough's counties (the
+state's ten economic development regions under the names people use, such as Long Island
+(Nassau and Suffolk), the Hudson Valley (the seven Mid-Hudson counties), the Capital Region,
+the North Country and Western New York; New York City its five boroughs; Brooklyn is Kings
+County, Queens and the Bronx their own counties), since a search result's rectangle for Long
+Island reaches over the Sound to Westchester, the Hudson Valley's takes in the Capital Region,
+and most of Queens goes by its neighborhoods' postal names;
+"New York" on its own means the whole state (Manhattan is "Manhattan" or "New York County");
+a town's own ZIP codes; a county's (from NYSERDA's county field); the ZIP codes inside the
+area Photon returns for anything else (a town, county or other area is preferred over a landmark
+of a similar name); or those within about 9 km of a place Photon knows only as a point, such as
+an address or a landmark. Names match the way people write them: "St." and "Saint", "Mt" and "Mount", "the
+Bronx", with or without periods and apostrophes. A ranking near a town reaches about 9 km past its ZIP codes,
 since "near Albany" means the area around it. Each answer names what it counted ("In
-Brooklyn", "Most solar near Albany", "Most solar in view" when no place was asked). It also
-gives a ZIP code's card, a year's solar and the total by then (the time-lapse shows that
-year, paused), or the numbers of the panel section asked about. ZIP codes in an answer open
+Brooklyn", "On Long Island", "Most solar near Albany", "Most solar in view" when no place was
+asked). It also gives a ZIP code's card, a year's solar and the total by then (the time-lapse
+shows that year, paused; for the year the list is still in, "by" its last date rather than "by
+the end of" the year; for a year the list does not cover, what the list holds instead of the
+AI's sentence), or the numbers of the panel section asked about. A year reorders only the solar
+ranking; any other ranking with a year is today's and says so. ZIP codes in an answer open
 their card when selected. A ZIP code that is not on the map, a year outside the list, or a
 place that cannot be found is said plainly, and nothing else changes.
 

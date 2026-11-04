@@ -656,7 +656,28 @@
       `${fmtInt(counts.down)} lost capacity and ${fmtInt(counts.added)} are new. Select a highlighted line to see what changed.</p>`;
   }
 
-  async function carryOut(map, plan, reply) {
+  // The server already cleans what the AI returns; the page checks again, so a wrong type or an
+  // unknown value can only be left out, never break an answer.
+  function cleanPlan(plan) {
+    const utilities = [...document.querySelectorAll("#utility-toggles input")].map((box) => box.value);
+    const tri = (v) => (v === true || v === false ? v : null);
+    return {
+      ...plan,
+      place: typeof plan.place === "string" && plan.place.trim() ? plan.place.trim() : null,
+      min_mw: Number.isFinite(plan.min_mw) && plan.min_mw > 0 ? plan.min_mw : null,
+      utility: typeof plan.utility === "string" && utilities.includes(plan.utility) ? plan.utility : null,
+      show_issues: tri(plan.show_issues),
+      show_changes: tri(plan.show_changes),
+      reset: plan.reset === true,
+      nearest: plan.nearest === true,
+      built: plan.built === true,
+      section: typeof plan.section === "string" && Object.prototype.hasOwnProperty.call(CAPACITY_SECTIONS, plan.section) ? plan.section : null,
+      reply: typeof plan.reply === "string" ? plan.reply : "",
+    };
+  }
+
+  async function carryOut(map, raw, reply) {
+    const plan = cleanPlan(raw);
     const setsView = !!(plan.place || plan.min_mw || plan.utility || plan.nearest);
     // A highlight counts as asked for when it would change something: on, or off while it is on.
     // (A model that writes false for "not mentioned" then cannot turn a plain question into a
@@ -691,8 +712,9 @@
       setChanges(map, plan.show_changes === true && plan.show_issues !== true);
     } else if (!plan.reset) {
       // Only a highlight was asked for ("any errors here?", "hide that"): the rest stays.
+      // When both are asked for, the quality highlight wins, as it does with a new place or size.
       if (plan.show_issues === true || plan.show_issues === false) setIssues(map, plan.show_issues);
-      if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes);
+      if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes && plan.show_issues !== true);
       // Asking for this week's changes replaces the quality highlight, even in a week with no
       // changes to show (the changes toggle is off then, and the answer says so).
       if (plan.show_changes === true && plan.show_issues !== true) setIssues(map, false);
@@ -703,23 +725,26 @@
     const lead = noChanges ? "There are no changes to highlight right now." : plan.reply;
     reply.innerHTML = `<p>${escapeHtml(lead)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
     let spot = null;
-    const coords = plan.place && plan.place.match(COORDS);
+    const coords = plan.place && plan.place.replace(/,\s*(new york|ny|usa)\s*$/i, "").match(COORDS); // the AI may add ", New York"
     if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
       spot = [Number(coords[2]), Number(coords[1])];
       state.flyToPlace(spot[0], spot[1], null, 12.5); // "42.65, -73.75" needs no lookup
     } else if (plan.place) {
+      const named = plan.place.replace(/,\s*(new york|ny)\s*$/i, "");
+      let missing = `I could not find ${escapeHtml(named)}, so the answer is about the current view.`;
       try {
         const [place] = await geocode(plan.place, 1);
         if (place) {
           const [lng, lat] = place.geometry.coordinates;
           spot = [lng, lat];
           state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
-        } else {
-          reply.innerHTML = `<p>${escapeHtml(lead)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
+          missing = "";
         }
       } catch (err) {
         console.warn("Place lookup failed:", err);
+        missing = `The place search is unavailable right now, so the answer is about the current view, not ${escapeHtml(named)}.`;
       }
+      if (missing) reply.innerHTML = `<p>${escapeHtml(lead)}</p><p>${missing}</p>${AtlasVolta.Volta.typing()}`;
     }
     if (plan.built) {
       // Solar already built is the other page's question: move there, then offer it.

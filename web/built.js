@@ -222,9 +222,76 @@
       });
   }
 
+  // ---------- places, for Volta ----------
+  // A place name as a key, so names match the way people and the list write them: "St. James"
+  // and "Saint James", "Mt Kisco" and "Mount Kisco", "the Bronx" and "Bronx", "Paul Smith's" and
+  // "Paul Smiths", "Croton-on-Hudson" and "Croton on Hudson". Anything that is not text is "".
+  function placeKey(value) {
+    return (typeof value === "string" ? value : "").toLowerCase()
+      .replace(/[.'\u2019]/g, "").replace(/-/g, " ").replace(/\s+/g, " ").trim()
+      .replace(/^(the|town of|city of|village of|hamlet of|borough of) /, "")
+      .replace(/\bsaint\b/g, "st").replace(/\bmount\b/g, "mt").replace(/\bfort\b/g, "ft");
+  }
+
+  // Areas people name that no town or single county covers, by their counties (as placeKey
+  // writes them; null is every county). The regions are New York State's ten economic
+  // development regions, under the names people use for them. A search result's rectangle would
+  // be wrong for most: Long Island's reaches over the Sound to Westchester, and the Hudson
+  // Valley's takes in the Capital Region. Postal town names cover only part of a borough (most of
+  // Queens goes by its neighborhoods), so boroughs are their counties too.
+  const NYC = ["new york", "kings", "queens", "bronx", "richmond"];
+  const AREAS = [
+    [["new york", "new york state", "ny", "nys", "ny state", "state of new york"], "New York State", null],
+    [["new york city", "nyc", "ny city", "new york city ny"], "New York City", NYC],
+    [["manhattan"], "Manhattan", ["new york"]],
+    [["brooklyn"], "Brooklyn", ["kings"]],
+    [["queens"], "Queens", ["queens"]],
+    [["bronx"], "the Bronx", ["bronx"]],
+    [["staten island"], "Staten Island", ["richmond"]],
+    [["long island"], "Long Island", ["nassau", "suffolk"]],
+    [["hudson valley", "mid hudson", "mid hudson valley", "hudson valley region", "mid hudson region"], "the Hudson Valley",
+      ["dutchess", "orange", "putnam", "rockland", "sullivan", "ulster", "westchester"]],
+    [["capital region", "capital district", "capital region ny"], "the Capital Region",
+      ["albany", "columbia", "greene", "rensselaer", "saratoga", "schenectady", "warren", "washington"]],
+    [["central new york", "central ny", "cny"], "Central New York", ["cayuga", "cortland", "madison", "onondaga", "oswego"]],
+    [["finger lakes", "finger lakes region"], "the Finger Lakes",
+      ["genesee", "livingston", "monroe", "ontario", "orleans", "seneca", "wayne", "wyoming", "yates"]],
+    [["mohawk valley"], "the Mohawk Valley", ["fulton", "herkimer", "montgomery", "oneida", "otsego", "schoharie"]],
+    [["north country"], "the North Country", ["clinton", "essex", "franklin", "hamilton", "jefferson", "lewis", "st lawrence"]],
+    [["southern tier"], "the Southern Tier", ["broome", "chemung", "chenango", "delaware", "schuyler", "steuben", "tioga", "tompkins"]],
+    [["western new york", "western ny", "wny"], "Western New York", ["allegany", "cattaraugus", "chautauqua", "erie", "niagara"]],
+  ];
+  const AREA_BY_KEY = new Map(AREAS.flatMap(([keys, label, counties]) => keys.map((k) => [k, { label, counties }])));
+  // The area for a place key, or null: { label, counties }.
+  const namedArea = (key) => AREA_BY_KEY.get(key) || null;
+
+  // "on Long Island", "in Albany".
+  const onOrIn = (name) => (/^(long|staten|fire|shelter) island$/i.test(String(name)) ? "on" : "in");
+
+  // The best of the place search's results (Photon, over OpenStreetMap) for an area question:
+  // a town, county or other area first, then (when the question has a street number) an
+  // address, then whatever came first, such as a landmark. Only an area's own outline is used
+  // as its extent; anything else is a point, counted around it.
+  const AREA_TYPES = ["city", "town", "village", "hamlet", "locality", "district", "county", "state", "suburb", "borough"];
+  function pickPlace(features, query) {
+    const points = (Array.isArray(features) ? features : []).filter((f) => f && f.geometry && f.geometry.type === "Point"
+      && Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length >= 2 && f.geometry.coordinates.slice(0, 2).every(Number.isFinite));
+    const props = (f) => (f.properties && typeof f.properties === "object" ? f.properties : {});
+    const isArea = (f) => AREA_TYPES.includes(props(f).type) || ["place", "boundary"].includes(props(f).osm_key);
+    const isAddress = (f) => props(f).housenumber !== undefined || props(f).type === "street"; // landmarks are "house" too
+    const f = points.find(isArea) || (/\d/.test(String(query)) && points.find(isAddress)) || points[0];
+    if (!f) return null;
+    const p = props(f);
+    const e = p.extent;
+    const extent = isArea(f) && Array.isArray(e) && e.length === 4 && e.every(Number.isFinite)
+      ? [Math.min(e[0], e[2]), Math.min(e[1], e[3]), Math.max(e[0], e[2]), Math.max(e[1], e[3])] : null; // Photon: [west, north, east, south]
+    const name = typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 60) : null;
+    return { center: f.geometry.coordinates.slice(0, 2), extent, name };
+  }
+
   const api = {
     fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars, cleanSummary,
-    cleanYears, yearValues, parseZipLink, ZIP_COLUMNS, zipRows,
+    cleanYears, yearValues, parseZipLink, ZIP_COLUMNS, zipRows, placeKey, namedArea, onOrIn, pickPlace,
   };
   root.AtlasBuilt = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

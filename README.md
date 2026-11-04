@@ -120,7 +120,7 @@ feeders with a published capacity have solar on record. The list's own checks ar
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 📈 | **Capacity history** | Each feeder's highest capacity is tracked week by week. The feeder card draws the trend, and a line's card says whether its feeder is filling up |
 | 🕰️ | **Snapshot archive** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
-| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place, "hide that" or "back to normal" undo, spelling mistakes are understood, and an unclear question gets a question back. On Built so far, ask "Which ZIP codes near Albany have the most solar?" or "How much solar was there in 2015?" and it ranks, opens cards or shows that year. On both pages the side panel opens at the section an answer is about |
+| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place, "hide that" or "back to normal" undo, spelling mistakes are understood, and an unclear question gets a question back. On Built so far, ask "Which ZIP codes near Albany have the most solar?", "How much solar is on Long Island?" or "How much solar was there in 2015?" and it ranks, counts the place's own ZIP codes (towns, counties, boroughs and the state's regions) or shows that year. On both pages the side panel opens at the section an answer is about |
 | 📜 | **Data sources and terms** | One page, linked from the map's credits, its panel and every card, credits each source, shows each source's disclaimer in its own words, and sets out the site's terms of use, privacy, copyright and security |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
@@ -221,7 +221,7 @@ Pages, and it reads only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (58 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (171 tests, 90% coverage), Node test runner (62 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
 
 ---
 

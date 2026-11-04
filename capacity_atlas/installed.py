@@ -209,9 +209,50 @@ def _month(value) -> str | None:
     return None if pd.isna(value) else pd.Timestamp(value).strftime("%Y-%m")
 
 
+# The list often uses the Postal Service's short forms of long place names, cut to fit 13
+# characters ("Wappingrs Fls", "E Hampton"). They are spelled out, so the map, its search and
+# Volta read and match places the way people write them. Names that a rule would get wrong are
+# listed whole; the rest are single words.
+_PLACE_NAMES = {
+    "Atlntic Bch": "Atlantic Beach", "Brightwtrs": "Brightwaters", "C Moriches": "Center Moriches",
+    "C Sprng Hbr": "Cold Spring Harbor", "Cornwall-Hdsn": "Cornwall-on-Hudson", "Far Rockwy": "Far Rockaway",
+    "Farmngville": "Farmingville", "Glenwd Ldg": "Glenwood Landing", "Hampt Bays": "Hampton Bays",
+    "Mass Pk": "Massapequa Park", "Mc Lean": "McLean", "Mcgraw": "McGraw", "O Bethpage": "Old Bethpage",
+    "O Westbury": "Old Westbury", "Olive Brdg": "Olivebridge", "Paul Smith's": "Paul Smiths",
+    "Pt Jeff Sta": "Port Jefferson Station", "Pt Jeffersn": "Port Jefferson", "Pt Lookout": "Point Lookout",
+    "Pt Wash": "Port Washington", "Rockvle Ctr": "Rockville Centre", "Rockwy Pt": "Rockaway Point",
+    "Wappingrs Fls": "Wappingers Falls", "Whampt Bch": "Westhampton Beach", "Willistn Pk": "Williston Park",
+}
+_PLACE_WORDS = {
+    "Bch": "Beach", "Brdg": "Bridge", "Cntrl": "Central", "Cors": "Corners", "Ctr": "Center", "Fls": "Falls", "Hbr": "Harbor",
+    "Hdsn": "Hudson", "Hgts": "Heights", "Holw": "Hollow", "Hts": "Heights", "Isl": "Island", "Jct": "Junction", "Jctn": "Junction",
+    "Ldg": "Landing", "Lk": "Lake", "Mls": "Mills", "Mt": "Mount", "Pk": "Park", "Pl": "Place", "Plns": "Plains",
+    "Riv": "River", "Spgs": "Springs", "Sprng": "Spring", "Sq": "Square", "Sta": "Station", "Strm": "Stream",
+    "Terr": "Terrace", "Tvrn": "Tavern", "Vly": "Valley",
+}
+_PLACE_FIRST = {"E": "East", "N": "North", "S": "South", "St": "Saint", "W": "West"}  # only as the first word
+_PLACE_LAST = {"Is": "Island", "Pt": "Point"}                                         # only as the last word
+
+
 def place_name(value: str) -> str:
-    """Some rows are in capitals ("NEW CITY"), most are not ("New City"): count them as one."""
-    return value.title() if value.isupper() else value
+    """A place name as people write it.
+
+    Some rows are in capitals ("NEW CITY"), most are not ("New City"): they count as one. Postal
+    short forms are spelled out ("E Hampton" is East Hampton, "Wappingrs Fls" Wappingers Falls,
+    "Greenvl" Greenville).
+    """
+    name = " ".join(value.split())
+    if name.isupper():
+        name = name.title().replace("'S", "'s")                 # "PAUL SMITH'S", not "Paul Smith'S"
+    name = name.replace("-On-", "-on-").replace(" On Hudson", "-on-Hudson")   # "Croton-on-Hudson"
+    if name in _PLACE_NAMES:
+        return _PLACE_NAMES[name]
+    words = [w[:1].upper() + w[1:] if w.islower() and len(w) > 2 else w for w in name.split(" ")]  # "North pitcher"
+    if len(words) > 1:
+        words[0] = _PLACE_FIRST.get(words[0], words[0])
+        words[-1] = _PLACE_LAST.get(words[-1], words[-1])
+    words = [w[:-2] + "ville" if w.endswith("vl") and len(w) > 4 else w for w in words]  # "Greenvl", "Stormvl"
+    return " ".join(_PLACE_WORDS.get(w, w) for w in words)
 
 
 def _most_common(values: pd.Series, tidy: Callable[[str], str] = place_name) -> str | None:

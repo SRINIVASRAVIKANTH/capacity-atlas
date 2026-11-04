@@ -165,3 +165,61 @@ test("the download holds the ZIP codes in view, in plain units, in a stable orde
   assert.deepEqual(b.zipRows(null), []);
   assert.equal(b.ZIP_COLUMNS.length, Object.keys(all[0]).length);
 });
+
+test("place names match the way people write them", () => {
+  for (const [one, other] of [["St. James", "Saint James"], ["Mt Kisco", "Mount Kisco"], ["the Bronx", "Bronx"], ["Paul Smith's", "Paul Smiths"],
+    ["Croton-on-Hudson", "Croton On Hudson"], ["  ALBANY ", "albany"], ["Town of Hempstead", "Hempstead"], ["Ft. Edward", "Fort Edward"],
+    ["St. Lawrence", "St Lawrence"], ["Paul Smith’s", "Paul Smiths"]]) {
+    assert.equal(b.placeKey(one), b.placeKey(other), `${one} / ${other}`);
+  }
+  for (const bad of [null, undefined, 42, {}, ["x"]]) assert.equal(b.placeKey(bad), "");
+  assert.notEqual(b.placeKey("Long Island City"), b.placeKey("Long Island"));
+});
+
+test("regions and boroughs are their counties; New York alone is the state", () => {
+  assert.deepEqual(b.namedArea("long island"), { label: "Long Island", counties: ["nassau", "suffolk"] });
+  assert.deepEqual(b.namedArea(b.placeKey("The Bronx")).counties, ["bronx"]);
+  assert.deepEqual(b.namedArea("queens").counties, ["queens"]);
+  assert.deepEqual(b.namedArea("brooklyn").counties, ["kings"]);
+  assert.deepEqual(b.namedArea("staten island").counties, ["richmond"]);
+  assert.equal(b.namedArea("nyc").counties.length, 5);
+  for (const k of ["new york", "ny", "new york state", "nys"]) assert.deepEqual(b.namedArea(k), { label: "New York State", counties: null });
+  assert.equal(b.namedArea(b.placeKey("Mid-Hudson")).label, "the Hudson Valley");
+  assert.deepEqual(b.namedArea("hudson valley").counties.sort(), ["dutchess", "orange", "putnam", "rockland", "sullivan", "ulster", "westchester"]);
+  assert.ok(!b.namedArea("hudson valley").counties.includes("albany"));
+  assert.ok(b.namedArea("capital region").counties.includes("albany"));
+  assert.ok(b.namedArea("north country").counties.includes("st lawrence"));
+  assert.deepEqual(b.namedArea("wny").counties, ["allegany", "cattaraugus", "chautauqua", "erie", "niagara"]);
+  // the ten regions cover all 62 counties exactly once
+  const counties = ["long island", "new york city", "hudson valley", "capital region", "central new york", "finger lakes",
+    "mohawk valley", "north country", "southern tier", "western new york"].flatMap((k) => b.namedArea(k).counties);
+  assert.equal(counties.length, 62);
+  assert.equal(new Set(counties).size, 62);
+  for (const k of ["albany", "", "rochester", "toString", "__proto__", "constructor"]) assert.equal(b.namedArea(k), null);
+});
+
+test("on Long Island, in Albany", () => {
+  assert.equal(b.onOrIn("Long Island"), "on");
+  assert.equal(b.onOrIn("Staten Island"), "on");
+  assert.equal(b.onOrIn("Long Island City"), "in");
+  assert.equal(b.onOrIn("Middle Island"), "in");
+  assert.equal(b.onOrIn("Albany"), "in");
+});
+
+test("the place search's best result for an area question", () => {
+  const pt = (x, y, props) => ({ type: "Feature", geometry: { type: "Point", coordinates: [x, y] }, properties: props });
+  const poi = pt(-73.8, 42.7, { name: "Capital Region Welcome Center", osm_key: "tourism", type: "house", extent: [-73.81, 42.71, -73.79, 42.69] });
+  const city = pt(-73.75, 42.65, { name: "Albany", osm_key: "place", type: "city", extent: [-73.9, 42.8, -73.7, 42.6] });
+  // an area beats a landmark listed first, and its extent becomes [west, south, east, north]
+  assert.deepEqual(b.pickPlace([poi, city], "Albany"), { center: [-73.75, 42.65], extent: [-73.9, 42.6, -73.7, 42.8], name: "Albany" });
+  // a landmark alone is a point: its tiny extent is not used
+  assert.deepEqual(b.pickPlace([poi], "welcome center"), { center: [-73.8, 42.7], extent: null, name: "Capital Region Welcome Center" });
+  // an address wins when the question has a street number
+  const house = pt(-73.76, 42.66, { name: "100 State St", type: "house", housenumber: "100" });
+  assert.equal(b.pickPlace([poi, house], "100 State St, Albany").name, "100 State St");
+  // broken results are skipped, nothing usable is null
+  assert.equal(b.pickPlace([pt(NaN, 1, {}), { geometry: { type: "Polygon" } }, null], "x"), null);
+  assert.equal(b.pickPlace(null, "x"), null);
+  assert.deepEqual(b.pickPlace([pt(-74, 41, null)], "x"), { center: [-74, 41], extent: null, name: null });
+  assert.equal(b.pickPlace([pt(-74, 41, { type: "county", name: "Ulster County", extent: [1, 2, "x", 4] })], "x").extent, null);
+});

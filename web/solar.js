@@ -706,16 +706,19 @@
   //   exact: a county or region, whose own ZIP codes are the whole answer, rankings included.
   // Returns null when the place cannot be found.
   async function goToPlace(map, name) {
-    const asked = name.replace(/,\s*(new york|ny)\s*$/i, "").trim();
-    const town = asked.toLowerCase();
+    const town = placeKey(name.replace(/,\s*(new york|ny)\s*$/i, ""));
+    if (!town) return null;
     const countyName = town.replace(/\s+county$/, "");
-    const lower = (v) => (typeof v === "string" ? v.toLowerCase() : "");
-    const byCounty = (names) => state.features.filter((f) => names.includes(lower(f.properties.county)));
+    const byCounty = (names) => state.features.filter((f) => !names || names.includes(placeKey(f.properties.county)));
     const go = (zips, label, exact) => {
       const xs = zips.map((f) => f.geometry.coordinates[0]), ys = zips.map((f) => f.geometry.coordinates[1]);
       const bounds = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
       map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 90, maxZoom: 11.5, duration: 1200 });
       return { name: label, zips, bounds, near: false, exact };
+    };
+    const near = ([x, y], label) => {
+      map.flyTo({ center: [x, y], zoom: 10.5, duration: 1200 });
+      return { name: label, zips: null, bounds: [x - NEAR_DEG * 1.35, y - NEAR_DEG, x + NEAR_DEG * 1.35, y + NEAR_DEG], near: true };
     };
     const countyLabel = (zips) => `${zips[0].properties.county} County`;
     // "Suffolk County": the county, even where a town shares its name.
@@ -723,36 +726,32 @@
       const zips = byCounty([countyName]);
       if (zips.length) return go(zips, countyLabel(zips), true);
     }
-    const towns = state.features.filter((f) => lower(f.properties.place) === town);
-    if (towns.length) return go(towns, towns[0].properties.place, false);
-    // Regions people name that no single town or county covers, by their counties. A shape from
-    // the place search would be a rectangle: Long Island's reaches over the Sound to Westchester.
-    const region = REGIONS[town];
+    // The state, regions and boroughs, by their counties (built.js says why).
+    const region = B.namedArea(town);
     if (region) {
       const zips = byCounty(region.counties);
       if (zips.length) return go(zips, region.label, true);
     }
+    const towns = state.features.filter((f) => placeKey(f.properties.place) === town);
+    if (towns.length) return go(towns, towns[0].properties.place, false);
     const counties = byCounty([countyName]);
     if (counties.length) return go(counties, countyLabel(counties), true);
+    // Coordinates ("42.65, -73.75") need no lookup: a point, counted around it.
+    const c = name.replace(/,\s*(new york|ny|usa)\s*$/i, "").match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if (c && Math.abs(c[1]) <= 90 && Math.abs(c[2]) <= 180) return near([Number(c[2]), Number(c[1])], `${c[1]}, ${c[2]}`);
     try {
-      const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=1&lang=en&bbox=${NY_BBOX.join(",")}`;
+      const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=5&lang=en&bbox=${NY_BBOX.join(",")}`;
       const response = await fetch(url, { signal: withTimeout(10000) });
       if (!response.ok) throw new Error("HTTP " + response.status);
-      const place = ((await response.json()).features || []).find((f) => f.geometry && f.geometry.type === "Point"
-        && f.geometry.coordinates.every(Number.isFinite));
+      const place = B.pickPlace((await response.json()).features, name);
       if (!place) return null;
-      const props = place.properties || {};
-      const label = typeof props.name === "string" && props.name.trim() ? props.name.trim().slice(0, 60) : name.replace(/,\s*(new york|ny)\s*$/i, "");
-      const extent = props.extent;
-      if (Array.isArray(extent) && extent.length === 4 && extent.every(Number.isFinite)) {
-        // Photon's extent is [west, north, east, south].
-        const bounds = [Math.min(extent[0], extent[2]), Math.min(extent[1], extent[3]), Math.max(extent[0], extent[2]), Math.max(extent[1], extent[3])];
+      const label = place.name || name.replace(/,\s*(new york|ny)\s*$/i, "");
+      if (place.extent) {
+        const bounds = place.extent;
         map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 60, maxZoom: 11, duration: 1200 });
         return { name: label, zips: null, bounds, near: false };
       }
-      const [x, y] = place.geometry.coordinates;
-      map.flyTo({ center: [x, y], zoom: 10.5, duration: 1200 });
-      return { name: label, zips: null, bounds: [x - NEAR_DEG * 1.35, y - NEAR_DEG, x + NEAR_DEG * 1.35, y + NEAR_DEG], near: true };
+      return near(place.center, label);
     } catch (err) {
       console.warn("Place lookup failed:", err);
       return null;
@@ -761,24 +760,19 @@
 
   // About 9 km: "around" a place that is only a point, and the margin "near" a town reaches.
   const NEAR_DEG = 0.08;
-  const NYC = ["new york", "kings", "queens", "bronx", "richmond"];
-  const REGIONS = {
-    "long island": { label: "Long Island", counties: ["nassau", "suffolk"] },
-    "new york city": { label: "New York City", counties: NYC },
-    "nyc": { label: "New York City", counties: NYC },
-    "manhattan": { label: "Manhattan", counties: ["new york"] },
-  };
+  const { placeKey, onOrIn } = B;
   const inBounds = (b, [x, y]) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
-  // The ZIP codes an answer counts, and how to name them. Without a place, the ZIP codes in view.
+  // The ZIP codes an answer counts, and how to name them (as plain text; escape it where it goes
+  // into HTML). Without a place, the ZIP codes in view.
   //   rank  a ranking ("which ZIP codes near Albany"): a town reaches a little past its own ZIP
   //         codes, since people mean the area around it.
   function areaFeatures(map, area, rank = false) {
     if (!area) return { features: featuresInView(map), where: "in view" };
-    const named = escapeHtml(area.name);
-    if (area.zips && (!rank || area.exact)) return { features: area.zips, where: `in ${named}` };
+    const named = `${onOrIn(area.name)} ${area.name}`;
+    if (area.zips && (!rank || area.exact)) return { features: area.zips, where: named };
     const b = area.zips ? [area.bounds[0] - NEAR_DEG * 1.35, area.bounds[1] - NEAR_DEG, area.bounds[2] + NEAR_DEG * 1.35, area.bounds[3] + NEAR_DEG] : area.bounds;
     const features = state.features.filter((f) => inBounds(b, f.geometry.coordinates));
-    return { features, where: area.zips || area.near ? `near ${named}` : `in ${named}` };
+    return { features, where: area.zips || area.near ? `near ${area.name}` : named };
   }
 
   const settle = (map) => new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
@@ -792,10 +786,10 @@
 
   function describeArea(map, area) {
     const { features: fs, where } = areaFeatures(map, area);
-    if (!fs.length) return `<p>No ZIP codes with solar ${where} on NYSERDA's list.</p>`;
+    if (!fs.length) return `<p>No ZIP codes with solar ${escapeHtml(where)} on NYSERDA's list.</p>`;
     const sum = (key) => fs.reduce((total, f) => total + (Number.isFinite(f.properties[key]) ? f.properties[key] : 0), 0);
     const top = [...fs].sort((a, b) => b.properties.kw - a.properties.kw).slice(0, 3).map((f) => [f.properties, fmtPower(f.properties.kw)]);
-    const lead = where.charAt(0).toUpperCase() + where.slice(1);
+    const lead = escapeHtml(where.charAt(0).toUpperCase() + where.slice(1));
     return `<p>${lead}: <strong>${fmtPower(sum("kw"))}</strong> from <strong>${plural(sum("n"), "system", "systems")}</strong> in ` +
       `${plural(fs.length, "ZIP code", "ZIP codes")}, with <strong>${fmtPower(sum("r12"))}</strong> connected in the last 12 months.</p>` +
       (fs.length > 1 ? topList(`Most solar ${where}`, top) : topList("ZIP code", top));
@@ -818,8 +812,17 @@
     const { features, where } = areaFeatures(map, area, true);
     const rows = features.map((f) => f.properties).filter((p) => value(p) > 0)
       .sort((a, b) => value(b) - value(a)).slice(0, 5).map((p) => [p, words(p)]);
-    if (!rows.length) return `<p>No ZIP codes ${where} have ${r.none}${index >= 0 ? ` by the end of ${year}` : ""}.${area ? "" : " Try zooming out."}</p>`;
-    return topList(index >= 0 ? `Most solar ${where} by the end of ${year}` : `${r.label} ${where}`, rows) + "<p class=\"msg-sub\">Select a ZIP code to open its card.</p>";
+    if (!rows.length) return `<p>No ZIP codes ${escapeHtml(where)} have ${r.none}${index >= 0 ? ` ${byEndOf(year)}` : ""}.${area ? "" : " Try zooming out."}</p>`;
+    // A year only reorders the solar ranking; any other ranking (or a year not on the list) is today's, and says so.
+    const label = index >= 0 ? `Most solar ${where} ${byEndOf(year)}` : `${r.label} ${where}${year ? " today" : ""}`;
+    return topList(label, rows) + "<p class=\"msg-sub\">Select a ZIP code to open its card.</p>";
+  }
+
+  // "by the end of 2015", or "by Oct 31, 2026" for the year the list is still in (plain text).
+  function byEndOf(year) {
+    const through = state.summary && state.summary.data_through;
+    return through && Number(through.slice(0, 4)) === year && !through.endsWith("-12-31")
+      ? `by ${B.fmtDay(through)}` : `by the end of ${year}`;
   }
 
   function describeZip(p) {
@@ -827,14 +830,23 @@
       `<strong>${plural(p.n, "system", "systems")}</strong>${p.r12 > 0 ? `, ${fmtPower(p.r12)} of it in the last 12 months` : ""}. Its card is open on the map.</p>`;
   }
 
+  // The years NYSERDA's list covers, or null before the summary loads.
+  function listYears() {
+    const s = state.summary;
+    if (!s || !s.by_year.length) return null;
+    const through = s.data_through;
+    return { first: s.by_year[0].year, last: through ? Number(through.slice(0, 4)) : s.by_year[s.by_year.length - 1].year };
+  }
+
   function describeYear(map, year, area) {
     const s = state.summary;
-    if (!s || !s.by_year.length) return "<p>The yearly totals could not be loaded. Try refreshing in a minute.</p>";
-    const first = s.by_year[0].year;
+    const span = listYears();
+    if (!span) return "<p>The yearly totals could not be loaded. Try refreshing in a minute.</p>";
+    const { first, last } = span;
     const through = s.data_through;
-    const last = through ? Number(through.slice(0, 4)) : s.by_year[s.by_year.length - 1].year;
     if (year < first || year > last) {
-      return `<p>NYSERDA's list runs from ${first} to ${through ? escapeHtml(B.fmtDay(through)) : last}, so ${year} is not on it.</p>`;
+      const holds = `NYSERDA's list holds solar already connected, from ${first} to ${through ? escapeHtml(B.fmtDay(through)) : last}`;
+      return `<p>${holds}, so ${year > last ? `it has nothing for ${year} yet` : `${year} is not on it`}.</p>`;
     }
     const row = s.by_year.find((y) => y.year === year);
     const partial = through && year === last && !through.endsWith("-12-31");
@@ -849,7 +861,7 @@
     if (index >= 0 && area) {
       const { features, where } = areaFeatures(map, area);
       const kw = features.reduce((total, f) => total + ((tl.data.zips.get(f.properties.zip) || [])[index] || 0), 0);
-      html += `<p>${where.charAt(0).toUpperCase() + where.slice(1)}: <strong>${fmtPower(kw)}</strong> by the end of ${year}.</p>`;
+      html += `<p>${escapeHtml(where.charAt(0).toUpperCase() + where.slice(1))}: <strong>${fmtPower(kw)}</strong> ${byEndOf(year)}.</p>`;
     }
     if (index >= 0) html += "<p class=\"msg-sub\">The map shows that year. Press play at the top to watch the rest, or X to go back to today.</p>";
     return html;
@@ -899,10 +911,34 @@
       '<p><button class="d-action" type="button" data-capacity>Open Room to connect here</button></p>';
   }
 
-  async function carryOut(map, plan, reply) {
+  // The server already cleans what the AI returns; the page checks again, so a wrong type or an
+  // unknown value can only be left out, never break an answer.
+  const known = (table, value) => typeof value === "string" && Object.prototype.hasOwnProperty.call(table, value);
+  function cleanPlan(plan) {
+    const place = typeof plan.place === "string" ? plan.place.trim() : "";
+    return {
+      ...plan,
+      place: placeKey(place.replace(/,\s*(new york|ny)\s*$/i, "")) ? place : null,
+      zip: typeof plan.zip === "string" && /^\d{5}$/.test(plan.zip) ? plan.zip : null,
+      rank: known(RANKED, plan.rank) ? plan.rank : null,
+      year: Number.isInteger(plan.year) ? plan.year : null,
+      timelapse: plan.timelapse === "play" || plan.timelapse === "stop" ? plan.timelapse : null,
+      section: known(BUILT_SECTIONS, plan.section) ? plan.section : null,
+      capacity: plan.capacity === true,
+      reset: plan.reset === true,
+      reply: typeof plan.reply === "string" ? plan.reply : "",
+    };
+  }
+
+  async function carryOut(map, raw, reply) {
+    const plan = cleanPlan(raw);
     const tl = state.timelapse;
     const add = (html) => { if (html) reply.insertAdjacentHTML("beforeend", html); };
-    reply.innerHTML = plan.reply ? `<p>${escapeHtml(plan.reply)}</p>` : "";
+    // A year the list does not cover: the AI's sentence may promise that the map shows it, so
+    // the answer says what the list holds instead (describeYear).
+    const span = listYears();
+    const offList = plan.year && span && (plan.year < span.first || plan.year > span.last);
+    reply.innerHTML = plan.reply && !offList ? `<p>${escapeHtml(plan.reply)}</p>` : "";
     const acts = plan.reset || plan.zip || plan.place || plan.rank || plan.year || plan.timelapse || plan.section || plan.capacity;
     if (!acts) {
       // A general question: words only, and the map stays as it is.
@@ -939,7 +975,7 @@
         if (tl && !keepYear) tl.stop();
         area = await goToPlace(map, plan.place);
         moved = !!area;
-        if (!moved) add(`<p>I could not find ${escapeHtml(plan.place.replace(/, New York$/i, ""))}, so I kept the current view.</p>`);
+        if (!moved) add(`<p>I could not find ${escapeHtml(plan.place.replace(/,\s*(new york|ny)\s*$/i, ""))}, so I kept the current view.</p>`);
       }
       if ((plan.rank || plan.capacity) && tl && !plan.year) tl.stop(); // rankings and the capacity map are about today
       // When.
@@ -954,7 +990,7 @@
         if (tl && tl.active && plan.year) {
           const index = tl.data.years.indexOf(plan.year);
           const kw = index >= 0 ? (tl.data.zips.get(zipFeature.properties.zip) || [])[index] || 0 : null;
-          if (kw !== null) add(`<p>ZIP code <strong>${escapeHtml(zipFeature.properties.zip)}</strong>: <strong>${fmtPower(kw)}</strong> by the end of ${plan.year}.</p>`);
+          if (kw !== null) add(`<p>ZIP code <strong>${escapeHtml(zipFeature.properties.zip)}</strong>: <strong>${fmtPower(kw)}</strong> ${byEndOf(plan.year)}.</p>`);
         } else {
           select(map, zipFeature);
           add(describeZip(zipFeature.properties));

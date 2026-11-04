@@ -28,7 +28,7 @@ test("turns a question into clean map settings and sends the key only to Anthrop
   const calls = fakeClaude({ place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, reply: "Lines near Albany with at least 2 MW.", out_of_scope: false });
   const res = await onRequest({ request: request({ question: "Where near Albany can I connect 2 MW?" }), env: ENV });
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, show_changes: null, reset: false, nearest: false, section: null, reply: "Lines near Albany with at least 2 MW.", unclear: false, out_of_scope: false });
+  assert.deepEqual(await res.json(), { place: "Albany, New York", min_mw: 2, utility: null, show_issues: false, show_changes: null, reset: false, nearest: false, built: false, section: null, reply: "Lines near Albany with at least 2 MW.", unclear: false, out_of_scope: false });
   assert.equal(calls[0].url, "https://api.anthropic.com/v1/messages");
   assert.equal(calls[0].init.headers["x-api-key"], "test-key");
   assert.equal(calls[0].init.body.tool_choice.name, "set_map_view");
@@ -36,7 +36,7 @@ test("turns a question into clean map settings and sends the key only to Anthrop
 
 test("sanitize drops unknown utilities and impossible sizes", () => {
   const out = sanitize({ place: "  ", min_mw: -3, utility: "con_ed", show_issues: "yes", reply: 5, extra: "x" });
-  assert.deepEqual(out, { place: null, min_mw: null, utility: null, show_issues: null, show_changes: null, reset: false, nearest: false, section: null, reply: "", unclear: false, out_of_scope: false });
+  assert.deepEqual(out, { place: null, min_mw: null, utility: null, show_issues: null, show_changes: null, reset: false, nearest: false, built: false, section: null, reply: "", unclear: false, out_of_scope: false });
 });
 
 test("refuses other websites, other methods, empty and long questions", async () => {
@@ -109,7 +109,7 @@ test("every response is JSON that browsers will not sniff as something else", as
 
 test("whatever Claude returns, only known fields and values reach the browser", () => {
   const out = sanitize({ place: "<img src=x onerror=alert(1)>", min_mw: 1e9, utility: "national_grid_ny_pv", show_issues: true, reply: "x".repeat(1000), out_of_scope: false, html: "<script>" });
-  assert.deepEqual(Object.keys(out).sort(), ["min_mw", "nearest", "out_of_scope", "place", "reply", "reset", "section", "show_changes", "show_issues", "unclear", "utility"]);
+  assert.deepEqual(Object.keys(out).sort(), ["built", "min_mw", "nearest", "out_of_scope", "place", "reply", "reset", "section", "show_changes", "show_issues", "unclear", "utility"]);
   assert.equal(out.min_mw, null);
   assert.equal(out.reply.length, 300);
   assert.equal(out.utility, "national_grid_ny_pv");
@@ -149,7 +149,7 @@ test("history from the browser is checked like a question; bad turns are dropped
   assert.deepEqual(cleanHistory([null, 5, { question: 7 }, { question: "x".repeat(301), plan: {} }, { question: "no plan" }]), []);
   const cleaned = cleanHistory([good, good, good, good, { question: " Kingston ", plan: { utility: "con_ed", min_mw: -1, reply: "<b>", extra: 1 } }]);
   assert.equal(cleaned.length, 3); // only the last three turns
-  assert.deepEqual(cleaned[2], { question: "Kingston", settings: { place: null, min_mw: null, utility: null, show_issues: null, show_changes: null, reset: false, nearest: false, section: null } });
+  assert.deepEqual(cleaned[2], { question: "Kingston", settings: { place: null, min_mw: null, utility: null, show_issues: null, show_changes: null, reset: false, nearest: false, built: false, section: null } });
   assert.equal(buildMessages([], "hi").length, 1); // no history: a single question, as before
 });
 
@@ -184,7 +184,7 @@ test("the instructions cover spelling mistakes, going back to normal and asking 
   assert.equal((await res.json()).reset, true);
   const { system, tools } = calls[0].init.body;
   for (const phrase of ["spelling mistakes", "reset: true", "unclear", "show_changes", "hide that"]) assert.ok(system.includes(phrase), phrase);
-  assert.deepEqual(tools[0].input_schema.required.sort(), ["min_mw", "nearest", "out_of_scope", "place", "reply", "reset", "section", "show_changes", "show_issues", "unclear", "utility"]);
+  assert.deepEqual(tools[0].input_schema.required.sort(), ["built", "min_mw", "nearest", "out_of_scope", "place", "reply", "reset", "section", "show_changes", "show_issues", "unclear", "utility"]);
 });
 
 test("earlier turns keep their highlight and reset settings, so 'hide that' has context", () => {
@@ -273,4 +273,10 @@ test("Built so far: the same limits, origin check and calm errors as the capacit
   assert.equal((await onRequest({ request: request({ question: "hi", page: "built" }), env: ENV })).status, 502);
   assert.equal((await onRequest({ request: request({ question: "hi", page: "built" }, { origin: "https://evil.example" }), env: ENV })).status, 403);
   assert.equal((await onRequest({ request: request({ question: "x".repeat(301), page: "built" }), env: ENV })).status, 400);
+});
+
+test("on the capacity map, a question about solar already built offers the Built so far page", () => {
+  assert.equal(sanitize({ built: true }).built, true);
+  for (const bad of ["true", 1, null, undefined]) assert.equal(sanitize({ built: bad }).built, false);
+  assert.equal(cleanHistory([{ question: "how much solar is built in Albany", plan: { place: "Albany, New York", built: true } }])[0].settings.built, true);
 });

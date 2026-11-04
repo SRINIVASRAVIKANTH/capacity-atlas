@@ -221,7 +221,7 @@ Pages, and it reads only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (57 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (58 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
 
 ---
 

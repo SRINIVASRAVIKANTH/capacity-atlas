@@ -699,31 +699,58 @@
 
   // Where a place is: a town on the map first (its ZIP codes, found in the browser), then the
   // same place search as the capacity map (Photon, over OpenStreetMap) for anything else.
+  // Moves the map to a place and returns the area the answer counts, so the numbers are about
+  // the place and not about whatever else a wide or tall screen happens to show:
+  //   { name, zips, bounds, near }  zips: the ZIP codes named after the town (or null);
+  //   bounds: [west, south, east, north]; near: the place is a point, counted around it.
+  // Returns null when the place cannot be found.
   async function goToPlace(map, name) {
     const town = name.replace(/,\s*(new york|ny)\s*$/i, "").trim().toLowerCase();
     const towns = state.features.filter((f) => typeof f.properties.place === "string" && f.properties.place.toLowerCase() === town);
     if (towns.length) {
       const xs = towns.map((f) => f.geometry.coordinates[0]), ys = towns.map((f) => f.geometry.coordinates[1]);
-      map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 90, maxZoom: 11.5, duration: 1200 });
-      return true;
+      const bounds = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+      map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 90, maxZoom: 11.5, duration: 1200 });
+      return { name: towns[0].properties.place, zips: towns, bounds, near: false };
     }
     try {
       const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=1&lang=en&bbox=${NY_BBOX.join(",")}`;
       const response = await fetch(url, { signal: withTimeout(10000) });
       if (!response.ok) throw new Error("HTTP " + response.status);
-      const place = ((await response.json()).features || []).find((f) => f.geometry && f.geometry.type === "Point");
-      if (!place) return false;
-      const extent = place.properties && place.properties.extent;
+      const place = ((await response.json()).features || []).find((f) => f.geometry && f.geometry.type === "Point"
+        && f.geometry.coordinates.every(Number.isFinite));
+      if (!place) return null;
+      const props = place.properties || {};
+      const label = typeof props.name === "string" && props.name.trim() ? props.name.trim().slice(0, 60) : name.replace(/,\s*(new york|ny)\s*$/i, "");
+      const extent = props.extent;
       if (Array.isArray(extent) && extent.length === 4 && extent.every(Number.isFinite)) {
-        map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 60, maxZoom: 11, duration: 1200 });
-      } else {
-        map.flyTo({ center: place.geometry.coordinates, zoom: 10.5, duration: 1200 });
+        // Photon's extent is [west, north, east, south].
+        const bounds = [Math.min(extent[0], extent[2]), Math.min(extent[1], extent[3]), Math.max(extent[0], extent[2]), Math.max(extent[1], extent[3])];
+        map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 60, maxZoom: 11, duration: 1200 });
+        return { name: label, zips: null, bounds, near: false };
       }
-      return true;
+      const [x, y] = place.geometry.coordinates;
+      map.flyTo({ center: [x, y], zoom: 10.5, duration: 1200 });
+      return { name: label, zips: null, bounds: [x - NEAR_DEG * 1.35, y - NEAR_DEG, x + NEAR_DEG * 1.35, y + NEAR_DEG], near: true };
     } catch (err) {
       console.warn("Place lookup failed:", err);
-      return false;
+      return null;
     }
+  }
+
+  // About 9 km: "around" a place that is only a point, and the margin "near" a town reaches.
+  const NEAR_DEG = 0.08;
+  const inBounds = (b, [x, y]) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+  // The ZIP codes an answer counts, and how to name them. Without a place, the ZIP codes in view.
+  //   rank  a ranking ("which ZIP codes near Albany"): a town reaches a little past its own ZIP
+  //         codes, since people mean the area around it.
+  function areaFeatures(map, area, rank = false) {
+    if (!area) return { features: featuresInView(map), where: "in view" };
+    const named = escapeHtml(area.name);
+    if (area.zips && !rank) return { features: area.zips, where: `in ${named}` };
+    const b = area.zips ? [area.bounds[0] - NEAR_DEG * 1.35, area.bounds[1] - NEAR_DEG, area.bounds[2] + NEAR_DEG * 1.35, area.bounds[3] + NEAR_DEG] : area.bounds;
+    const features = state.features.filter((f) => inBounds(b, f.geometry.coordinates));
+    return { features, where: area.zips || area.near ? `near ${named}` : `in ${named}` };
   }
 
   const settle = (map) => new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
@@ -735,34 +762,36 @@
   const topList = (label, rows) => (rows.length
     ? `<p class="msg-sub">${escapeHtml(label)}</p><ul class="msg-top">${rows.map(([p, value]) => `<li>${zipButton(p)}<span>${escapeHtml(value)}</span></li>`).join("")}</ul>` : "");
 
-  function describeView(map) {
-    const fs = featuresInView(map);
-    if (!fs.length) return "<p>No ZIP codes with solar in this view. Try zooming out.</p>";
+  function describeArea(map, area) {
+    const { features: fs, where } = areaFeatures(map, area);
+    if (!fs.length) return `<p>No ZIP codes with solar ${where} on NYSERDA's list.</p>`;
     const sum = (key) => fs.reduce((total, f) => total + (Number.isFinite(f.properties[key]) ? f.properties[key] : 0), 0);
     const top = [...fs].sort((a, b) => b.properties.kw - a.properties.kw).slice(0, 3).map((f) => [f.properties, fmtPower(f.properties.kw)]);
-    return `<p>In this view: <strong>${fmtPower(sum("kw"))}</strong> from <strong>${plural(sum("n"), "system", "systems")}</strong> in ` +
+    const lead = where.charAt(0).toUpperCase() + where.slice(1);
+    return `<p>${lead}: <strong>${fmtPower(sum("kw"))}</strong> from <strong>${plural(sum("n"), "system", "systems")}</strong> in ` +
       `${plural(fs.length, "ZIP code", "ZIP codes")}, with <strong>${fmtPower(sum("r12"))}</strong> connected in the last 12 months.</p>` +
-      topList("Most solar in view", top);
+      (fs.length > 1 ? topList(`Most solar ${where}`, top) : topList("ZIP code", top));
   }
 
   // The ZIP codes in view that lead by one measure. With a year (and the time-lapse file), the
   // solar ranking is by what was connected by the end of that year.
   const RANKED = {
-    solar: { label: "Most solar in view", value: (p) => p.kw, words: (p) => fmtPower(p.kw), none: "solar" },
+    solar: { label: "Most solar", value: (p) => p.kw, words: (p) => fmtPower(p.kw), none: "solar" },
     recent: { label: "Most connected in the last 12 months", value: (p) => p.r12 || 0, words: (p) => fmtPower(p.r12), none: "solar connected in the last 12 months" },
     community: { label: "Most community solar systems", value: (p) => p.cn || 0, words: (p) => plural(p.cn, "system", "systems"), none: "community solar" },
     storage: { label: "Most battery storage", value: (p) => p.st || 0, words: (p) => fmtPower(p.st), none: "battery storage" },
   };
-  function describeRank(map, rank, year) {
+  function describeRank(map, rank, year, area) {
     const r = RANKED[rank];
     const tl = state.timelapse;
     const index = year && rank === "solar" && tl ? tl.data.years.indexOf(year) : -1;
     const value = index >= 0 ? (p) => (tl.data.zips.get(p.zip) || [])[index] || 0 : r.value;
     const words = index >= 0 ? (p) => fmtPower(value(p)) : r.words;
-    const rows = featuresInView(map).map((f) => f.properties).filter((p) => value(p) > 0)
+    const { features, where } = areaFeatures(map, area, true);
+    const rows = features.map((f) => f.properties).filter((p) => value(p) > 0)
       .sort((a, b) => value(b) - value(a)).slice(0, 5).map((p) => [p, words(p)]);
-    if (!rows.length) return `<p>No ZIP codes in this view have ${r.none}${index >= 0 ? ` by the end of ${year}` : ""}. Try zooming out.</p>`;
-    return topList(index >= 0 ? `Most solar in view by the end of ${year}` : r.label, rows) + "<p class=\"msg-sub\">Select a ZIP code to open its card.</p>";
+    if (!rows.length) return `<p>No ZIP codes ${where} have ${r.none}${index >= 0 ? ` by the end of ${year}` : ""}.${area ? "" : " Try zooming out."}</p>`;
+    return topList(index >= 0 ? `Most solar ${where} by the end of ${year}` : `${r.label} ${where}`, rows) + "<p class=\"msg-sub\">Select a ZIP code to open its card.</p>";
   }
 
   function describeZip(p) {
@@ -770,7 +799,7 @@
       `<strong>${plural(p.n, "system", "systems")}</strong>${p.r12 > 0 ? `, ${fmtPower(p.r12)} of it in the last 12 months` : ""}. Its card is open on the map.</p>`;
   }
 
-  function describeYear(map, year, moved) {
+  function describeYear(map, year, area) {
     const s = state.summary;
     if (!s || !s.by_year.length) return "<p>The yearly totals could not be loaded. Try refreshing in a minute.</p>";
     const first = s.by_year[0].year;
@@ -789,9 +818,10 @@
     const index = tl ? tl.data.years.indexOf(year) : -1;
     if (index >= 0) text += `, bringing the total to <strong>${fmtPower(tl.data.state[index])}</strong>${partial ? "" : ` by the end of ${year}`}`;
     let html = `<p>${text}.</p>`;
-    if (index >= 0 && moved) {
-      const inView = featuresInView(map).reduce((total, f) => total + ((tl.data.zips.get(f.properties.zip) || [])[index] || 0), 0);
-      html += `<p>In this view: <strong>${fmtPower(inView)}</strong> by the end of ${year}.</p>`;
+    if (index >= 0 && area) {
+      const { features, where } = areaFeatures(map, area);
+      const kw = features.reduce((total, f) => total + ((tl.data.zips.get(f.properties.zip) || [])[index] || 0), 0);
+      html += `<p>${where.charAt(0).toUpperCase() + where.slice(1)}: <strong>${fmtPower(kw)}</strong> by the end of ${year}.</p>`;
     }
     if (index >= 0) html += "<p class=\"msg-sub\">The map shows that year. Press play at the top to watch the rest, or X to go back to today.</p>";
     return html;
@@ -857,13 +887,16 @@
       map.flyTo({ center: cfg.startView.center, zoom: cfg.startView.zoom });
     }
     if (plan.timelapse === "stop" && tl) tl.stop();
-    const section = plan.year || plan.timelapse === "play" ? "years" : plan.section;
+    // A question about a place or ZIP code is about that place, not the statewide totals.
+    const local = plan.zip || plan.place;
+    const section = plan.year || plan.timelapse === "play" ? "years" : local && plan.section === "totals" ? null : plan.section;
     if (BUILT_SECTIONS[section]) volta.reveal(BUILT_SECTIONS[section]);
     reply.insertAdjacentHTML("beforeend", AtlasVolta.Volta.typing());
     try {
       // Where. Today's totals for a place or ZIP code, unless a year was asked for too.
       let moved = false;
       let zipFeature = null;
+      let area = null;
       const keepYear = plan.year || plan.timelapse === "play";
       if (plan.zip) {
         zipFeature = state.features.find((f) => f.properties.zip === plan.zip) || null;
@@ -876,7 +909,8 @@
         }
       } else if (plan.place) {
         if (tl && !keepYear) tl.stop();
-        moved = await goToPlace(map, plan.place);
+        area = await goToPlace(map, plan.place);
+        moved = !!area;
         if (!moved) add(`<p>I could not find ${escapeHtml(plan.place.replace(/, New York$/i, ""))}, so I kept the current view.</p>`);
       }
       if ((plan.rank || plan.capacity) && tl && !plan.year) tl.stop(); // rankings and the capacity map are about today
@@ -898,9 +932,9 @@
           add(describeZip(zipFeature.properties));
         }
       }
-      if (plan.year) add(describeYear(map, plan.year, moved && !zipFeature));
-      if (plan.rank) add(describeRank(map, plan.rank, plan.year));
-      else if (moved && !zipFeature && !plan.year) add(describeView(map));
+      if (plan.year) add(describeYear(map, plan.year, area));
+      if (plan.rank) add(describeRank(map, plan.rank, plan.year, area));
+      else if (area && !plan.year) add(describeArea(map, area));
       if (!plan.rank && !moved && !plan.year && !zipFeature && plan.section) add(describeSection(map, plan.section));
       if (plan.timelapse === "play") {
         add(tl ? `<p>Playing the growth since ${tl.data.years[0]}. Pause, or drag the slider at the top of the map to stop at any year.</p>`

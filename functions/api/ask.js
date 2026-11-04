@@ -35,7 +35,7 @@ The map shows distribution lines from two utilities:
 - National Grid (id national_grid_ny_pv): upstate New York, for example Albany, Schenectady, Troy, Saratoga Springs, Syracuse, Utica, Buffalo, Niagara Falls, Glens Falls.
 Other parts of New York (for example New York City, Long Island, Westchester, Rochester, Ithaca, Binghamton) are served by utilities that are not on this map yet.
 
-Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades. The map can also highlight data quality issues (lines whose published data failed a check) and changes since last week (lines whose value went up, down, or is new).
+Hosting capacity is how many megawatts (MW) of new solar a line can take without upgrades. The map can also highlight data quality issues (lines whose published data failed a check) and changes since last week (lines whose value went up, down, or is new). A second page, "Built so far", shows the solar already connected across New York, by ZIP code.
 
 Always call the set_map_view tool. Rules:
 - People type fast. Read through spelling mistakes, missing spaces and shorthand, and act on what they clearly mean: "poughkepsie" and "pokipsi" are Poughkeepsie, "albny" is Albany, "shenectady" is Schenectady, "nationl grid" is National Grid, "data qualty" or "erors" mean data quality, "2mw", "2 megs" or "2 megawatt" mean 2 MW. Always write place names correctly spelled.
@@ -46,6 +46,7 @@ Always call the set_map_view tool. Rules:
 - show_changes: true if they ask what changed, what is new, or what went up or down since last week. false if they ask to hide the changes highlight. null if they say nothing about it.
 - reset: true if they ask to go back to normal, clear or remove the filters or highlights, start over, undo, or show all lines again. The map then clears the size, utility, data quality and change settings and keeps its place, unless they also name a place.
 - nearest: true only if they ask for the nearest or closest line, how far a line is, or the distance from a specific street address or spot. The map then measures the distance from that place to the nearest line with room for min_mw. "Where near Albany can I connect 2 MW?" or "lines near Troy" ask about an area, not a distance: nearest is false, and the map shows and counts every line with room there.
+- built: true if they ask how much solar is already built, installed or connected somewhere, rather than where new solar can connect. The answer then offers the Built so far page at the place. false otherwise.
 - section: the part of the side panel the question is about, so the panel can show it: "filters" (a project size or a utility), "site" (the nearest line or a distance from a spot), "quality" (data quality, errors, how reliable the data is), "changes" (what changed since last week), "download" (saving, exporting or downloading lines as a spreadsheet or map file). Also set it for a general question about one of these topics. null if none fits.
 - reply: one short sentence saying what the map will show or what changed. Never state or guess any capacity value, count, feeder name or location of lines; the map computes those from the data.
 - unclear: true if you cannot tell what they want, for example random letters, a single word you cannot place, or a request these settings cannot do. Then reply asks one short question to find out, for example "Sorry, I did not catch that. Which place or project size should I show?" and every setting stays null or false.
@@ -68,6 +69,7 @@ Examples (question, then the settings that matter; every other setting is null o
 - after a highlight: "hide that" -> show_issues false (or show_changes false, whichever is on)
 - "back to normal please" or "clear everything" -> reset true
 - "only national grid lines" -> utility "national_grid_ny_pv"
+- "how much solar is already built in Albany?" -> place "Albany, New York", built true
 - "what is hosting capacity?" -> reply explains it, no settings
 - "how do I download the lines?" -> section "download", reply explains it
 - "how do you check the data?" -> section "quality", reply explains it
@@ -87,12 +89,13 @@ const TOOL = {
       show_changes: { type: ["boolean", "null"], description: "true shows the changes since last week, false hides them, null leaves them." },
       reset: { type: "boolean", description: "Back to normal: clear the size, utility and highlights." },
       nearest: { type: "boolean", description: "Find the nearest line with room for min_mw from the place." },
+      built: { type: "boolean", description: "They ask about solar already built: offer the Built so far page." },
       section: { type: ["string", "null"], enum: [...CAPACITY_SECTIONS, null], description: "The side panel section the question is about." },
       reply: { type: "string", description: "One short sentence, no numbers about capacity." },
       unclear: { type: "boolean", description: "The question could not be understood; reply asks what they mean." },
       out_of_scope: { type: "boolean" },
     },
-    required: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "section", "reply", "unclear", "out_of_scope"],
+    required: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "built", "section", "reply", "unclear", "out_of_scope"],
   },
 };
 
@@ -111,9 +114,9 @@ Always call the set_built_view tool. Rules:
 - place: the town, city, county, region or address they name, written so a geocoder can find it, with ", New York" added. null if they name no place, or name a ZIP code instead.
 - zip: a five-digit New York ZIP code they name, as text. null otherwise. Never guess a ZIP code from a place name.
 - rank: what they want to compare ZIP codes by, when they ask which ZIP codes, towns or areas lead: "solar" (the most solar connected, the biggest), "recent" (the most connected in the last 12 months, the newest or fastest growth), "community" (the most community solar), "storage" (the most battery storage). The map ranks the ZIP codes in view, after moving to the place if they name one. null otherwise.
-- year: one year from ${FIRST_YEAR} on that they ask about ("in 2015", "back in 2018", "how much by 2020"). The map shows that year on the time-lapse and gives its totals. null otherwise.
+- year: one year from ${FIRST_YEAR} on that they ask about ("in 2015", "back in 2018", "how much by 2020"). The map shows that year on the time-lapse and gives its totals. A future year is still set; reply then says the list only has solar already connected, without saying the map shows that year. null otherwise.
 - timelapse: "play" if they ask to see the growth over time, the history, an animation, or to play or watch it; "stop" if they ask to stop it, pause it, or go back to today. null otherwise.
-- section: the part of the side panel the question is about, so the panel can show it: "totals" (how much solar New York has, how many systems, the community solar share), "years" (solar by year, growth, trends, the busiest year), "utilities" (by utility, which utility has the most), "linked" (how the list links to the capacity map or to feeders), "download" (saving, exporting, a spreadsheet or CSV), "quality" (data quality, errors, checks, how reliable the list is). Also set it for a general question about one of these topics. null if none fits.
+- section: the part of the side panel the question is about, so the panel can show it: "totals" (how much solar New York has, how many systems, the community solar share), "years" (solar by year, growth, trends, the busiest year), "utilities" (by utility, which utility has the most), "linked" (how the list links to the capacity map or to feeders), "download" (saving, exporting, a spreadsheet or CSV), "quality" (data quality, errors, checks, how reliable the list is). Also set it for a general question about one of these topics. A question about a place or ZIP code ("how much solar in Albany") is about that place, not the statewide totals: section null. null if none fits.
 - capacity: true if they ask where new solar can connect, about hosting capacity, room on the grid or on power lines. The answer then offers the Room to connect page at the place. false otherwise.
 - reset: true if they ask to go back to normal, start over, clear everything or show today's map again. false otherwise.
 - reply: one short sentence saying what the map will show. Never state or guess any number (MW, systems, percentages, totals, years' values), and never name which ZIP code, town or utility leads: the map counts every number from NYSERDA's data and adds it under your sentence.
@@ -126,12 +129,13 @@ Always call the set_built_view tool. Rules:
 - out_of_scope: true if the question is not about solar, energy, the grid, this map or places in New York, or the place is outside New York. Then reply politely says what you can help with.
 
 Examples (question, then the settings that matter; every other setting is null or false):
-- "How much solar is in Saratoga Springs?" -> place "Saratoga Springs, New York"
+- "How much solar is in Saratoga Springs?" -> place "Saratoga Springs, New York", section null
 - "solar in 12603" -> zip "12603"
 - "which zip codes near Albany have the most solar?" -> place "Albany, New York", rank "solar"
 - "where is solar growing fastest?" -> rank "recent"
 - "most comunity solar on long island" -> place "Long Island, New York", rank "community"
 - "how much solar was there in 2015?" -> year 2015, section "years"
+- "solar in 2035" -> year 2035, reply says the list only has solar already connected
 - "play the growth" or "show me the history" -> timelapse "play"
 - "stop" (after the time-lapse) -> timelapse "stop"
 - "how much solar does New York have?" -> section "totals"
@@ -187,7 +191,7 @@ export function sanitizeBuilt(input) {
 // Each page's instructions, tool, cleaning, and the settings kept from earlier turns.
 const MODES = {
   capacity: { system: SYSTEM, tool: TOOL, clean: (input) => sanitize(input),
-    keep: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "section"] },
+    keep: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "built", "section"] },
   built: { system: BUILT_SYSTEM, tool: BUILT_TOOL, clean: (input) => sanitizeBuilt(input),
     keep: ["place", "zip", "rank", "year", "timelapse", "section", "capacity", "reset"] },
 };
@@ -240,6 +244,7 @@ export function sanitize(input) {
     show_changes: tri(input.show_changes),
     reset: input.reset === true,
     nearest: input.nearest === true,
+    built: input.built === true,
     section: CAPACITY_SECTIONS.includes(input.section) ? input.section : null,
     reply: typeof input.reply === "string" ? input.reply.trim().slice(0, 300) : "",
     unclear: input.unclear === true,

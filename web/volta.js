@@ -68,6 +68,17 @@
   // section scrolls to its top, and an outline marks it. On a phone the chat covers the panel,
   // so it only scrolls there, ready for when the person opens the panel.
   //   setCollapsed  the page's panel fold, (collapsed) => void
+  // Takes the outline off, and forgets a reveal still waiting for a folded phone sheet, so an
+  // answer about something else does not leave an earlier section marked.
+  function unpointSections() {
+    document.querySelectorAll("#panel .is-pointed").forEach((el) => el.classList.remove("is-pointed"));
+    const panel = $("panel");
+    if (panel && panel._pendingReveal) {
+      panel._pendingReveal.disconnect();
+      panel._pendingReveal = null;
+    }
+  }
+
   function revealSection(titleId, setCollapsed) {
     const title = $(titleId);
     const section = title && title.closest("section");
@@ -76,7 +87,7 @@
     const go = () => {
       body.scrollTo({ top: section.offsetTop - body.offsetTop - 8, behavior: reduceMotion() ? "auto" : "smooth" });
       // One section outlined at a time: the one this answer is about.
-      document.querySelectorAll("#panel .is-pointed").forEach((el) => el.classList.remove("is-pointed"));
+      unpointSections();
       void section.offsetWidth; // restart the outline when asked twice in a row
       section.classList.add("is-pointed");
     };
@@ -85,7 +96,7 @@
     if (phone()) {
       if (!folded) return go();
       // The folded sheet cannot scroll: go there as soon as the person opens it.
-      if (panel._pendingReveal) panel._pendingReveal.disconnect();
+      unpointSections();
       const watch = new MutationObserver(() => {
         if (panel.classList.contains("is-collapsed")) return;
         watch.disconnect();
@@ -130,6 +141,7 @@
       $("assistant-reset").addEventListener("click", () => {
         if (this.asking) return;
         this.onReset();
+        unpointSections();
         $("chat-log").innerHTML = welcome;
         this.chat.length = 0; // a new chat starts without memory of the old one
         $("chat-input").value = "";
@@ -266,6 +278,8 @@
           return;
         }
         this.remember(question, plan);
+        // A new answer starts with nothing outlined; the page points at its own section if any.
+        unpointSections();
         try {
           await this.onPlan(plan, reply);
         } catch (err) {
@@ -282,5 +296,5 @@
     }
   }
 
-  root.AtlasVolta = { Volta, voltaSVG, revealSection };
+  root.AtlasVolta = { Volta, voltaSVG, revealSection, unpointSections };
 })(window);

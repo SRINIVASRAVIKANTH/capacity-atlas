@@ -307,8 +307,10 @@ settings (see below).
 1. The browser sends the question.
 2. The function calls Claude with one forced tool, `set_map_view`, so the reply is always
    structured: place, minimum MW, utility, the data quality and change highlights (each on,
-   off, or left as it is), back to normal, whether to run the site check, the panel section the
-   question is about, whether the question could not be understood, and one sentence. The instructions tell the model to read through
+   off, or left as it is), back to normal, whether to run the site check, whether the question
+   is about solar already built (the answer then offers Built so far at that place), the panel
+   section the question is about, whether the question could not be understood, and one
+   sentence. The instructions tell the model to read through
    spelling mistakes and shorthand ("albny", "2mw", "erors") and give short worked examples.
    When it cannot tell what someone wants, it asks one short question back instead of guessing.
 3. The function cleans the result to known fields and values and returns it.
@@ -317,10 +319,14 @@ settings (see below).
    measures the distance to the nearest line with room. A new place or size replaces the
    earlier settings; a question about a highlight alone ("any errors here?", "hide that")
    changes only that highlight; "back to normal" clears every filter, highlight and site check.
+   Asking what changed turns the data quality highlight off, and in a week with nothing to
+   highlight the answer says why, in the panel's own words.
    Every answer also points the side panel at the section it is about: the data quality or
    change highlight it turned on, the site check, the filters it set, or the topic of a general
    question ("how do I download the lines?"). The panel opens if it was folded, scrolls the
-   section to its top and outlines it, one section at a time. On a phone the chat covers the
+   section to its top and outlines it, one section at a time. An answer about no section takes
+   the earlier outline off, so the panel never marks something the chat has moved on from. On a
+   phone the chat covers the
    panel, so the panel goes to that section the next time the person opens it. Questions it
    could not understand, or that are off topic, change nothing and are left out of the chat's
    memory.
@@ -335,13 +341,18 @@ The model never states capacity values. That keeps answers grounded in the publi
 and keeps each call small and cheap.
 
 On Built so far, Volta's tool is `set_built_view`: a place or a ZIP code, a ranking of the ZIP
-codes in view (most solar, most connected in the last 12 months, most community solar, most
+codes near a place or in view (most solar, most connected in the last 12 months, most community solar, most
 battery storage), a year, the time-lapse (play or stop), a panel section (totals, years,
 utilities, the link to feeders, download, data quality), an offer of the capacity map for
 "where can I connect" questions, and back to today. The browser finds a town among the ZIP
 codes on the map first and asks Photon only for anything else (a county, a region, an
-address). It then counts everything from NYSERDA's files: the totals in view and the ZIP codes
-that lead, a ZIP code's card, a year's solar and the total by then (the time-lapse shows that
+address). It then counts everything from NYSERDA's files. A question about a place counts that
+place, not whatever else a wide or tall screen shows: a town's own ZIP codes, the ZIP codes
+inside the area Photon returns (Long Island, a county), or those within about 9 km of a place
+Photon knows only as a point. A ranking near a town reaches about 9 km past its ZIP codes,
+since "near Albany" means the area around it. Each answer names what it counted ("In
+Brooklyn", "Most solar near Albany", "Most solar in view" when no place was asked). It also
+gives a ZIP code's card, a year's solar and the total by then (the time-lapse shows that
 year, paused), or the numbers of the panel section asked about. ZIP codes in an answer open
 their card when selected. A ZIP code that is not on the map, a year outside the list, or a
 place that cannot be found is said plainly, and nothing else changes.

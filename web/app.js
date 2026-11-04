@@ -619,6 +619,11 @@
       onLogClick: (e) => {
         const b = e.target.closest("button[data-feeder]");
         if (b) highlightFeeder(map, b.dataset.src, b.dataset.feeder);
+        if (e.target.closest("button[data-built]")) {
+          // Built so far, at this place and zoom (its map reads the same #zoom/lat/lng).
+          window.location.href = kit.pageLink("solar.html", location.hash);
+          return true;
+        }
         return !!b;
       },
       onPlan: (plan, reply) => carryOut(map, plan, reply),
@@ -628,7 +633,14 @@
 
   // Changes in view, for the chat: how many sections went up, down or are new.
   function describeChanges(map) {
-    if ($("changes-toggle").disabled) return "<p>Changes appear after the second weekly update, once there is a week to compare with.</p>";
+    if ($("changes-toggle").disabled) {
+      // Nothing to highlight this week: say why, in the panel's own words (no changes since the
+      // last update, the first week with nothing to compare, or the comparison not loading).
+      const rows = [...$("change-summary").querySelectorAll(".cs-row")].map((row) =>
+        `<li><span>${escapeHtml(row.querySelector(".cs-name").textContent)}</span><span>${escapeHtml(row.querySelector(".cs-detail").textContent)}</span></li>`);
+      return rows.length ? `<p class="msg-sub">Changes since last week</p><ul class="msg-top">${rows.join("")}</ul>`
+        : `<p>${escapeHtml($("change-summary").textContent.trim() || "The weekly comparison is not available yet.")}</p>`;
+    }
     const seen = new Set();
     const counts = { up: 0, down: 0, added: 0 };
     for (const f of map.queryRenderedFeatures({ layers: ids("changes").filter((id) => map.getLayer(id)) })) {
@@ -658,7 +670,7 @@
     const section = plan.show_issues === true ? "quality" : plan.show_changes === true ? "changes"
       : plan.nearest ? "site" : plan.min_mw || plan.utility ? "filters" : plan.section;
     if (CAPACITY_SECTIONS[section]) volta.reveal(CAPACITY_SECTIONS[section]);
-    if (!plan.reset && !setsView && !toggles) {
+    if (!plan.reset && !setsView && !toggles && !plan.built) {
       reply.innerHTML = `<p>${escapeHtml(plan.reply || "Ask me about a place and a project size, and I will set the map.")}</p>`;
       return;
     }
@@ -681,6 +693,9 @@
       // Only a highlight was asked for ("any errors here?", "hide that"): the rest stays.
       if (plan.show_issues === true || plan.show_issues === false) setIssues(map, plan.show_issues);
       if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes);
+      // Asking for this week's changes replaces the quality highlight, even in a week with no
+      // changes to show (the changes toggle is off then, and the answer says so).
+      if (plan.show_changes === true && plan.show_issues !== true) setIssues(map, false);
     }
     reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
     let spot = null;
@@ -702,6 +717,15 @@
         console.warn("Place lookup failed:", err);
       }
     }
+    if (plan.built) {
+      // Solar already built is the other page's question: move there, then offer it.
+      await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
+      reply.querySelector(".typing")?.remove();
+      reply.insertAdjacentHTML("beforeend", "<p>Built so far shows the solar already connected, by ZIP code, from NYSERDA's statewide list.</p>" +
+        '<p><button class="d-action" type="button" data-built>Open Built so far here</button></p>');
+      $("chat-log").scrollTop = $("chat-log").scrollHeight;
+      return;
+    }
     if (plan.nearest) {
       const from = spot || map.getCenter().toArray();
       const mw = plan.min_mw || 0.01;
@@ -718,7 +742,7 @@
     reply.insertAdjacentHTML("beforeend", !hasGridData(map)
       ? "<p>No utility lines in this view. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York) so far.</p>"
       : state.issuesOnly ? describeIssues(map)
-        : state.changesOnly || plan.show_changes === true ? describeChanges(map) // says so when there is no week to compare yet
+        : state.changesOnly || plan.show_changes === true ? describeChanges(map) // says so when there are no changes to show
           : describe(summarizeView(map), state.minMW || null));
     $("chat-log").scrollTop = $("chat-log").scrollHeight;
   }

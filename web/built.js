@@ -192,9 +192,39 @@
     return value && /^\d{5}$/.test(value) ? value : null;
   }
 
+  // ---------- downloads ----------
+  // The ZIP codes in a box [west, south, east, north], one row each, in plain units a
+  // spreadsheet can sum: MW to three decimals, months as YYYY-MM. Sorted by ZIP code, so the
+  // same view gives the same file. Text cells are made safe in export.js (toCsv).
+  const ZIP_COLUMNS = [
+    ["zip", "ZIP code"], ["town", "Town"], ["county", "County"], ["utility", "Primary utility"],
+    ["solar_mw", "Solar connected (MW)"], ["systems", "Solar systems"],
+    ["last_12_months_mw", "Connected in the last 12 months (MW)"], ["community_solar_systems", "Community solar systems"],
+    ["battery_storage_mw", "Battery storage (MW)"], ["most_recent_connection", "Most recent connection (YYYY-MM)"],
+    ["center_latitude", "ZIP area center latitude"], ["center_longitude", "ZIP area center longitude"],
+  ];
+  const mw = (kw) => (Number.isFinite(kw) ? Math.round(kw) / 1000 : null);
+  function zipRows(features, box) {
+    const inBox = ([x, y]) => !box || (x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3]);
+    return (Array.isArray(features) ? features : [])
+      .filter((f) => f && f.geometry && inBox(f.geometry.coordinates))
+      .sort((a, b) => (a.properties.zip < b.properties.zip ? -1 : a.properties.zip > b.properties.zip ? 1 : 0))
+      .map((f) => {
+        const p = f.properties;
+        const [lng, lat] = f.geometry.coordinates;
+        return {
+          zip: p.zip, town: p.place || null, county: p.county || null, utility: p.u ? utilityName(p.u) : null,
+          solar_mw: mw(p.kw), systems: p.n, last_12_months_mw: mw(p.r12),
+          community_solar_systems: Number.isInteger(p.cn) ? p.cn : null, battery_storage_mw: mw(p.st),
+          most_recent_connection: typeof p.last === "string" && MONTH.test(p.last) ? p.last : null,
+          center_latitude: lat, center_longitude: lng,
+        };
+      });
+  }
+
   const api = {
     fmtMonth, fmtDay, feederFact, feederWords, utilityName, zipFeatures, searchZips, yearBars, cleanSummary,
-    cleanYears, yearValues, parseZipLink,
+    cleanYears, yearValues, parseZipLink, ZIP_COLUMNS, zipRows,
   };
   root.AtlasBuilt = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

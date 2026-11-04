@@ -111,7 +111,7 @@ feeders with a published capacity have solar on record. The list's own checks ar
 |---|---|---|
 | 🗺️ | **One map, two utilities** | 758,915 line sections on one color scale, filtered by minimum capacity and by utility |
 | 📍 | **Site check** | Enter a project size and pick a spot or search an address. The map finds the nearest line with enough room, draws the link and gives the distance |
-| 🔗 | **Share and download** | Copy a link that reopens a site check or a ZIP code's card for a colleague, or save the lines in view, with the filters applied, as a CSV spreadsheet or a GeoJSON map file |
+| 🔗 | **Share and download** | Copy a link that reopens a site check or a ZIP code's card for a colleague, or save what is in view as a CSV spreadsheet or a GeoJSON map file: the lines, with the filters applied, or the ZIP codes with their solar totals |
 | 🔎 | **Two levels of detail** | Zoomed out, a click selects a whole feeder and shows its capacity range. Zoomed in, a click shows one section's value, length, voltage, phases, analysis date and data issues, and the solar already connected on its feeder |
 | 🌞 | **Built so far** | A second view of the same map: the solar already connected in each ZIP code, with an inner circle for what was connected in the last 12 months, state totals, a year by year chart, the list's own data checks and a short guide. A switch at the top of the panel moves between the two views and keeps the place |
 | ▶️ | **Growth year by year** | Press play and every ZIP code's circle grows from the first year on record to today, with the statewide total counting up and the year chart marking the year shown. Pause or drag the slider to stop at any year |
@@ -120,7 +120,7 @@ feeders with a published capacity have solar on record. The list's own checks ar
 | 🔄 | **Changes since last week** | Each week is compared with the one before, section by section. Lines that gained or lost capacity, or are new, can be highlighted on the map |
 | 📈 | **Capacity history** | Each feeder's highest capacity is tracked week by week. The feeder card draws the trend, and a line's card says whether its feeder is filling up |
 | 🕰️ | **Snapshot archive** | Every weekly snapshot is kept as GeoParquet in the repository's releases, with a report of what changed |
-| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place, "hide that" or "back to normal" undo, spelling mistakes are understood, and an unclear question gets a question back |
+| 🤖 | **Volta, the assistant** | Ask "Where near Albany can I connect 2 MW?" or "How far is the nearest line for 3 MW from Troy?" and the map moves, filters and measures itself. Follow-ups like "and for 5 MW?" keep the place, "hide that" or "back to normal" undo, spelling mistakes are understood, and an unclear question gets a question back. On Built so far, ask "Which ZIP codes near Albany have the most solar?" or "How much solar was there in 2015?" and it ranks, opens cards or shows that year. On both pages the side panel opens at the section an answer is about |
 | 📜 | **Data sources and terms** | One page, linked from the map's credits, its panel and every card, credits each source, shows each source's disclaimer in its own words, and sets out the site's terms of use, privacy, copyright and security |
 | ♿ | **Built for everyone** | Light and dark themes, a color blind safe scale, severity shown by shape as well as color, keyboard support, a phone layout, and no motion for people who turn it off in their system settings |
 
@@ -221,7 +221,7 @@ Pages, and it reads only the map tiles in view, straight from R2. Details are in
 | 🧱 Map data | tippecanoe, PMTiles, Cloudflare R2 |
 | 🗺️ Web map | MapLibre GL JS, PMTiles, OpenFreeMap, Photon, plain HTML, CSS and JavaScript |
 | 🤖 Assistant | Cloudflare Pages Functions, Claude API (Haiku) with tool use |
-| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (48 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
+| 🧪 Testing and quality | pytest (122 tests, 90% coverage), Node test runner (57 tests) for the assistant function and the browser helpers, Ruff and ESLint, all run on every push |
 
 ---
 

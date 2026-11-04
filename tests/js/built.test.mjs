@@ -147,3 +147,21 @@ test("a shared ZIP link accepts five digits and nothing else", () => {
     assert.equal(b.parseZipLink(bad), null, String(bad));
   }
 });
+
+test("the download holds the ZIP codes in view, in plain units, in a stable order", () => {
+  const fs = [
+    point("12603", 16008.4, 1448, { place: "Poughkeepsie", county: "Dutchess", u: "Central Hudson", r12: 1500, cn: 1, st: 590, last: "2026-08" }),
+    point("12601", 10282.1, 668, { place: "Poughkeepsie", county: "Dutchess", u: "Central Hudson", last: "late" }),
+    { ...point("14414", 23227.8, 51, { u: "National Grid" }), geometry: { type: "Point", coordinates: [-77.7, 42.9] } },
+  ];
+  const all = b.zipRows(fs);
+  assert.deepEqual(all.map((r) => r.zip), ["12601", "12603", "14414"]);
+  assert.deepEqual(all[1], { zip: "12603", town: "Poughkeepsie", county: "Dutchess", utility: "Central Hudson",
+    solar_mw: 16.008, systems: 1448, last_12_months_mw: 1.5, community_solar_systems: 1, battery_storage_mw: 0.59,
+    most_recent_connection: "2026-08", center_latitude: 41.7, center_longitude: -73.9 });
+  assert.equal(all[0].most_recent_connection, null);   // a bad month is left empty
+  assert.equal(all[0].last_12_months_mw, null);        // not in the file: empty, not 0
+  assert.deepEqual(b.zipRows(fs, [-74.5, 41, -73, 42]).map((r) => r.zip), ["12601", "12603"]);   // the box keeps the Hudson Valley
+  assert.deepEqual(b.zipRows(null), []);
+  assert.equal(b.ZIP_COLUMNS.length, Object.keys(all[0]).length);
+});

@@ -592,169 +592,38 @@
     return `<p>${facts}</p>${top ? `<p class="msg-sub">Highest capacity in view</p><ul class="msg-top">${top}</ul>` : ""}`;
   }
 
-  function addMessage(who, html) {
-    const el = document.createElement("div");
-    el.className = `msg msg-${who}`;
-    el.innerHTML = html;
-    $("chat-log").appendChild(el);
-    $("chat-log").scrollTop = $("chat-log").scrollHeight;
-    return el;
-  }
-
-  // Volta: a small sun with a visor, colored with the map's own capacity scale,
-  // circled by a current. Its eyes follow the pointer.
-  function voltaSVG(id) {
-    return `<svg viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <radialGradient id="${id}-sun" cx="0.35" cy="0.3" r="0.85">
-          <stop offset="0" stop-color="#f0f921"/><stop offset="0.35" stop-color="#fdb52e"/>
-          <stop offset="0.7" stop-color="#c7427c"/><stop offset="1" stop-color="#4a2c7a"/>
-        </radialGradient>
-      </defs>
-      <path class="v-bolt" d="M34 2 28.5 11h4L30 18l7-10h-4.2L35.5 2z"/>
-      <circle class="v-head" cx="32" cy="36" r="20" fill="url(#${id}-sun)"/>
-      <rect class="v-visor" x="17" y="29" width="30" height="13" rx="6.5"/>
-      <g class="v-eyes"><rect class="v-eye" x="23" y="32" width="5" height="7" rx="2.5"/><rect class="v-eye" x="36" y="32" width="5" height="7" rx="2.5"/></g>
-      <ellipse class="v-orbit" cx="32" cy="36" rx="29" ry="9" transform="rotate(-16 32 36)"/>
-      <circle class="v-spark" r="2.4"/>
-    </svg>`;
-  }
-
-  function wireVoltaEyes() {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let frame = 0;
-    window.addEventListener("pointermove", (e) => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        document.querySelectorAll(".volta").forEach((el) => {
-          const r = el.getBoundingClientRect();
-          const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-          const d = Math.hypot(dx, dy) || 1;
-          const eyes = el.querySelector(".v-eyes");
-          if (eyes) eyes.style.transform = `translate(${(2.6 * dx / d).toFixed(2)}px, ${(1.6 * dy / d).toFixed(2)}px)`;
-        });
-      });
-    });
-  }
-
+  // ---------- Volta ----------
+  // The chat itself is shared with the Built so far page (volta.js). This page carries out
+  // its answers: the settings it sets, the place it moves to, the numbers it counts.
+  const CAPACITY_SECTIONS = { filters: "filter-title", site: "site-title", quality: "quality-title", changes: "changes-title", download: "download-title" };
+  let volta = null;
   function wireAssistant(map) {
-    if (!cfg.askUrl) return;
-    document.querySelectorAll("[data-volta]").forEach((el) => (el.innerHTML = voltaSVG("volta-" + el.dataset.volta)));
-    wireVoltaEyes();
-    $("assistant").hidden = false;
-    const panel = $("assistant-panel");
-    const greeting = $("greeting");
-    const hideGreeting = () => {
-      greeting.hidden = true;
-      try { sessionStorage.setItem("volta-greeted", "1"); } catch { /* ignore */ }
-    };
-    let greeted = false;
-    try { greeted = sessionStorage.getItem("volta-greeted") === "1"; } catch { /* ignore */ }
-    if (!greeted) {
-      // The greeting sits over the map's zoom buttons, so it steps aside on its own: after a
-      // short while, or as soon as the person starts using the map.
-      let shown = false;
-      const greet = () => {
-        if (shown || !panel.hidden) return;
-        shown = true;
-        greeting.hidden = false;
-        setTimeout(() => { if (!greeting.hidden) hideGreeting(); }, 12000);
-      };
-      // On a phone the open credits fill the same corner, so the greeting waits until they fold.
-      const phone = () => window.matchMedia("(max-width: 760px)").matches;
-      const credits = () => map.getContainer().querySelector(".maplibregl-ctrl-attrib.maplibregl-compact-show");
-      setTimeout(() => {
-        if (!phone() || !credits()) return greet();
-        const box = credits();
-        const watch = new MutationObserver(() => {
-          if (box.classList.contains("maplibregl-compact-show")) return;
-          watch.disconnect();
-          setTimeout(greet, 400);
-        });
-        watch.observe(box, { attributes: true, attributeFilter: ["class"] });
-      }, 1500);
-      for (const type of ["mousedown", "touchstart", "wheel"]) {
-        map.getCanvasContainer().addEventListener(type, () => { if (!greeting.hidden) hideGreeting(); }, { passive: true });
-      }
-    }
-    $("greeting-close").addEventListener("click", hideGreeting);
-    $("greeting-open").addEventListener("click", () => setOpen(true));
-    const setOpen = (open) => {
-      if (open) hideGreeting();
-      if (open && state.foldCredits) state.foldCredits();
-      if (open && state.closePopovers) state.closePopovers(); // the guide and display menu make way
-      if (open) showSoftly(panel);
-      else hideSoftly(panel);
-      $("assistant-toggle").setAttribute("aria-expanded", String(open));
-      document.body.classList.toggle("assistant-open", open);
-      if (open) setTimeout(() => $("chat-input").focus(), 50);
-    };
-    state.closeAssistant = () => setOpen(false);
-    $("assistant-toggle").addEventListener("click", () => setOpen(!isShown(panel)));
-    $("assistant-close").addEventListener("click", () => setOpen(false));
-    // "New chat": back to the first message with its example questions, and every filter cleared.
-    const welcome = $("chat-log").innerHTML;
-    $("assistant-reset").addEventListener("click", () => {
-      if (asking) return;
-      setMinMW(map, 0);
-      setUtility(map, null);
-      setIssues(map, false);
-      setChanges(map, false);
-      clearSelection(map);
-      $("chat-log").innerHTML = welcome;
-      chat.length = 0; // a new chat starts without memory of the old one
-      $("chat-input").value = "";
-      $("chat-input").focus();
+    volta = new AtlasVolta.Volta({
+      map, page: "capacity", askUrl: cfg.askUrl,
+      keep: ["place", "min_mw", "utility", "show_issues", "show_changes", "reset", "nearest", "section"],
+      fallback: { unclear: "Sorry, I did not catch that. Which place or project size should I show?",
+        scope: "I can help with solar hosting capacity in this part of New York." },
+      hooks: {
+        foldCredits: () => state.foldCredits && state.foldCredits(),
+        closePopovers: () => state.closePopovers && state.closePopovers(),
+        setCollapsed: (collapsed) => state.setCollapsed && state.setCollapsed(collapsed),
+      },
+      // "New chat": every filter and highlight off, and any site check cleared.
+      onReset: () => {
+        setMinMW(map, 0);
+        setUtility(map, null);
+        setIssues(map, false);
+        setChanges(map, false);
+        clearSelection(map);
+      },
+      onLogClick: (e) => {
+        const b = e.target.closest("button[data-feeder]");
+        if (b) highlightFeeder(map, b.dataset.src, b.dataset.feeder);
+        return !!b;
+      },
+      onPlan: (plan, reply) => carryOut(map, plan, reply),
     });
-    $("chat-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const q = $("chat-input").value.trim();
-      if (!q || asking) return; // while Volta is answering, the typed question waits in the box
-      $("chat-input").value = "";
-      askAI(map, q);
-    });
-    $("chat-log").addEventListener("click", (e) => {
-      const chip = e.target.closest(".chips button");
-      if (chip) return askAI(map, chip.textContent);
-      const b = e.target.closest("button[data-feeder]");
-      if (b) highlightFeeder(map, b.dataset.src, b.dataset.feeder);
-    });
-    panel.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setOpen(false);
-        $("assistant-toggle").focus();
-      }
-    });
-  }
-
-  let asking = false;
-  // Volta remembers the last few questions of this chat and the settings it chose, so a
-  // follow-up like "and for 5 MW?" keeps the place. Kept only in this page, never stored.
-  const CHAT_MEMORY = 3;
-  const chat = [];
-  function remember(question, plan) {
-    const { place, min_mw, utility, show_issues, show_changes, reset, nearest } = plan;
-    chat.push({ question, plan: { place, min_mw, utility, show_issues, show_changes, reset, nearest } });
-    if (chat.length > CHAT_MEMORY) chat.shift();
-  }
-
-  // When Volta turns on the data quality or change highlight, the panel opens at that section,
-  // so the explanation and the color key are right there. Not on phones, where the chat covers it.
-  function revealSection(titleId) {
-    if (window.matchMedia("(max-width: 760px)").matches) return;
-    const section = $(titleId) && $(titleId).closest("section");
-    if (!section) return;
-    if (state.setCollapsed && $("panel").classList.contains("is-collapsed")) state.setCollapsed(false);
-    // After the panel has rolled open, scroll the section to the top of the panel and outline it.
-    setTimeout(() => {
-      const body = $("panel-body");
-      body.scrollTo({ top: section.offsetTop - body.offsetTop - 8, behavior: reduceMotion() ? "auto" : "smooth" });
-      section.classList.remove("is-pointed");
-      void section.offsetWidth; // restart the outline when asked twice in a row
-      section.classList.add("is-pointed");
-    }, 320);
+    if (volta.mount()) state.closeAssistant = () => volta.setOpen(false);
   }
 
   // Changes in view, for the chat: how many sections went up, down or are new.
@@ -775,115 +644,83 @@
       `${fmtInt(counts.down)} lost capacity and ${fmtInt(counts.added)} are new. Select a highlighted line to see what changed.</p>`;
   }
 
-  async function askAI(map, question) {
-    if (asking) return;
-    asking = true;
-    $("chat-send").disabled = true;
-    addMessage("user", `<p>${escapeHtml(question)}</p>`);
-    const reply = addMessage("bot", '<p class="typing" aria-label="Thinking"><span></span><span></span><span></span></p>');
-    try {
-      let plan;
-      try {
-        const response = await fetch(cfg.askUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ question, history: chat }),
-          signal: withTimeout(25000),
-        });
-        plan = await response.json();
-        if (!response.ok) throw new Error(plan.error || "HTTP " + response.status);
-      } catch (err) {
-        console.warn("Assistant failed:", err);
-        const message = err && err.message && !/^HTTP|fetch|JSON|Unexpected/i.test(err.message) ? err.message : "The assistant is unavailable right now.";
-        reply.innerHTML = `<p>${escapeHtml(message)} You can still use place search and the filters.</p>`;
-        return;
-      }
-      // Could not understand, or not about this map: answer in words, change nothing, and keep
-      // the question out of the chat's memory so it does not confuse the next follow-up.
-      if (plan.unclear || plan.out_of_scope) {
-        const fallback = plan.unclear ? "Sorry, I did not catch that. Which place or project size should I show?"
-          : "I can help with solar hosting capacity in this part of New York.";
-        reply.innerHTML = `<p>${escapeHtml(plan.reply || fallback)}</p>`;
-        return;
-      }
-      remember(question, plan);
-      const setsView = !!(plan.place || plan.min_mw || plan.utility || plan.nearest);
-      // A highlight counts as asked for when it would change something: on, or off while it is on.
-      // (A model that writes false for "not mentioned" then cannot turn a plain question into a
-      // map change.)
-      const toggles = plan.show_issues === true || plan.show_changes === true
-        || (plan.show_issues === false && state.issuesOnly) || (plan.show_changes === false && state.changesOnly);
-      // A general question ("What does hosting capacity mean?") gets an answer in words and
-      // leaves the map and the person's filters exactly as they were.
-      if (!plan.reset && !setsView && !toggles) {
-        reply.innerHTML = `<p>${escapeHtml(plan.reply || "Ask me about a place and a project size, and I will set the map.")}</p>`;
-        return;
-      }
-      if (plan.reset) {
-        // Back to normal: every filter and highlight off, and any site check cleared.
-        setMinMW(map, 0);
-        setUtility(map, null);
-        setIssues(map, false);
-        setChanges(map, false);
-        clearSelection(map);
-      }
-      if (setsView) {
-        // A new place or size: these settings replace the old ones, and a highlight stays on
-        // only if this question asks for it.
-        setUtility(map, plan.utility);
-        setMinMW(map, plan.min_mw);
-        setIssues(map, plan.show_issues === true);
-        setChanges(map, plan.show_changes === true && plan.show_issues !== true);
-      } else if (!plan.reset) {
-        // Only a highlight was asked for ("any errors here?", "hide that"): the rest stays.
-        if (plan.show_issues === true || plan.show_issues === false) setIssues(map, plan.show_issues);
-        if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes);
-      }
-      if (plan.show_issues === true) revealSection("quality-title");
-      else if (plan.show_changes === true) revealSection("changes-title");
-      reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
-      let spot = null;
-      const coords = plan.place && plan.place.match(COORDS);
-      if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
-        spot = [Number(coords[2]), Number(coords[1])];
-        state.flyToPlace(spot[0], spot[1], null, 12.5); // "42.65, -73.75" needs no lookup
-      } else if (plan.place) {
-        try {
-          const [place] = await geocode(plan.place, 1);
-          if (place) {
-            const [lng, lat] = place.geometry.coordinates;
-            spot = [lng, lat];
-            state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
-          } else {
-            reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
-          }
-        } catch (err) {
-          console.warn("Place lookup failed:", err);
-        }
-      }
-      if (plan.nearest) {
-        const from = spot || map.getCenter().toArray();
-        const mw = plan.min_mw || 0.01;
-        if (plan.min_mw) $("site-mw").value = plan.min_mw;
-        const result = await checkSite(map, from, mw);
-        reply.querySelector(".typing")?.remove();
-        reply.insertAdjacentHTML("beforeend", describeSite(result, mw, spot ? plan.place.replace(/, New York$/, "") : "the map center"));
-        $("chat-log").scrollTop = $("chat-log").scrollHeight;
-        return;
-      }
-      // Wait for the map to finish drawing, but never leave the answer hanging.
-      await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
-      reply.querySelector(".typing")?.remove();
-      reply.insertAdjacentHTML("beforeend", !hasGridData(map)
-        ? "<p>No utility lines in this view. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York) so far.</p>"
-        : state.issuesOnly ? describeIssues(map)
-          : state.changesOnly || plan.show_changes === true ? describeChanges(map) // says so when there is no week to compare yet
-            : describe(summarizeView(map), state.minMW || null));
-      $("chat-log").scrollTop = $("chat-log").scrollHeight;
-    } finally {
-      asking = false;
-      $("chat-send").disabled = false;
+  async function carryOut(map, plan, reply) {
+    const setsView = !!(plan.place || plan.min_mw || plan.utility || plan.nearest);
+    // A highlight counts as asked for when it would change something: on, or off while it is on.
+    // (A model that writes false for "not mentioned" then cannot turn a plain question into a
+    // map change.)
+    const toggles = plan.show_issues === true || plan.show_changes === true
+      || (plan.show_issues === false && state.issuesOnly) || (plan.show_changes === false && state.changesOnly);
+    // A general question ("What does hosting capacity mean?") gets an answer in words and
+    // leaves the map and the person's filters exactly as they were.
+    // The panel shows the section the answer is about: the highlight it turned on, the site
+    // check, the filters it set, or the topic of a general question.
+    const section = plan.show_issues === true ? "quality" : plan.show_changes === true ? "changes"
+      : plan.nearest ? "site" : plan.min_mw || plan.utility ? "filters" : plan.section;
+    if (CAPACITY_SECTIONS[section]) volta.reveal(CAPACITY_SECTIONS[section]);
+    if (!plan.reset && !setsView && !toggles) {
+      reply.innerHTML = `<p>${escapeHtml(plan.reply || "Ask me about a place and a project size, and I will set the map.")}</p>`;
+      return;
     }
+    if (plan.reset) {
+      // Back to normal: every filter and highlight off, and any site check cleared.
+      setMinMW(map, 0);
+      setUtility(map, null);
+      setIssues(map, false);
+      setChanges(map, false);
+      clearSelection(map);
+    }
+    if (setsView) {
+      // A new place or size: these settings replace the old ones, and a highlight stays on
+      // only if this question asks for it.
+      setUtility(map, plan.utility);
+      setMinMW(map, plan.min_mw);
+      setIssues(map, plan.show_issues === true);
+      setChanges(map, plan.show_changes === true && plan.show_issues !== true);
+    } else if (!plan.reset) {
+      // Only a highlight was asked for ("any errors here?", "hide that"): the rest stays.
+      if (plan.show_issues === true || plan.show_issues === false) setIssues(map, plan.show_issues);
+      if (plan.show_changes === true || plan.show_changes === false) setChanges(map, plan.show_changes);
+    }
+    reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
+    let spot = null;
+    const coords = plan.place && plan.place.match(COORDS);
+    if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
+      spot = [Number(coords[2]), Number(coords[1])];
+      state.flyToPlace(spot[0], spot[1], null, 12.5); // "42.65, -73.75" needs no lookup
+    } else if (plan.place) {
+      try {
+        const [place] = await geocode(plan.place, 1);
+        if (place) {
+          const [lng, lat] = place.geometry.coordinates;
+          spot = [lng, lat];
+          state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
+        } else {
+          reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
+        }
+      } catch (err) {
+        console.warn("Place lookup failed:", err);
+      }
+    }
+    if (plan.nearest) {
+      const from = spot || map.getCenter().toArray();
+      const mw = plan.min_mw || 0.01;
+      if (plan.min_mw) $("site-mw").value = plan.min_mw;
+      const result = await checkSite(map, from, mw);
+      reply.querySelector(".typing")?.remove();
+      reply.insertAdjacentHTML("beforeend", describeSite(result, mw, spot ? plan.place.replace(/, New York$/, "") : "the map center"));
+      $("chat-log").scrollTop = $("chat-log").scrollHeight;
+      return;
+    }
+    // Wait for the map to finish drawing, but never leave the answer hanging.
+    await new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
+    reply.querySelector(".typing")?.remove();
+    reply.insertAdjacentHTML("beforeend", !hasGridData(map)
+      ? "<p>No utility lines in this view. The map covers Central Hudson (Hudson Valley) and National Grid (upstate New York) so far.</p>"
+      : state.issuesOnly ? describeIssues(map)
+        : state.changesOnly || plan.show_changes === true ? describeChanges(map) // says so when there is no week to compare yet
+          : describe(summarizeView(map), state.minMW || null));
+    $("chat-log").scrollTop = $("chat-log").scrollHeight;
   }
 
   // ---------- map controls ----------
@@ -1671,16 +1508,7 @@
     return AtlasExport.mergeSections(pieces).filter((s) => AtlasExport.touchesBox(s.lines, box));
   }
 
-  function saveFile(name, type, text) {
-    const url = URL.createObjectURL(new Blob([text], { type }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-  }
+  const saveFile = kit.saveFile; // shared with the Built so far page
 
   function setDownloadNote(text) {
     $("download-note").textContent = text;

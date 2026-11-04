@@ -197,6 +197,12 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
   card. Only five digits are accepted; the page then drops `zip` from the address, so a reload
   starts clean, the same rule as a shared site check. Both pages copy links with one helper in
   `kit.js`.
+* "Built so far" downloads the ZIP codes in view, with today's totals, as CSV or GeoJSON (`zipRows`
+  in `built.js`, the same `toCsv` as the capacity map, so a cell that starts like a formula is
+  written as text). MW have three decimals and months are YYYY-MM, so a spreadsheet can sum and
+  sort them; each point is the ZIP code area's center, which the GeoJSON metadata says. With
+  at most about 1,700 ZIP codes there is no zoom limit. Both pages save files with one helper in
+  `kit.js`.
 * On the capacity map, both line cards get a "Solar already connected" row ("Solar already on
   this feeder" on a section's card) from `solar_feeders.json`,
   loaded once after the map draws (`web/built.js` checks its shape): MW and systems on the
@@ -289,13 +295,20 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
 
 ## Assistant (Volta)
 
-`functions/api/ask.js` is a Cloudflare Pages Function at `/api/ask`.
+`functions/api/ask.js` is a Cloudflare Pages Function at `/api/ask`. Both map pages use it,
+and both share the chat itself (`web/volta.js`: the mascot, the greeting, opening and closing,
+New chat, the example questions, the chat's memory, the call with its calm error messages, and
+pointing the side panel at a section). Each page passes in only what it does with an answer.
+The request names its page (`page: "built"` for Built so far, anything else is the capacity
+map), and the function answers each page with its own instructions, its own forced tool and its
+own cleaning. The steps below are for the capacity map; Built so far follows them with its own
+settings (see below).
 
 1. The browser sends the question.
 2. The function calls Claude with one forced tool, `set_map_view`, so the reply is always
    structured: place, minimum MW, utility, the data quality and change highlights (each on,
-   off, or left as it is), back to normal, whether to run the site check, whether the question
-   could not be understood, and one sentence. The instructions tell the model to read through
+   off, or left as it is), back to normal, whether to run the site check, the panel section the
+   question is about, whether the question could not be understood, and one sentence. The instructions tell the model to read through
    spelling mistakes and shorthand ("albny", "2mw", "erors") and give short worked examples.
    When it cannot tell what someone wants, it asks one short question back instead of guessing.
 3. The function cleans the result to known fields and values and returns it.
@@ -304,10 +317,13 @@ bundled in `web/vendor`, fonts in `web/fonts`, so the site depends on no CDN.
    measures the distance to the nearest line with room. A new place or size replaces the
    earlier settings; a question about a highlight alone ("any errors here?", "hide that")
    changes only that highlight; "back to normal" clears every filter, highlight and site check.
-   Turning on the data quality or change highlight also opens the side panel at that section
-   and outlines it, so its explanation and key are in view (not on phones, where the chat
-   covers the panel). Questions it could not understand, or that are off topic, change nothing
-   and are left out of the chat's memory.
+   Every answer also points the side panel at the section it is about: the data quality or
+   change highlight it turned on, the site check, the filters it set, or the topic of a general
+   question ("how do I download the lines?"). The panel opens if it was folded, scrolls the
+   section to its top and outlines it, one section at a time. On a phone the chat covers the
+   panel, so the panel goes to that section the next time the person opens it. Questions it
+   could not understand, or that are off topic, change nothing and are left out of the chat's
+   memory.
 
 Follow-ups: the browser keeps the last three questions of the chat and the settings chosen
 for each, only in the open page, and sends them with the next question. The function checks
@@ -317,6 +333,18 @@ The AI's earlier replies are never sent back. "New chat" clears the memory.
 
 The model never states capacity values. That keeps answers grounded in the published data
 and keeps each call small and cheap.
+
+On Built so far, Volta's tool is `set_built_view`: a place or a ZIP code, a ranking of the ZIP
+codes in view (most solar, most connected in the last 12 months, most community solar, most
+battery storage), a year, the time-lapse (play or stop), a panel section (totals, years,
+utilities, the link to feeders, download, data quality), an offer of the capacity map for
+"where can I connect" questions, and back to today. The browser finds a town among the ZIP
+codes on the map first and asks Photon only for anything else (a county, a region, an
+address). It then counts everything from NYSERDA's files: the totals in view and the ZIP codes
+that lead, a ZIP code's card, a year's solar and the total by then (the time-lapse shows that
+year, paused), or the numbers of the panel section asked about. ZIP codes in an answer open
+their card when selected. A ZIP code that is not on the map, a year outside the list, or a
+place that cannot be found is said plainly, and nothing else changes.
 
 Safeguards: the API key exists only as an encrypted Cloudflare secret; only the site's own
 origin may call the function; questions are capped at 300 characters and the whole request at 4 KB; each visitor is limited

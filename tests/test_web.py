@@ -54,7 +54,13 @@ def test_both_map_pages_switch_to_each_other_and_share_their_parts():
         scripts = re.findall(r'<script src="([^"]+)"', html)
         assert scripts.index("config.js") < scripts.index("kit.js") < scripts.index("built.js"), page
         assert re.findall(r'name="theme" value="(\w+)"', html) == ["auto", "light", "dark"], page
-    assert "assistant" not in (WEB / "solar.html").read_text(encoding="utf-8")   # Volta lives on the capacity map
+    # Volta is on both pages: the same chat (volta.js), loaded before each page's own script.
+    for page, script in (("index.html", "app.js"), ("solar.html", "solar.js")):
+        html = (WEB / page).read_text(encoding="utf-8")
+        scripts = re.findall(r'<script src="([^"]+)"', html)
+        assert scripts.index("kit.js") < scripts.index("volta.js") < scripts.index(script), page
+        for part in ("assistant", "assistant-toggle", "assistant-panel", "chat-log", "chat-form", "chat-input", "greeting"):
+            assert f'id="{part}"' in html, f"{part} missing from {page}"
 
 
 def test_display_choices_match_the_code():

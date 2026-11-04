@@ -324,6 +324,18 @@
     }
   }
 
+  // Saves text as a file in the browser: nothing is sent anywhere.
+  function saveFile(name, type, text) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
   // ---------- the switch between the two pages ----------
   // Each page answers one question about the same map. Switching keeps the place and zoom:
   // MapLibre keeps them in the address (#zoom/lat/lng), and the link carries them over.
@@ -345,6 +357,6 @@
     reduceMotion, isShown, showSoftly, hideSoftly,
     readPrefs, savePrefs,
     loadBasemap, tuneBasemap, firstLabelLayer, tidyCredits, introduceCredits, wirePanelFold, pageLink, wireModes,
-    copyLink,
+    copyLink, saveFile,
   };
 })(window);

@@ -33,7 +33,7 @@
   };
 
   const state = { theme: null, prefs: null, summary: null, features: [], selected: null, cardTucked: false, setCollapsed: null, foldCredits: null,
-    timelapse: null };
+    timelapse: null, closeAssistant: null };
 
   // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
@@ -253,7 +253,9 @@
 
     get end() { return this.data.years.length - 1; }
 
-    start() {
+    // play: start playing at once; at: the year index to show first; focus: move focus to the
+    // player (not when Volta started it, so typing in the chat carries on).
+    start({ play = true, at = 0, focus = true } = {}) {
       if (this.active) return;
       clearSelection(this.map);
       closePopovers();
@@ -265,10 +267,24 @@
       $("tl-slider").max = String(this.end);
       $("tl-start").setAttribute("aria-expanded", "true");
       this.applyStyle();
-      this.render(0);
+      this.render(at);
       showSoftly($("timelapse"));
-      this.play();
-      $("tl-play").focus({ preventScroll: true });
+      if (play) this.play();
+      else {
+        this.mark(); // the button shows Play, not the Pause it was left on
+        this.announce();
+      }
+      if (focus) $("tl-play").focus({ preventScroll: true });
+    }
+
+    // Shows one year, paused (Volta: "how much solar was there in 2015?"). False if the year
+    // is not on the time-lapse.
+    jumpToYear(year) {
+      const index = this.data.years.indexOf(year);
+      if (index < 0) return false;
+      if (this.active) this.seek(index);
+      else this.start({ play: false, at: index, focus: false });
+      return true;
     }
 
     stop() {
@@ -577,6 +593,326 @@
     document.addEventListener("click", (e) => { if (!e.target.closest("#search")) list.hidden = true; });
   }
 
+  // ---------- download (in the browser, from the ZIP codes on the map) ----------
+  // Today's totals for the ZIP codes in view; a box that covers the state gives all of them.
+  const DOWNLOAD_NOTE = "From NYSERDA's Statewide Distributed Solar Projects list. Each point is the center of a "
+    + "ZIP code area (US Census Bureau), not where the projects are.";
+  function zipsInView(map) {
+    const b = map.getBounds();
+    return B.zipRows(state.features, [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+  }
+  function downloadView(map, format) {
+    try {
+      const rows = zipsInView(map);
+      if (!rows.length) return setDownloadNote("No ZIP codes in view. Zoom out or move the map.");
+      const day = new Date().toISOString().slice(0, 10);
+      const name = `capacity-atlas-solar-by-zip-${day}.${format === "csv" ? "csv" : "geojson"}`;
+      if (format === "csv") {
+        // The byte order mark tells Excel the file is UTF-8.
+        kit.saveFile(name, "text/csv;charset=utf-8", "\ufeff" + AtlasExport.toCsv(rows, B.ZIP_COLUMNS));
+      } else {
+        const features = rows.map((r) => ({ type: "Feature", properties: r,
+          geometry: { type: "Point", coordinates: [r.center_longitude, r.center_latitude] } }));
+        const metadata = {
+          source: "Capacity Atlas, https://capacity-atlas.pages.dev",
+          note: DOWNLOAD_NOTE,
+          data_through: state.summary ? state.summary.data_through : null,
+          exported: new Date().toISOString(),
+          zip_codes: rows.length,
+        };
+        kit.saveFile(name, "application/geo+json", JSON.stringify({ type: "FeatureCollection", metadata, features }));
+      }
+      setDownloadNote(`Saved ${fmtInt(rows.length)} ZIP ${rows.length === 1 ? "code" : "codes"}.`);
+    } catch (err) {
+      console.error("Download failed:", err);
+      setDownloadNote("The file could not be made. Please try again.");
+    }
+  }
+  const setDownloadNote = (text) => { $("download-note").textContent = text; };
+  function wireDownload(map) {
+    $("download-csv").addEventListener("click", () => downloadView(map, "csv"));
+    $("download-geojson").addEventListener("click", () => downloadView(map, "geojson"));
+    // Say up front how many ZIP codes a download would hold, and clear an old result on a move.
+    const update = () => {
+      const n = zipsInView(map).length;
+      setDownloadNote(n ? `${fmtInt(n)} ZIP ${n === 1 ? "code" : "codes"} in view, with today's totals.` : "No ZIP codes in view.");
+    };
+    map.on("moveend", update);
+    update();
+  }
+
+  // ---------- Volta ----------
+  // The chat is shared with the capacity map (volta.js). Here it gets answers in the settings
+  // of this page: a place or ZIP code to show, ZIP codes to rank, a year, the time-lapse, a
+  // panel section, or the way to the capacity map. The AI writes one sentence; every number
+  // below it is counted here from NYSERDA's files.
+  const BUILT_SECTIONS = { totals: "glance-title", years: "years-title", utilities: "utilities-title", linked: "match-title",
+    download: "download-title", quality: "quality-title" };
+  const NY_BBOX = [-79.8, 40.4, -71.8, 45.1];
+  const plural = (n, one, many) => `${fmtInt(n)} ${n === 1 ? one : many}`;
+  let volta = null;
+
+  function wireAssistant(map) {
+    volta = new AtlasVolta.Volta({
+      map, page: "built", askUrl: cfg.askUrl,
+      keep: ["place", "zip", "rank", "year", "timelapse", "section", "capacity", "reset"],
+      fallback: { unclear: "Sorry, I did not catch that. Which town, ZIP code or year should I show?",
+        scope: "I can help with solar already connected in New York: a town, a ZIP code or a year." },
+      hooks: {
+        foldCredits: () => state.foldCredits && state.foldCredits(),
+        closePopovers: () => closePopovers(),
+        setCollapsed: (collapsed) => state.setCollapsed && state.setCollapsed(collapsed),
+      },
+      // "New chat": back to today's map, with no card open.
+      onReset: () => {
+        if (state.timelapse) state.timelapse.stop();
+        clearSelection(map);
+      },
+      onLogClick: (e) => {
+        const zip = e.target.closest("button[data-zip]");
+        if (zip) {
+          const f = state.features.find((x) => x.properties.zip === zip.dataset.zip);
+          if (f) showZip(map, f);
+          return true;
+        }
+        if (e.target.closest("button[data-capacity]")) {
+          const [lng, lat] = map.getCenter().toArray();
+          const zoom = Math.max(map.getZoom(), 11).toFixed(2);
+          window.location.href = kit.pageLink("./", `#${zoom}/${lat.toFixed(5)}/${lng.toFixed(5)}`);
+          return true;
+        }
+        return false;
+      },
+      onPlan: (plan, reply) => carryOut(map, plan, reply),
+    });
+    if (!volta.mount()) return;
+    state.closeAssistant = () => volta.setOpen(false);
+    $("help-volta").hidden = false;
+  }
+
+  // Today's card for one ZIP code, and the map moved to it.
+  function showZip(map, feature) {
+    if (state.timelapse) state.timelapse.stop();
+    select(map, feature);
+    map.flyTo({ center: feature.geometry.coordinates, zoom: Math.max(map.getZoom(), 11), offset: cardOffset(), duration: 1200 });
+  }
+
+  // Where a place is: a town on the map first (its ZIP codes, found in the browser), then the
+  // same place search as the capacity map (Photon, over OpenStreetMap) for anything else.
+  async function goToPlace(map, name) {
+    const town = name.replace(/,\s*(new york|ny)\s*$/i, "").trim().toLowerCase();
+    const towns = state.features.filter((f) => typeof f.properties.place === "string" && f.properties.place.toLowerCase() === town);
+    if (towns.length) {
+      const xs = towns.map((f) => f.geometry.coordinates[0]), ys = towns.map((f) => f.geometry.coordinates[1]);
+      map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 90, maxZoom: 11.5, duration: 1200 });
+      return true;
+    }
+    try {
+      const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=1&lang=en&bbox=${NY_BBOX.join(",")}`;
+      const response = await fetch(url, { signal: withTimeout(10000) });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const place = ((await response.json()).features || []).find((f) => f.geometry && f.geometry.type === "Point");
+      if (!place) return false;
+      const extent = place.properties && place.properties.extent;
+      if (Array.isArray(extent) && extent.length === 4 && extent.every(Number.isFinite)) {
+        map.fitBounds([[extent[0], extent[3]], [extent[2], extent[1]]], { padding: 60, maxZoom: 11, duration: 1200 });
+      } else {
+        map.flyTo({ center: place.geometry.coordinates, zoom: 10.5, duration: 1200 });
+      }
+      return true;
+    } catch (err) {
+      console.warn("Place lookup failed:", err);
+      return false;
+    }
+  }
+
+  const settle = (map) => new Promise((resolve) => { map.once("idle", resolve); map.triggerRepaint(); setTimeout(resolve, 10000); });
+  function featuresInView(map) {
+    const b = map.getBounds();
+    return state.features.filter((f) => b.contains(f.geometry.coordinates));
+  }
+  const zipButton = (p) => `<button type="button" data-zip="${escapeHtml(p.zip)}">${escapeHtml(p.zip)}${p.place ? ` ${escapeHtml(p.place)}` : ""}</button>`;
+  const topList = (label, rows) => (rows.length
+    ? `<p class="msg-sub">${escapeHtml(label)}</p><ul class="msg-top">${rows.map(([p, value]) => `<li>${zipButton(p)}<span>${escapeHtml(value)}</span></li>`).join("")}</ul>` : "");
+
+  function describeView(map) {
+    const fs = featuresInView(map);
+    if (!fs.length) return "<p>No ZIP codes with solar in this view. Try zooming out.</p>";
+    const sum = (key) => fs.reduce((total, f) => total + (Number.isFinite(f.properties[key]) ? f.properties[key] : 0), 0);
+    const top = [...fs].sort((a, b) => b.properties.kw - a.properties.kw).slice(0, 3).map((f) => [f.properties, fmtPower(f.properties.kw)]);
+    return `<p>In this view: <strong>${fmtPower(sum("kw"))}</strong> from <strong>${plural(sum("n"), "system", "systems")}</strong> in ` +
+      `${plural(fs.length, "ZIP code", "ZIP codes")}, with <strong>${fmtPower(sum("r12"))}</strong> connected in the last 12 months.</p>` +
+      topList("Most solar in view", top);
+  }
+
+  // The ZIP codes in view that lead by one measure. With a year (and the time-lapse file), the
+  // solar ranking is by what was connected by the end of that year.
+  const RANKED = {
+    solar: { label: "Most solar in view", value: (p) => p.kw, words: (p) => fmtPower(p.kw), none: "solar" },
+    recent: { label: "Most connected in the last 12 months", value: (p) => p.r12 || 0, words: (p) => fmtPower(p.r12), none: "solar connected in the last 12 months" },
+    community: { label: "Most community solar systems", value: (p) => p.cn || 0, words: (p) => plural(p.cn, "system", "systems"), none: "community solar" },
+    storage: { label: "Most battery storage", value: (p) => p.st || 0, words: (p) => fmtPower(p.st), none: "battery storage" },
+  };
+  function describeRank(map, rank, year) {
+    const r = RANKED[rank];
+    const tl = state.timelapse;
+    const index = year && rank === "solar" && tl ? tl.data.years.indexOf(year) : -1;
+    const value = index >= 0 ? (p) => (tl.data.zips.get(p.zip) || [])[index] || 0 : r.value;
+    const words = index >= 0 ? (p) => fmtPower(value(p)) : r.words;
+    const rows = featuresInView(map).map((f) => f.properties).filter((p) => value(p) > 0)
+      .sort((a, b) => value(b) - value(a)).slice(0, 5).map((p) => [p, words(p)]);
+    if (!rows.length) return `<p>No ZIP codes in this view have ${r.none}${index >= 0 ? ` by the end of ${year}` : ""}. Try zooming out.</p>`;
+    return topList(index >= 0 ? `Most solar in view by the end of ${year}` : r.label, rows) + "<p class=\"msg-sub\">Select a ZIP code to open its card.</p>";
+  }
+
+  function describeZip(p) {
+    return `<p>ZIP code <strong>${escapeHtml(p.zip)}</strong>${p.place ? ` (${escapeHtml(p.place)})` : ""}: <strong>${fmtPower(p.kw)}</strong> from ` +
+      `<strong>${plural(p.n, "system", "systems")}</strong>${p.r12 > 0 ? `, ${fmtPower(p.r12)} of it in the last 12 months` : ""}. Its card is open on the map.</p>`;
+  }
+
+  function describeYear(map, year, moved) {
+    const s = state.summary;
+    if (!s || !s.by_year.length) return "<p>The yearly totals could not be loaded. Try refreshing in a minute.</p>";
+    const first = s.by_year[0].year;
+    const through = s.data_through;
+    const last = through ? Number(through.slice(0, 4)) : s.by_year[s.by_year.length - 1].year;
+    if (year < first || year > last) {
+      return `<p>NYSERDA's list runs from ${first} to ${through ? escapeHtml(B.fmtDay(through)) : last}, so ${year} is not on it.</p>`;
+    }
+    const row = s.by_year.find((y) => y.year === year);
+    const partial = through && year === last && !through.endsWith("-12-31");
+    const when = partial ? `${year} (to ${escapeHtml(B.fmtDay(through))})` : String(year);
+    let text = row
+      ? `In ${when}, <strong>${fmtPower(row.kw)}</strong> of solar was connected in New York${Number.isInteger(row.systems) ? `, from <strong>${plural(row.systems, "system", "systems")}</strong>` : ""}`
+      : `No solar on NYSERDA's list was connected in ${when}`;
+    const tl = state.timelapse;
+    const index = tl ? tl.data.years.indexOf(year) : -1;
+    if (index >= 0) text += `, bringing the total to <strong>${fmtPower(tl.data.state[index])}</strong>${partial ? "" : ` by the end of ${year}`}`;
+    let html = `<p>${text}.</p>`;
+    if (index >= 0 && moved) {
+      const inView = featuresInView(map).reduce((total, f) => total + ((tl.data.zips.get(f.properties.zip) || [])[index] || 0), 0);
+      html += `<p>In this view: <strong>${fmtPower(inView)}</strong> by the end of ${year}.</p>`;
+    }
+    if (index >= 0) html += "<p class=\"msg-sub\">The map shows that year. Press play at the top to watch the rest, or X to go back to today.</p>";
+    return html;
+  }
+
+  // The numbers of a panel section, for a question about it.
+  function describeSection(map, section) {
+    const s = state.summary;
+    if (section === "download") {
+      const n = featuresInView(map).length;
+      return `<p>The Download section in the panel saves the <strong>${plural(n, "ZIP code", "ZIP codes")} in view</strong> as a spreadsheet (CSV) or a map file (GeoJSON).</p>`;
+    }
+    if (!s) return "<p>The statewide totals could not be loaded. Try refreshing in a minute.</p>";
+    const t = s.totals;
+    if (section === "totals") {
+      return `<p>New York has <strong>${fmtPower(t.kw)}</strong> of distributed solar from <strong>${plural(t.systems, "system", "systems")}</strong>, ` +
+        `with <strong>${fmtPower(s.last_12_months.kw)}</strong> connected in the last 12 months.` +
+        (t.community_systems > 0 ? ` Community solar is ${pct(t.community_systems, t.systems)} of the systems but ${pct(t.community_kw, t.kw)} of the capacity.` : "") + "</p>";
+    }
+    if (section === "years" && s.by_year.length) {
+      const peak = s.by_year.reduce((a, y) => (y.kw > a.kw ? y : a), s.by_year[0]);
+      return `<p>The year with the most solar connected was <strong>${peak.year}</strong>, with <strong>${fmtPower(peak.kw)}</strong>. ` +
+        `In the last 12 months, <strong>${fmtPower(s.last_12_months.kw)}</strong> was connected.</p>`;
+    }
+    if (section === "utilities" && s.by_utility.length) {
+      const top = s.by_utility.slice(0, 3).map((u) => `<li><span>${escapeHtml(B.utilityName(u.name))}</span><span>${escapeHtml(fmtPower(u.kw))}</span></li>`).join("");
+      return `<p class="msg-sub">Most solar by utility</p><ul class="msg-top">${top}</ul>`;
+    }
+    if (section === "linked") {
+      const rows = Object.values(s.feeders).map((m) => `<li><span>${escapeHtml(B.utilityName(m.nyserda_name))}</span>` +
+        `<span>${fmtInt(m.feeders_with_solar)} of ${fmtInt(m.feeders_with_capacity)} feeders</span></li>`).join("");
+      return rows ? `<p class="msg-sub">Feeders on the capacity map with solar connected</p><ul class="msg-top">${rows}</ul>` +
+        "<p>Each project names its feeder; only exact matches are used. A line's card on Room to connect shows the solar on its feeder.</p>" : "";
+    }
+    if (section === "quality") {
+      const ran = s.checks.filter((c) => c.status === "ran");
+      const top = ran.filter((c) => c.flagged > 0).sort((a, b) => b.flagged - a.flagged).slice(0, 2);
+      return `<p>All <strong>${fmtInt(s.rows)} rows</strong> of NYSERDA's list go through ${ran.length} checks.` +
+        (top.length ? ` The most common flags: ${top.map((c) => `${escapeHtml(c.title)} (${fmtInt(c.flagged)})`).join(", ")}.` : " None found a problem.") +
+        " A flag means worth a closer look, not a confirmed error.</p>";
+    }
+    return "";
+  }
+
+  function describeCapacity() {
+    return "<p>Room to connect shows where power lines still have room for new solar, for Central Hudson and National Grid so far.</p>" +
+      '<p><button class="d-action" type="button" data-capacity>Open Room to connect here</button></p>';
+  }
+
+  async function carryOut(map, plan, reply) {
+    const tl = state.timelapse;
+    const add = (html) => { if (html) reply.insertAdjacentHTML("beforeend", html); };
+    reply.innerHTML = plan.reply ? `<p>${escapeHtml(plan.reply)}</p>` : "";
+    const acts = plan.reset || plan.zip || plan.place || plan.rank || plan.year || plan.timelapse || plan.section || plan.capacity;
+    if (!acts) {
+      // A general question: words only, and the map stays as it is.
+      if (!plan.reply) reply.innerHTML = "<p>Ask me about a town, a ZIP code or a year, and I will set the map.</p>";
+      return;
+    }
+    if (plan.reset) {
+      if (tl) tl.stop();
+      clearSelection(map);
+      map.flyTo({ center: cfg.startView.center, zoom: cfg.startView.zoom });
+    }
+    if (plan.timelapse === "stop" && tl) tl.stop();
+    const section = plan.year || plan.timelapse === "play" ? "years" : plan.section;
+    if (BUILT_SECTIONS[section]) volta.reveal(BUILT_SECTIONS[section]);
+    reply.insertAdjacentHTML("beforeend", AtlasVolta.Volta.typing());
+    try {
+      // Where. Today's totals for a place or ZIP code, unless a year was asked for too.
+      let moved = false;
+      let zipFeature = null;
+      const keepYear = plan.year || plan.timelapse === "play";
+      if (plan.zip) {
+        zipFeature = state.features.find((f) => f.properties.zip === plan.zip) || null;
+        if (zipFeature) {
+          if (tl && !keepYear) tl.stop();
+          map.flyTo({ center: zipFeature.geometry.coordinates, zoom: Math.max(map.getZoom(), 11), offset: cardOffset(), duration: 1200 });
+          moved = true;
+        } else {
+          add(`<p>ZIP code ${escapeHtml(plan.zip)} is not on the map: NYSERDA's list places no solar there, or it has no Census ZIP area.</p>`);
+        }
+      } else if (plan.place) {
+        if (tl && !keepYear) tl.stop();
+        moved = await goToPlace(map, plan.place);
+        if (!moved) add(`<p>I could not find ${escapeHtml(plan.place.replace(/, New York$/i, ""))}, so I kept the current view.</p>`);
+      }
+      if ((plan.rank || plan.capacity) && tl && !plan.year) tl.stop(); // rankings and the capacity map are about today
+      // When.
+      if (plan.year && tl) tl.jumpToYear(plan.year);
+      else if (plan.timelapse === "play") {
+        if (tl && tl.active) tl.play();
+        else if (tl) tl.start({ focus: false });
+      }
+      if (moved) await settle(map);
+      // The numbers.
+      if (zipFeature) {
+        if (tl && tl.active && plan.year) {
+          const index = tl.data.years.indexOf(plan.year);
+          const kw = index >= 0 ? (tl.data.zips.get(zipFeature.properties.zip) || [])[index] || 0 : null;
+          if (kw !== null) add(`<p>ZIP code <strong>${escapeHtml(zipFeature.properties.zip)}</strong>: <strong>${fmtPower(kw)}</strong> by the end of ${plan.year}.</p>`);
+        } else {
+          select(map, zipFeature);
+          add(describeZip(zipFeature.properties));
+        }
+      }
+      if (plan.year) add(describeYear(map, plan.year, moved && !zipFeature));
+      if (plan.rank) add(describeRank(map, plan.rank, plan.year));
+      else if (moved && !zipFeature && !plan.year) add(describeView(map));
+      if (!plan.rank && !moved && !plan.year && !zipFeature && plan.section) add(describeSection(map, plan.section));
+      if (plan.timelapse === "play") {
+        add(tl ? `<p>Playing the growth since ${tl.data.years[0]}. Pause, or drag the slider at the top of the map to stop at any year.</p>`
+          : "<p>The year-by-year view is not available yet. It appears after the next weekly update.</p>");
+      }
+      if (plan.timelapse === "stop") add("<p>Back to today's map.</p>");
+      if (plan.capacity) add(describeCapacity());
+    } finally {
+      reply.querySelector(".typing")?.remove();
+    }
+  }
+
   // ---------- guide, display menu, panel, credits, keys ----------
   // The right side shows one thing at a time, as on the capacity map: opening the guide or the
   // display menu folds the credits and tucks the ZIP code card away. The card comes back, with
@@ -586,6 +922,7 @@
   function setPopover(name, open) {
     if (open) {
       if (state.foldCredits) state.foldCredits();
+      if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant();
       if (isShown($("detail"))) { state.cardTucked = true; hideSoftly($("detail")); }
     } else if (state.cardTucked && state.selected) {
       state.cardTucked = false;
@@ -629,6 +966,7 @@
       else if (!$("search-results").hidden) $("search-results").hidden = true;
       else if (!$("detail").hidden) clearSelection(map);
       else if (state.timelapse && state.timelapse.active) state.timelapse.stop();
+      else if (state.closeAssistant && !$("assistant-panel").hidden) state.closeAssistant();
     });
     state.setCollapsed = kit.wirePanelFold({
       panel: $("panel"), body: $("panel-body"),
@@ -713,7 +1051,12 @@
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
     // The credits open first, with the running light, then fold into the "i" (kit.js).
     map.once("load", () => {
-      state.foldCredits = kit.introduceCredits(map, { onOpen: closePopovers });
+      state.foldCredits = kit.introduceCredits(map, {
+        onOpen: () => {
+          closePopovers();
+          if (state.closeAssistant && isShown($("assistant-panel"))) state.closeAssistant(); // the chat would cover them
+        },
+      });
       if (shared) {
         if (!hasPlace) map.jumpTo({ center: shared.geometry.coordinates, zoom: 11 });
         select(map, shared);
@@ -725,6 +1068,8 @@
     wireClicks(map);
     wireSearch(map);
     wireControls(map);
+    wireDownload(map);
+    wireAssistant(map);
     window.atlasMap = map; // handy for debugging in the browser console
   }
 

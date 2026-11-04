@@ -105,6 +105,16 @@
         <div id="match"></div>
       </section>
 
+      <section class="block" aria-labelledby="download-title">
+        <h2 id="download-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</h2>
+        <p class="note">Save the ZIP codes in view, with their totals, as a spreadsheet (CSV) or a map file (GeoJSON).</p>
+        <div class="site-actions download-actions">
+          <button class="d-action" id="download-csv" type="button">Download CSV</button>
+          <button class="d-action" id="download-geojson" type="button">Download GeoJSON</button>
+        </div>
+        <p class="note download-note" id="download-note" aria-live="polite"></p>
+      </section>
+
       <section class="block" aria-labelledby="quality-title">
         <h2 id="quality-title"><svg class="h-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Data quality</h2>
         <p class="note" id="quality-note">Every row of NYSERDA's list goes through checks like those on the utility data.</p>
@@ -153,11 +163,13 @@
       </button>
     </div>
     <ol class="steps">
+      <li id="help-volta" hidden><strong>Ask Volta.</strong> The assistant in the bottom right corner answers questions such as "Which ZIP codes near Albany have the most solar?" or "How much solar was there in 2015?" It sets the map, and every number comes from NYSERDA's list.</li>
       <li><strong>Circles.</strong> Each circle is a ZIP code, sized by the solar connected there.</li>
       <li><strong>Inner circle.</strong> The smaller circle in the middle shows what was connected in the last 12 months. A large inner circle means recent growth.</li>
       <li><strong>Details.</strong> Click a circle to see that ZIP code's systems, community solar, storage and primary utility.</li>
       <li><strong>Search.</strong> Type a ZIP code or town to jump to it.</li>
       <li><strong>Room to connect.</strong> Use "See room to connect here", or the switch at the top of the panel, to see how much room the nearby lines still have.</li>
+      <li><strong>Download.</strong> Save the ZIP codes in view, with their totals, as a spreadsheet or a map file.</li>
       <li id="help-growth" hidden><strong>Growth.</strong> Under "Connected each year", press play to watch the circles grow from the first year on record to today. Drag the slider to stop at any year.</li>
     </ol>
     <h3>Glossary</h3>
@@ -188,6 +200,57 @@
     <p class="visually-hidden" id="tl-live" aria-live="polite"></p>
   </section>
 
+  <div class="assistant" id="assistant" hidden>
+    <button class="assistant-launcher" id="assistant-toggle" type="button" aria-expanded="false" aria-controls="assistant-panel" title="Ask Volta about solar already built">
+      <span class="volta" data-volta="launch"></span>
+      <span class="visually-hidden">Ask Volta about solar already built</span>
+    </button>
+    <div class="greeting" id="greeting" hidden role="status">
+      <button class="greeting-body" id="greeting-open" type="button">
+        <strong>Hi, I'm Volta.</strong>
+        <span>Curious where solar is already built? Ask me about a town, a ZIP code or a year.</span>
+      </button>
+      <button class="greeting-close" id="greeting-close" type="button" aria-label="Dismiss">
+        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <section class="assistant-panel" id="assistant-panel" hidden aria-labelledby="assistant-title">
+      <header class="assistant-head">
+        <span class="assistant-avatar"><span class="volta volta-small" data-volta="head"></span></span>
+        <div>
+          <h2 id="assistant-title">Volta</h2>
+          <p>Solar assistant, answering from NYSERDA's list</p>
+        </div>
+        <button class="icon-button" id="assistant-reset" type="button" title="New chat (clears the conversation and goes back to today's map)">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="visually-hidden">New chat</span>
+        </button>
+        <button class="icon-button" id="assistant-close" type="button" title="Close assistant">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="visually-hidden">Close assistant</span>
+        </button>
+      </header>
+      <div class="chat-log" id="chat-log" aria-live="polite">
+        <div class="msg msg-bot"><p>Hi, I'm Volta. Ask me where solar is already connected, and I'll set the map for you.</p>
+          <div class="chips" id="chat-chips">
+            <button type="button">How much solar is in Saratoga Springs?</button>
+            <button type="button">Which ZIP codes near Albany have the most solar?</button>
+            <button type="button">How much solar was there in 2015?</button>
+            <button type="button">Where is solar growing fastest?</button>
+          </div>
+        </div>
+      </div>
+      <form class="chat-form" id="chat-form" autocomplete="off">
+        <label class="visually-hidden" for="chat-input">Ask a question</label>
+        <input id="chat-input" type="text" maxlength="300" placeholder="Ask about solar already built" enterkeyhint="send">
+        <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+      <p class="chat-note">AI sets the map. Every number comes from NYSERDA's list.</p>
+    </section>
+  </div>
+
   <section class="detail" id="detail" hidden aria-live="polite" aria-label="Selected ZIP code details">
     <button class="detail-close" id="detail-close" type="button" aria-label="Close details">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -200,7 +263,9 @@
   <script src="config.js" defer></script>
   <script src="kit.js" defer></script>
   <script src="vendor/maplibre-gl.js" defer></script>
+  <script src="export.js" defer></script>
   <script src="built.js" defer></script>
+  <script src="volta.js" defer></script>
   <script src="solar.js" defer></script>
 </body>
 </html>

@@ -319,8 +319,9 @@ settings (see below).
    measures the distance to the nearest line with room. A new place or size replaces the
    earlier settings; a question about a highlight alone ("any errors here?", "hide that")
    changes only that highlight; "back to normal" clears every filter, highlight and site check.
-   Asking what changed turns the data quality highlight off, and in a week with nothing to
-   highlight the answer says why, in the panel's own words.
+   Asking what changed turns the data quality highlight off. In a week with nothing to
+   highlight, the answer says so instead of the AI's sentence, and gives the reason for each
+   utility in the panel's own words.
    Every answer also points the side panel at the section it is about: the data quality or
    change highlight it turned on, the site check, the filters it set, or the topic of a general
    question ("how do I download the lines?"). The panel opens if it was folded, scrolls the
@@ -347,9 +348,11 @@ utilities, the link to feeders, download, data quality), an offer of the capacit
 "where can I connect" questions, and back to today. The browser finds a town among the ZIP
 codes on the map first and asks Photon only for anything else (a county, a region, an
 address). It then counts everything from NYSERDA's files. A question about a place counts that
-place, not whatever else a wide or tall screen shows: a town's own ZIP codes, the ZIP codes
-inside the area Photon returns (Long Island, a county), or those within about 9 km of a place
-Photon knows only as a point. A ranking near a town reaches about 9 km past its ZIP codes,
+place, not whatever else a wide or tall screen shows: a town's own ZIP codes; a county's (from
+NYSERDA's county field); a region's counties (Long Island is Nassau and Suffolk, New York City
+its five boroughs), since a search result's rectangle for Long Island reaches over the Sound to
+Westchester; the ZIP codes inside the area Photon returns for anything else; or those within
+about 9 km of a place Photon knows only as a point. A ranking near a town reaches about 9 km past its ZIP codes,
 since "near Albany" means the area around it. Each answer names what it counted ("In
 Brooklyn", "Most solar near Albany", "Most solar in view" when no place was asked). It also
 gives a ZIP code's card, a year's solar and the total by then (the time-lapse shows that

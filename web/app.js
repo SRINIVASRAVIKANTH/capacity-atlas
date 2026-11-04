@@ -697,7 +697,11 @@
       // changes to show (the changes toggle is off then, and the answer says so).
       if (plan.show_changes === true && plan.show_issues !== true) setIssues(map, false);
     }
-    reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
+    // In a week with nothing to highlight, the AI's sentence ("the map now highlights...") would
+    // promise what the map cannot show, so the answer says so instead.
+    const noChanges = plan.show_changes === true && plan.show_issues !== true && $("changes-toggle").disabled;
+    const lead = noChanges ? "There are no changes to highlight right now." : plan.reply;
+    reply.innerHTML = `<p>${escapeHtml(lead)}</p><p class="typing" aria-label="Updating the map"><span></span><span></span><span></span></p>`;
     let spot = null;
     const coords = plan.place && plan.place.match(COORDS);
     if (coords && Math.abs(coords[1]) <= 90 && Math.abs(coords[2]) <= 180) {
@@ -711,7 +715,7 @@
           spot = [lng, lat];
           state.flyToPlace(lng, lat, place.properties && place.properties.extent, 12.5);
         } else {
-          reply.innerHTML = `<p>${escapeHtml(plan.reply)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
+          reply.innerHTML = `<p>${escapeHtml(lead)}</p><p>I could not find ${escapeHtml(plan.place)}, so the filters apply to the current view.</p><p class="typing"><span></span><span></span><span></span></p>`;
         }
       } catch (err) {
         console.warn("Place lookup failed:", err);

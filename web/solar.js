@@ -701,18 +701,39 @@
   // same place search as the capacity map (Photon, over OpenStreetMap) for anything else.
   // Moves the map to a place and returns the area the answer counts, so the numbers are about
   // the place and not about whatever else a wide or tall screen happens to show:
-  //   { name, zips, bounds, near }  zips: the ZIP codes named after the town (or null);
-  //   bounds: [west, south, east, north]; near: the place is a point, counted around it.
+  //   { name, zips, bounds, near, exact }  zips: the ZIP codes of a town, county or region (or
+  //   null); bounds: [west, south, east, north]; near: the place is a point, counted around it;
+  //   exact: a county or region, whose own ZIP codes are the whole answer, rankings included.
   // Returns null when the place cannot be found.
   async function goToPlace(map, name) {
-    const town = name.replace(/,\s*(new york|ny)\s*$/i, "").trim().toLowerCase();
-    const towns = state.features.filter((f) => typeof f.properties.place === "string" && f.properties.place.toLowerCase() === town);
-    if (towns.length) {
-      const xs = towns.map((f) => f.geometry.coordinates[0]), ys = towns.map((f) => f.geometry.coordinates[1]);
+    const asked = name.replace(/,\s*(new york|ny)\s*$/i, "").trim();
+    const town = asked.toLowerCase();
+    const countyName = town.replace(/\s+county$/, "");
+    const lower = (v) => (typeof v === "string" ? v.toLowerCase() : "");
+    const byCounty = (names) => state.features.filter((f) => names.includes(lower(f.properties.county)));
+    const go = (zips, label, exact) => {
+      const xs = zips.map((f) => f.geometry.coordinates[0]), ys = zips.map((f) => f.geometry.coordinates[1]);
       const bounds = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
       map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 90, maxZoom: 11.5, duration: 1200 });
-      return { name: towns[0].properties.place, zips: towns, bounds, near: false };
+      return { name: label, zips, bounds, near: false, exact };
+    };
+    const countyLabel = (zips) => `${zips[0].properties.county} County`;
+    // "Suffolk County": the county, even where a town shares its name.
+    if (countyName !== town) {
+      const zips = byCounty([countyName]);
+      if (zips.length) return go(zips, countyLabel(zips), true);
     }
+    const towns = state.features.filter((f) => lower(f.properties.place) === town);
+    if (towns.length) return go(towns, towns[0].properties.place, false);
+    // Regions people name that no single town or county covers, by their counties. A shape from
+    // the place search would be a rectangle: Long Island's reaches over the Sound to Westchester.
+    const region = REGIONS[town];
+    if (region) {
+      const zips = byCounty(region.counties);
+      if (zips.length) return go(zips, region.label, true);
+    }
+    const counties = byCounty([countyName]);
+    if (counties.length) return go(counties, countyLabel(counties), true);
     try {
       const url = `${cfg.searchUrl}?q=${encodeURIComponent(name)}&limit=1&lang=en&bbox=${NY_BBOX.join(",")}`;
       const response = await fetch(url, { signal: withTimeout(10000) });
@@ -740,6 +761,13 @@
 
   // About 9 km: "around" a place that is only a point, and the margin "near" a town reaches.
   const NEAR_DEG = 0.08;
+  const NYC = ["new york", "kings", "queens", "bronx", "richmond"];
+  const REGIONS = {
+    "long island": { label: "Long Island", counties: ["nassau", "suffolk"] },
+    "new york city": { label: "New York City", counties: NYC },
+    "nyc": { label: "New York City", counties: NYC },
+    "manhattan": { label: "Manhattan", counties: ["new york"] },
+  };
   const inBounds = (b, [x, y]) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
   // The ZIP codes an answer counts, and how to name them. Without a place, the ZIP codes in view.
   //   rank  a ranking ("which ZIP codes near Albany"): a town reaches a little past its own ZIP
@@ -747,7 +775,7 @@
   function areaFeatures(map, area, rank = false) {
     if (!area) return { features: featuresInView(map), where: "in view" };
     const named = escapeHtml(area.name);
-    if (area.zips && !rank) return { features: area.zips, where: `in ${named}` };
+    if (area.zips && (!rank || area.exact)) return { features: area.zips, where: `in ${named}` };
     const b = area.zips ? [area.bounds[0] - NEAR_DEG * 1.35, area.bounds[1] - NEAR_DEG, area.bounds[2] + NEAR_DEG * 1.35, area.bounds[3] + NEAR_DEG] : area.bounds;
     const features = state.features.filter((f) => inBounds(b, f.geometry.coordinates));
     return { features, where: area.zips || area.near ? `near ${named}` : `in ${named}` };

@@ -177,7 +177,7 @@ def test_place_names_ignore_capitals_and_ties_are_stable():
     ("Greenvl", "Greenville"), ("Rensselaervl", "Rensselaerville"), ("Stormvl", "Stormville"), ("Brightwtrs", "Brightwaters"),
     ("Farmngville", "Farmingville"), ("Hampt Bays", "Hampton Bays"), ("Islip Terr", "Islip Terrace"), ("Preston Holw", "Preston Hollow"),
     ("Clinton Cors", "Clinton Corners"), ("Annandale On Hudson", "Annandale-on-Hudson"), ("Mcgraw", "McGraw"),
-    ("PAUL SMITH'S", "Paul Smiths"), ("CROTON-ON-HUDSON", "Croton-on-Hudson"), ("NEW CITY", "New City"), ("  Rye  ", "Rye"),
+    ("PAUL SMITH'S", "Paul Smiths"), ("Paul Smith'S", "Paul Smiths"), ("CROTON-ON-HUDSON", "Croton-on-Hudson"), ("NEW CITY", "New City"), ("  Rye  ", "Rye"),
     # names that are already right stay as they are
     ("East Hampton", "East Hampton"), ("Fort Ann", "Fort Ann"), ("Van Buren Point", "Van Buren Point"), ("Penn Yan", "Penn Yan"),
     ("Upper Jay", "Upper Jay"), ("Saint Albans", "Saint Albans"), ("De Kalb Junction", "De Kalb Junction"), ("S", "S"),

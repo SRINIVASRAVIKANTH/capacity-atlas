@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -243,7 +244,8 @@ def place_name(value: str) -> str:
     """
     name = " ".join(value.split())
     if name.isupper():
-        name = name.title().replace("'S", "'s")                 # "PAUL SMITH'S", not "Paul Smith'S"
+        name = name.title()
+    name = re.sub(r"'S\b", "'s", name)                           # "Paul Smith's", not "Paul Smith'S"
     name = name.replace("-On-", "-on-").replace(" On Hudson", "-on-Hudson")   # "Croton-on-Hudson"
     if name in _PLACE_NAMES:
         return _PLACE_NAMES[name]

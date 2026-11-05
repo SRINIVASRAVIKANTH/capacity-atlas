@@ -150,8 +150,13 @@ feeders with a published capacity have solar on record. The list's own checks ar
 </p>
 
 <p align="center">
+  <img src="docs/images/built-volta.png" alt="Volta on Built so far answering How much solar is on Long Island: 1,067 MW from 101,920 systems in 173 ZIP codes, with the top ZIP codes listed" width="900">
+  <br><b>Figure 12.</b> Volta on Built so far. "How much solar is on Long Island?" counts Nassau and Suffolk's own 173 ZIP codes: 1,067 MW from 101,920 systems, led by Shoreham and Calverton.
+</p>
+
+<p align="center">
   <img src="docs/images/dark-mobile.png" alt="Capacity Atlas in the dark theme on a phone" width="300">
-  <br><b>Figure 12.</b> Dark theme on a phone.
+  <br><b>Figure 13.</b> Dark theme on a phone.
 </p>
 
 ---

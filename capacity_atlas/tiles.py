@@ -422,7 +422,7 @@ def build_tiles(features: gpd.GeoDataFrame, out: Path, tippecanoe: str) -> Path:
         result = subprocess.run(
             [tippecanoe, "--output", str(out), *TIPPECANOE_ARGS,
              "--named-layer", f"{LAYER}:{lines}", "--named-layer", f"{OVERVIEW_LAYER}:{merged}"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, check=False,  # the return code is checked below, with tippecanoe's message
         )
     if result.returncode != 0 or not out.exists():
         raise TileBuildError(f"tippecanoe failed ({result.returncode}): {result.stderr[-2000:]}")

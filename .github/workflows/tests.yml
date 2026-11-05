@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned, so a new Ubuntu release cannot change the build unannounced
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -23,7 +23,7 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
       - run: pip install -r requirements.txt ruff pytest-cov
       - run: npm ci

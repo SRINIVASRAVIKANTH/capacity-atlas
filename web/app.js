@@ -898,8 +898,8 @@
       const analyzedPct = s.sections ? Math.round((100 * s.analyzed) / s.sections) : 0;
       const errorsClean = !s.checks.some((c) => c.severity === "error" && c.flagged > 0);
       const list = findings.map((c) => `
-        <li><span class="dot sev-${c.severity}" aria-hidden="true"></span>
-          <span>${escapeHtml(c.title)}<span class="visually-hidden"> (${c.severity})</span></span>
+        <li><span class="dot sev-${escapeHtml(c.severity)}" aria-hidden="true"></span>
+          <span>${escapeHtml(c.title)}<span class="visually-hidden"> (${escapeHtml(c.severity)})</span></span>
           <span class="n">${fmtInt(c.flagged)}</span></li>`).join("");
       return `
         <div class="utility">

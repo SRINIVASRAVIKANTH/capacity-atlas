@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   snapshot:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned, so a new Ubuntu release cannot change the build unannounced
     timeout-minutes: 150   # whole job; the download step has its own, shorter limit
 
     steps:

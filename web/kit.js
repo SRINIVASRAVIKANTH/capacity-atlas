@@ -310,7 +310,23 @@
       });
     }
     if (window.matchMedia("(max-width: 760px)").matches) { heading = true; set(true, false); }
+    trackFoldedHeight(panel);
     return (collapsed) => { heading = collapsed; set(collapsed); };
+  }
+
+  // On a phone the folded panel is a sheet along the bottom, and its height depends on the page
+  // and the phone's fonts. Volta's button and the map buttons sit just above it, so they never
+  // cover the sheet's own buttons: --sheet-folded holds its height, measured whenever it changes.
+  function trackFoldedHeight(panel) {
+    const measure = () => {
+      if (!panel.classList.contains("is-collapsed") || !window.matchMedia("(max-width: 760px)").matches) return;
+      const height = Math.round(window.innerHeight - panel.getBoundingClientRect().top);
+      if (height > 0) document.documentElement.style.setProperty("--sheet-folded", `${height}px`);
+    };
+    measure();
+    if (window.ResizeObserver) new ResizeObserver(measure).observe(panel);
+    window.addEventListener("resize", measure);
+    new MutationObserver(measure).observe(panel, { attributes: true, attributeFilter: ["class"] });
   }
 
   // ---------- sharing ----------

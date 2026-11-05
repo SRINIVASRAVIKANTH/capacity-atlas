@@ -274,8 +274,10 @@ a:hover { color: var(--strong); }
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .check input { width: 16px; height: 16px; flex: none; accent-color: var(--accent); margin: 0; } /* flex: none keeps every box the same size when a long name wraps */
 .check .count { margin-left: auto; color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 12px; font-weight: 500; }
-.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+/* position: relative keeps the hidden checkbox inside the scrolling panel, so the panel scrolls
+   to the switch when it gets keyboard focus. */
+.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 12px; font-weight: 500; position: relative; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; top: 50%; left: 0; margin: 0; }
 .switch-track {
   width: 32px; height: 18px; border-radius: 9px; background: var(--raised);
   border: 1px solid var(--line); position: relative; flex: none; transition: background 0.15s;
@@ -642,7 +644,14 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
   .assistant-panel { width: 300px; }
   body.assistant-open .detail { width: 296px; right: calc(var(--gap) + 72px + 300px + 12px); }
 }
+/* The guide tip sits over the map, never over the panel: centered on the map beside the panel,
+   and on a narrow screen, by the panel and without its lead-in text. */
+@media (min-width: 761px) {
+  .hint { left: calc((100vw + var(--panel-w) + var(--gap)) / 2); max-width: calc(100vw - var(--panel-w) - 3 * var(--gap) - 110px); }
+}
 @media (min-width: 761px) and (max-width: 1089px) {
+  .hint { left: calc(var(--panel-w) + 2 * var(--gap)); transform: none; }
+  .hint-text { display: none; }
   body.assistant-open .detail { right: calc(var(--gap) + 72px); max-height: calc(50vh - 80px); }
   body.assistant-open:has(.detail:not([hidden])) .assistant-panel { height: calc(50vh - 40px); min-height: 240px; }
 }
@@ -713,12 +722,19 @@ body.assistant-open .detail { right: calc(var(--gap) + 72px + 400px + 12px); }
   .hint { right: auto; padding-left: 8px; }
   .hint-text { display: none; }
   .detail { top: auto; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; max-height: 60vh; }
-  .maplibregl-ctrl-bottom-right { bottom: 270px; z-index: 2; } /* the card covers the lower screen, buttons included */
-  .assistant { bottom: 204px; right: var(--gap); }
+  /* Volta's button just above the folded sheet, and the map buttons above it (kit.js measures
+     --sheet-folded). A line's card covers the lower screen, buttons included. */
+  .assistant { bottom: calc(var(--sheet-folded, 250px) + 12px); right: var(--gap); }
+  .maplibregl-ctrl-bottom-right { bottom: calc(var(--sheet-folded, 250px) + 12px + 52px + 12px); z-index: 2; }
   .greeting { width: 220px; right: 62px; bottom: 54px; } /* above the folded sheet, clear of the map buttons */
   .assistant-launcher { width: 52px; height: 52px; }
   .assistant-panel { position: fixed; left: var(--gap); right: var(--gap); bottom: var(--gap); width: auto; height: min(560px, calc(100vh - 2 * var(--gap))); }
   body.assistant-open .detail { right: var(--gap); }
+}
+/* The smallest phones: the tip shrinks a little, so it stays clear of the top-right buttons. */
+@media (max-width: 359px) {
+  .hint { padding: 5px 5px 5px 6px; gap: 4px; font-size: 12px; }
+  .hint-action { padding-left: 10px; padding-right: 10px; font-size: 12px; }
 }
 
 /* ---------- Motion: everything that appears slides and fades in, briefly ---------- */

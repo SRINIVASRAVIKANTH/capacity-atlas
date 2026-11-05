@@ -3,7 +3,9 @@
 ## Weekly run
 
 `.github/workflows/weekly-snapshot.yml` runs every Monday at 10:00 UTC and can be started by
-hand from the Actions tab (Weekly snapshot, Run workflow). It takes about 15 minutes.
+hand from the Actions tab (Weekly snapshot, Run workflow). It takes about 15 minutes. Both
+workflows run on Ubuntu 24.04 by name, not `ubuntu-latest`, so a new Ubuntu release on GitHub
+cannot change the build without a commit; moving to a newer one is a one-line change in each file.
 
 What to check after a run:
 
@@ -121,7 +123,7 @@ python -m capacity_atlas.pipeline --all
 ```
 
 To lint the web code as the Tests workflow does: `npm ci`, then `npm run lint` and `npm test`
-(Node 20 or newer). `package.json` has an `overrides` entry for minimatch: see SECURITY.md before
+(Node 20 or newer; the workflow uses Node 24). `package.json` has an `overrides` entry for minimatch: see SECURITY.md before
 removing it.
 
 Building tiles needs tippecanoe, which runs on Linux and macOS (the weekly run installs it).

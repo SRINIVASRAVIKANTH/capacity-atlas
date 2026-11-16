@@ -1,0 +1,38 @@
+{
+  "source_id": "central_hudson_ny_pv",
+  "old_snapshot": "2026-11-09.parquet",
+  "new_snapshot": "2026-11-16.parquet",
+  "old_rows": 306419,
+  "new_rows": 306419,
+  "added": 0,
+  "removed": 0,
+  "geometry_changed": 1,
+  "capacity_increased": 0,
+  "capacity_decreased": 0,
+  "newly_analyzed": 0,
+  "analysis_removed": 0,
+  "feeders_refreshed": 0,
+  "other_attributes_changed": 167131,
+  "most_changed_columns": {
+    "DG_ConQue_REFRESH_DATE": 167126,
+    "Threshold_3VO": 164893,
+    "SubBank_TotalDG": 141205,
+    "SubBank_QueDG": 129944,
+    "QUEUEDDER": 125984,
+    "Notes": 111788,
+    "SubBank_InstalledDG": 96199,
+    "InstalledDER": 62157,
+    "DG_INST_LASTHCA": 62157,
+    "Substation": 8744
+  },
+  "feeders_losing_capacity": [],
+  "examples": {
+    "added": [],
+    "removed": [],
+    "geometry_changed": [
+      "K60047#0"
+    ],
+    "capacity_increased": [],
+    "capacity_decreased": []
+  }
+}
